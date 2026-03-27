@@ -1,4 +1,4 @@
-'use client';
+
 
 import Reportes from '@/features/reportes/Reportes';
 

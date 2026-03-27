@@ -1,3 +1,4 @@
+"use client";
 import React from 'react';
 import { Ticket } from '../types/dashboard.types';
 import styles from '../styles/dashboard.module.css';

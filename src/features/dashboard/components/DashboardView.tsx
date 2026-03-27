@@ -1,3 +1,4 @@
+"use client";
 import React, { useState } from 'react';
 import styles from '../styles/dashboard.module.css';
 import { useDashboardData } from '../hooks/useDashboardData';

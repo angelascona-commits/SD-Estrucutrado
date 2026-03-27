@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import { useReportes } from '@/shared/hooks/useReportes';
 import ReportesFiltros from './components/ReportesFiltros';
