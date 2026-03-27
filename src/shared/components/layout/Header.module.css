@@ -1,0 +1,116 @@
+.topHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--slate-200);
+  background-color: var(--bg-white);
+  padding: 12px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  zoom: 80%;
+}
+
+.headerLeft,
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.menuToggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--slate-600);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.menuToggle:hover {
+  background-color: var(--slate-100);
+  color: var(--primary);
+}
+
+.logoContainer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--primary);
+}
+
+.logoText {
+  color: var(--slate-900);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  background-color: var(--slate-100);
+  border-radius: 12px;
+  padding: 0 16px;
+  height: 40px;
+  margin-left: 16px;
+  min-width: 280px;
+  transition: 0.2s;
+}
+
+.searchBox:focus-within {
+  border: 1px solid var(--primary);
+}
+
+.searchBox input {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  font-size: 0.875rem;
+  margin-left: 8px;
+}
+
+.divider {
+  height: 32px;
+  width: 1px;
+  background-color: var(--slate-200);
+  margin: 0 8px;
+}
+
+.userProfile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.userInfo {
+  text-align: right;
+}
+
+.userName {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--slate-900);
+}
+
+.userRole {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.avatar {
+  background-color: var(--slate-100);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(236, 91, 19, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  font-weight: bold;
+}
