@@ -1,3 +1,4 @@
+"use client";
 import { useState, useMemo } from 'react';
 import { Ticket, OrdenConfig } from '../types/dashboard.types';
 import { obtenerPesoEstado } from '../utils/formatters';

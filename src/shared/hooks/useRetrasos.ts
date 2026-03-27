@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect } from 'react';
 import { RetrasoTicket } from '../types/retrasos.types';
 import { fetchRetrasos } from '../services/retrasosService';

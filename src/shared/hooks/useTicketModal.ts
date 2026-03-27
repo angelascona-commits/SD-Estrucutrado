@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { FormDataModal } from '../types/ticket.types';

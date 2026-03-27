@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect } from 'react';
 import { Ticket } from '../types/dashboard.types';
 import { obtenerFeriados, obtenerAlarmas, obtenerTicketsRecientes } from '../services/dashboard.service';
