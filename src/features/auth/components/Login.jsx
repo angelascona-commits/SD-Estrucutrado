@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Swal from 'sweetalert2';
 import './Login.css';
 
-export default function Login({ onLoginSuccess }) {
+export default function Login({ onLoginSuccess = null }) {
+    const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [mostrarPassword, setMostrarPassword] = useState(false);
@@ -64,7 +66,7 @@ export default function Login({ onLoginSuccess }) {
             if (onLoginSuccess) {
                 onLoginSuccess(usuarioAutenticado);
             } else {
-                window.location.reload(); 
+                router.push('/dashboard');
             }
 
         } catch (error) {

@@ -1,4 +1,5 @@
 import '@/app/globals.css';
+import Layout from '@/shared/components/layout/Layout';
 
 export const metadata = {
   title: 'Service Desk',
@@ -19,8 +20,9 @@ export default function RootLayout({
         />
       </head>
       <body>
-        {/* Dejamos el children solo para que el Login se vea a pantalla completa */}
-        {children}
+        <Layout>
+          {children}
+        </Layout>
       </body>
     </html>
   );
