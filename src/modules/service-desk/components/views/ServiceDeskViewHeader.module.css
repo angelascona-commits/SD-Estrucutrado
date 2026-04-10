@@ -1,0 +1,128 @@
+.header {
+  margin-bottom: 24px;
+}
+
+.headerTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--slate-900, #0f172a);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--slate-500, #64748b);
+  margin: 0;
+}
+
+.viewSwitch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--slate-200, #e2e8f0);
+  background: #ffffff;
+  border-radius: 12px;
+}
+
+.viewTab {
+  text-decoration: none;
+  color: var(--slate-600, #475569);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 10px;
+  transition: 0.2s;
+}
+
+.viewTab:hover {
+  background: var(--slate-100, #f1f5f9);
+}
+
+.viewTabActive {
+  background: var(--orange-600, #ea580c);
+  color: #ffffff;
+}
+
+.btnPrimary {
+  background: var(--orange-600, #ea580c);
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+  text-decoration: none;
+}
+
+.btnPrimary:hover {
+  background: var(--orange-700, #c2410c);
+}
+
+.btnSecondary {
+  background: #ffffff;
+  color: var(--slate-600, #475569);
+  border: 1px solid var(--slate-300, #cbd5e1);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+@media (max-width: 900px) {
+  .headerTop {
+    align-items: stretch;
+  }
+
+  .headerLeft,
+  .headerActions {
+    width: 100%;
+  }
+
+  .headerActions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 768px) {
+  .headerLeft {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .viewSwitch {
+    width: 100%;
+  }
+
+  .viewTab {
+    flex: 1;
+    text-align: center;
+  }
+}

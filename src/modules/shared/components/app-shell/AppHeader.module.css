@@ -1,0 +1,148 @@
+.topHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--slate-200, #e2e8f0);
+  background-color: var(--bg-white, #ffffff);
+  padding: 12px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.headerLeft,
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.menuToggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--slate-600, #475569);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.menuToggle:hover {
+  background-color: var(--slate-100, #f1f5f9);
+  color: var(--primary, #ec5b13);
+}
+
+.logoContainer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--primary, #ec5b13);
+}
+
+.logoIconBox {
+  background-color: rgba(236, 91, 19, 0.1);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logoText {
+  color: var(--slate-900, #0f172a);
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  background-color: var(--slate-100, #f1f5f9);
+  border-radius: 12px;
+  padding: 0 16px;
+  height: 40px;
+  margin-left: 16px;
+  min-width: 320px;
+  transition: 0.2s;
+}
+
+.searchBox:focus-within {
+  outline: 1px solid var(--primary, #ec5b13);
+}
+
+.searchBox input {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  font-size: 0.875rem;
+  margin-left: 8px;
+  color: var(--slate-900, #0f172a);
+}
+
+.divider {
+  height: 32px;
+  width: 1px;
+  background-color: var(--slate-200, #e2e8f0);
+  margin: 0 8px;
+}
+
+.userProfile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.userInfo {
+  text-align: right;
+}
+
+.userName {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--slate-900, #0f172a);
+  margin: 0;
+}
+
+.userRole {
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--slate-500, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 2px 0 0;
+}
+
+.avatar {
+  background-color: var(--slate-100, #f1f5f9);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(236, 91, 19, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary, #ec5b13);
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .searchBox {
+    min-width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .topHeader {
+    padding: 12px 16px;
+  }
+
+  .searchBox {
+    display: none;
+  }
+
+  .logoText {
+    font-size: 1rem;
+  }
+}

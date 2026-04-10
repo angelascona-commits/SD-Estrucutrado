@@ -1,0 +1,221 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); }
+  .root { padding: 1.5rem 0; }
+  .phase-block { margin-bottom: 1.5rem; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; }
+  .phase-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .phase-badge { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .phase-title { font-size: 15px; font-weight: 500; color: var(--color-text-primary); }
+  .phase-subtitle { font-size: 12px; color: var(--color-text-secondary); margin-left: auto; }
+  .tasks { padding: 0; }
+  .task-row { display: grid; grid-template-columns: 28px 1fr auto; align-items: start; gap: 10px; padding: 10px 16px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .task-row:last-child { border-bottom: none; }
+  .task-num { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; flex-shrink: 0; margin-top: 1px; }
+  .task-body { display: flex; flex-direction: column; gap: 3px; }
+  .task-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary); }
+  .task-desc { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+  .task-file { font-size: 11px; font-family: var(--font-mono); color: var(--color-text-tertiary); background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: 4px; padding: 2px 6px; white-space: nowrap; margin-top: 2px; display: inline-block; }
+  .tag { font-size: 11px; padding: 2px 8px; border-radius: 12px; white-space: nowrap; font-weight: 500; flex-shrink: 0; align-self: start; margin-top: 2px; }
+  .tag-back { background: var(--color-background-info); color: var(--color-text-info); }
+  .tag-front { background: var(--color-background-warning); color: var(--color-text-warning); }
+  .tag-shared { background: var(--color-background-success); color: var(--color-text-success); }
+  .tag-rule { background: var(--color-background-danger); color: var(--color-text-danger); }
+  .phase-active .phase-header { background: var(--color-background-info); border-bottom-color: var(--color-border-info); }
+  .phase-active .phase-title { color: var(--color-text-info); }
+  .phase-active .phase-subtitle { color: var(--color-text-info); opacity: 0.8; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; padding: 0 0 1rem; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--color-text-secondary); }
+  .separator { height: 1px; background: var(--color-border-tertiary); margin: 1.5rem 0; }
+  .note-box { border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 10px 14px; font-size: 12px; color: var(--color-text-secondary); line-height: 1.6; background: var(--color-background-secondary); }
+  .note-box strong { color: var(--color-text-primary); font-weight: 500; }
+</style>
+<div class="root">
+  <div class="legend">
+    <span class="leg-item"><span class="tag tag-back">Back</span> Server / Lógica</span>
+    <span class="leg-item"><span class="tag tag-front">Front</span> UI / Componentes</span>
+    <span class="leg-item"><span class="tag tag-shared">Shared</span> Capa compartida</span>
+    <span class="leg-item"><span class="tag tag-rule">Regla</span> Restricción crítica</span>
+  </div>
+
+  <!-- FASE 0 -->
+  <div class="phase-block phase-active">
+    <div class="phase-header">
+      <span class="phase-badge" style="background:var(--color-background-info);color:var(--color-text-info);">FASE 0 — ACTUAL</span>
+      <span class="phase-title">Módulo Auth: Login</span>
+      <span class="phase-subtitle">RF-01 · RF-02 · RF-03</span>
+    </div>
+    <div class="tasks">
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">1</div>
+        <div class="task-body">
+          <span class="task-name">Interfaces de dominio</span>
+          <span class="task-desc">Definir <code>User</code>, <code>AuthCredentials</code>, <code>AuthResult</code> y el rol enum. TypeScript strict.</span>
+          <span class="task-file">modules/auth/interfaces/auth.interfaces.ts</span>
+        </div>
+        <span class="tag tag-shared">Shared</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">2</div>
+        <div class="task-body">
+          <span class="task-name">Supabase client (ya existe)</span>
+          <span class="task-desc">Verificar que <code>supabase.ts</code> expone el cliente con las variables de entorno correctas. Agregar helper de sesión.</span>
+          <span class="task-file">modules/shared/infra/supabase.ts</span>
+        </div>
+        <span class="tag tag-back">Back</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">3</div>
+        <div class="task-body">
+          <span class="task-name">Auth Service</span>
+          <span class="task-desc">Función <code>loginUser(email, password)</code>: consulta tabla <code>usuarios</code>, verifica contraseña (bcrypt), retorna <code>AuthResult</code>.</span>
+          <span class="task-file">modules/auth/services/auth.service.ts</span>
+        </div>
+        <span class="tag tag-back">Back</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">4</div>
+        <div class="task-body">
+          <span class="task-name">Server Action — login</span>
+          <span class="task-desc">Valida input con Zod, llama al service, escribe cookie HTTP-only con el payload de sesión (RF-02). Retorna estado para el form.</span>
+          <span class="task-file">modules/auth/actions/login.action.ts</span>
+        </div>
+        <span class="tag tag-back">Back</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">5</div>
+        <div class="task-body">
+          <span class="task-name">LoginForm component</span>
+          <span class="task-desc">Client component con <code>useFormState</code> / <code>useActionState</code>. Email + contraseña + botón. Manejo de error inline.</span>
+          <span class="task-file">modules/auth/components/LoginForm.tsx</span>
+        </div>
+        <span class="tag tag-front">Front</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">6</div>
+        <div class="task-body">
+          <span class="task-name">Página de login + middleware de ruta</span>
+          <span class="task-desc">Page.tsx renderiza el form. Middleware Next.js redirige si ya hay sesión activa (cookie). Redirige al dashboard tras login.</span>
+          <span class="task-file">app/(auth)/login/page.tsx · middleware.ts</span>
+        </div>
+        <span class="tag tag-front">Front</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FASE 1 -->
+  <div class="phase-block">
+    <div class="phase-header">
+      <span class="phase-badge" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">FASE 1</span>
+      <span class="phase-title">Módulo Service-Desk: Base</span>
+      <span class="phase-subtitle">RF-04 · RF-05 · RN-01</span>
+    </div>
+    <div class="tasks">
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">1</div>
+        <div class="task-body">
+          <span class="task-name">Interfaces del dominio</span>
+          <span class="task-desc"><code>Ticket</code>, <code>TicketGestion</code>, <code>TicketTiempos</code>, <code>TicketHistorial</code>. Mapeadas exactamente a la BD.</span>
+          <span class="task-file">modules/service-desk/interfaces/</span>
+        </div>
+        <span class="tag tag-shared">Shared</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">2</div>
+        <div class="task-body">
+          <span class="task-name">Repository: tickets</span>
+          <span class="task-desc">CRUD base sobre <code>tickets</code> + joins a tablas de catálogos. Abstrae Supabase del resto del módulo.</span>
+          <span class="task-file">modules/service-desk/repository/ticket.repository.ts</span>
+        </div>
+        <span class="tag tag-back">Back</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">3</div>
+        <div class="task-body">
+          <span class="task-name">Helper: horas laborales</span>
+          <span class="task-desc">Calcula tiempo neto entre dos fechas excluyendo fines de semana, feriados (tabla <code>feriados</code>) y rango 13:00–14:00. Capa de dominio.</span>
+          <span class="task-file">modules/shared/utils/calculateBusinessHours.ts</span>
+        </div>
+        <span class="tag tag-rule">Regla</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">4</div>
+        <div class="task-body">
+          <span class="task-name">Server Action: crear ticket (transaccional)</span>
+          <span class="task-desc">Inserta en <code>tickets</code> + <code>ticket_tiempos</code> + <code>ticket_gestion</code> + <code>ticket_historial</code> en una sola transacción (RNF-01).</span>
+          <span class="task-file">modules/service-desk/actions/createTicket.action.ts</span>
+        </div>
+        <span class="tag tag-rule">Regla</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">5</div>
+        <div class="task-body">
+          <span class="task-name">Vista: listado de tickets</span>
+          <span class="task-desc">Server component. Tabla con paginación básica, filtros por estado/prioridad. Columnas: Nro SD, descripción, estado, responsable, fechas.</span>
+          <span class="task-file">app/(dashboard)/service-desk/page.tsx</span>
+        </div>
+        <span class="tag tag-front">Front</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">6</div>
+        <div class="task-body">
+          <span class="task-name">Formulario: crear ticket</span>
+          <span class="task-desc">Campos obligatorios: Nro SD + Descripción (RN-01). Selects de catálogo (tipo, prioridad, producto, aplicación). Validación Zod en server action.</span>
+          <span class="task-file">modules/service-desk/components/TicketForm.tsx</span>
+        </div>
+        <span class="tag tag-front">Front</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FASE 2 -->
+  <div class="phase-block">
+    <div class="phase-header">
+      <span class="phase-badge" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">FASE 2</span>
+      <span class="phase-title">SLAs, edición y auditoría</span>
+      <span class="phase-subtitle">RF-06 · RF-07 · RN-02 · RN-03 · RN-04</span>
+    </div>
+    <div class="tasks">
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">1</div>
+        <div class="task-body">
+          <span class="task-name">Server Action: editar ticket</span>
+          <span class="task-desc">Actualiza campos + fuerza inserción en <code>ticket_historial</code> en misma transacción (RF-07). Sin historial = sin update.</span>
+          <span class="task-file">modules/service-desk/actions/updateTicket.action.ts</span>
+        </div>
+        <span class="tag tag-rule">Regla</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">2</div>
+        <div class="task-body">
+          <span class="task-name">Validación SLA en el servidor</span>
+          <span class="task-desc">Antes de insertar: calcula <code>tAsignación</code> y <code>tDesarrollo</code> con el helper. Activa flags de penalización si se incumplen RN-03/RN-04.</span>
+          <span class="task-file">modules/service-desk/services/sla.service.ts</span>
+        </div>
+        <span class="tag tag-rule">Regla</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">3</div>
+        <div class="task-body">
+          <span class="task-name">Vista: detalle de ticket</span>
+          <span class="task-desc">Datos del ticket + timeline del historial + indicadores SLA. Alertas visuales si hay incumplimiento (RN-03/RN-04).</span>
+          <span class="task-file">app/(dashboard)/service-desk/[id]/page.tsx</span>
+        </div>
+        <span class="tag tag-front">Front</span>
+      </div>
+      <div class="task-row">
+        <div class="task-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">4</div>
+        <div class="task-body">
+          <span class="task-name">Dashboard de KPIs</span>
+          <span class="task-desc">Métricas de eficiencia de asignación. Alertas visuales de tickets en incumplimiento SLA. Datos calculados en server side.</span>
+          <span class="task-file">app/(dashboard)/service-desk/dashboard/page.tsx</span>
+        </div>
+        <span class="tag tag-front">Front</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="note-box">
+    <strong>Orden de dependencias dentro de cada fase:</strong> Interfaces → Infra/Repository → Services → Actions (Server) → Components (Client) → Page. Nunca al revés. Los Server Actions dependen de los services; los componentes solo dependen de los actions y las interfaces, nunca del repositorio directamente.
+  </div>
+</div>

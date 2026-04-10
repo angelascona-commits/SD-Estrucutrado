@@ -1,0 +1,105 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.aplicacion (
+  id integer NOT NULL DEFAULT nextval('aplicacion_id_seq'::regclass),
+  nombre character varying NOT NULL,
+  CONSTRAINT aplicacion_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.estado (
+  id integer NOT NULL DEFAULT nextval('estado_id_seq'::regclass),
+  nombre character varying NOT NULL,
+  CONSTRAINT estado_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.estado_jira (
+  id integer NOT NULL DEFAULT nextval('estado_jira_id_seq'::regclass),
+  nombre character varying NOT NULL,
+  CONSTRAINT estado_jira_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.feriados (
+  id integer NOT NULL DEFAULT nextval('feriados_id_seq'::regclass),
+  fecha date NOT NULL UNIQUE,
+  descripcion text,
+  CONSTRAINT feriados_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.prioridad (
+  id integer NOT NULL DEFAULT nextval('prioridad_id_seq'::regclass),
+  nombre character varying NOT NULL,
+  CONSTRAINT prioridad_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.producto (
+  id integer NOT NULL DEFAULT nextval('producto_id_seq'::regclass),
+  nombre character varying NOT NULL,
+  CONSTRAINT producto_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.ticket_gestion (
+  ticket_id integer NOT NULL,
+  producto_id integer,
+  aplicacion_id integer,
+  poliza character varying,
+  dni character varying,
+  comentario text,
+  horas_invertidas numeric,
+  observaciones text,
+  tipo_sd character varying,
+  tipo_sd_id integer,
+  CONSTRAINT ticket_gestion_pkey PRIMARY KEY (ticket_id),
+  CONSTRAINT ticket_gestion_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(id),
+  CONSTRAINT ticket_gestion_producto_id_fkey FOREIGN KEY (producto_id) REFERENCES public.producto(id),
+  CONSTRAINT ticket_gestion_aplicacion_id_fkey FOREIGN KEY (aplicacion_id) REFERENCES public.aplicacion(id)
+);
+CREATE TABLE public.ticket_historial (
+  id integer NOT NULL DEFAULT nextval('ticket_historial_id_seq'::regclass),
+  ticket_id integer NOT NULL,
+  usuario_id integer NOT NULL,
+  fecha_movimiento timestamp with time zone DEFAULT now(),
+  accion character varying NOT NULL,
+  descripcion_cambio text,
+  CONSTRAINT ticket_historial_pkey PRIMARY KEY (id),
+  CONSTRAINT ticket_historial_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(id),
+  CONSTRAINT ticket_historial_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id)
+);
+CREATE TABLE public.ticket_tiempos (
+  ticket_id integer NOT NULL,
+  fecha_registro timestamp with time zone,
+  fecha_asignacion timestamp with time zone,
+  fecha_maxima_atencion timestamp with time zone,
+  fecha_atencion timestamp with time zone,
+  fecha_delegacion timestamp with time zone,
+  fecha_creacion_sd timestamp with time zone,
+  CONSTRAINT ticket_tiempos_pkey PRIMARY KEY (ticket_id),
+  CONSTRAINT ticket_tiempos_ticket_id_fkey FOREIGN KEY (ticket_id) REFERENCES public.tickets(id)
+);
+CREATE TABLE public.tickets (
+  id integer NOT NULL DEFAULT nextval('tickets_id_seq'::regclass),
+  numero_ticket integer NOT NULL UNIQUE,
+  descripcion character varying NOT NULL,
+  prioridad_id integer,
+  estado_id integer,
+  estado_jira_id integer,
+  creador_id integer,
+  responsable_id integer,
+  horario_laboral character varying,
+  CONSTRAINT tickets_pkey PRIMARY KEY (id),
+  CONSTRAINT tickets_prioridad_id_fkey FOREIGN KEY (prioridad_id) REFERENCES public.prioridad(id),
+  CONSTRAINT tickets_estado_id_fkey FOREIGN KEY (estado_id) REFERENCES public.estado(id),
+  CONSTRAINT tickets_estado_jira_id_fkey FOREIGN KEY (estado_jira_id) REFERENCES public.estado_jira(id),
+  CONSTRAINT tickets_creador_id_fkey FOREIGN KEY (creador_id) REFERENCES public.usuarios(id),
+  CONSTRAINT tickets_responsable_id_fkey FOREIGN KEY (responsable_id) REFERENCES public.usuarios(id)
+);
+CREATE TABLE public.tipo_sd (
+  id integer GENERATED ALWAYS AS IDENTITY NOT NULL,
+  nombre character varying NOT NULL,
+  CONSTRAINT tipo_sd_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.usuarios (
+  id integer NOT NULL DEFAULT nextval('usuarios_id_seq'::regclass),
+  nombre character varying NOT NULL,
+  email character varying NOT NULL UNIQUE,
+  password character varying NOT NULL,
+  rol character varying DEFAULT 'Agente'::character varying,
+  activo boolean DEFAULT true,
+  fecha_registro timestamp with time zone DEFAULT now(),
+  horario_laboral character varying DEFAULT '09:00 - 18:00'::character varying,
+  CONSTRAINT usuarios_pkey PRIMARY KEY (id)
+);
