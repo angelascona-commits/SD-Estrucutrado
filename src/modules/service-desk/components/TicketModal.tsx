@@ -146,18 +146,22 @@ export default function TicketModal({ ticketId, isOpen }: Props) {
   }
 
   const validationErrors = useMemo(() => {
-    const issues: string[] = []
+  const issues: string[] = []
 
-    if (!isEditing && !formData.numero_ticket) {
-      issues.push('El número de ticket es obligatorio.')
-    }
+  if (!isEditing && !formData.numero_ticket) {
+    issues.push('El número de ticket es obligatorio.')
+  }
 
-    if (!formData.descripcion.trim()) {
-      issues.push('La descripción es obligatoria.')
-    }
+  if (!formData.descripcion.trim()) {
+    issues.push('La descripción es obligatoria.')
+  }
 
-    return issues
-  }, [formData.numero_ticket, formData.descripcion, isEditing])
+  if (!isEditing && !formData.estado_id) {
+    issues.push('El estado es obligatorio para crear el ticket.')
+  }
+
+  return issues
+}, [formData.numero_ticket, formData.descripcion, formData.estado_id, isEditing])
 
   const footerAlerts = useMemo(() => {
     const alerts: { type: 'error' | 'warning'; text: string }[] = []
@@ -405,7 +409,7 @@ export default function TicketModal({ ticketId, isOpen }: Props) {
                     </div>
 
                     <div className={styles.field}>
-                      <label className={styles.label}>Estado principal</label>
+                      <label className={styles.label}>Estado principal {!isEditing && '*'}</label>
                       <select
                         className={styles.input}
                         name="estado_id"

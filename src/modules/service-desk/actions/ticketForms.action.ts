@@ -271,6 +271,9 @@ export async function saveTicketAction(prevState: any, formData: FormData): Prom
     if (!payload.descripcion?.trim()) {
       return { success: false, error: 'La descripción es obligatoria' }
     }
+    if (!isEditing && !payload.estado_id) {
+      return { success: false, error: 'El estado es obligatorio para crear el ticket' }
+    }
 
     const feriados = await getFeriados()
 
