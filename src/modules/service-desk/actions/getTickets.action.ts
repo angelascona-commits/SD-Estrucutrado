@@ -18,6 +18,20 @@ import {
   calculateBusinessDays,
 } from '@/modules/shared/utils/calculateBusinessHours'
 
+function formatRawDateTime(value: string | null): string {
+  if (!value) return '-'
+
+  const normalized = String(value).replace('T', ' ').substring(0, 16)
+  const [datePart, timePart] = normalized.split(' ')
+
+  if (!datePart || !timePart) return normalized
+
+  const [year, month, day] = datePart.split('-')
+  if (!year || !month || !day) return normalized
+
+  return `${day}/${month}/${year} ${timePart}`
+}
+
 function mapTicketsToTableRows(
   rawTickets: RawDashboardTicket[],
   feriados: Awaited<ReturnType<typeof getFeriados>>
@@ -46,12 +60,8 @@ function mapTicketsToTableRows(
     return {
       id: t.id,
       numero_ticket: t.numero_ticket,
-      fecha_asignacion: t.fecha_asignacion
-        ? new Date(t.fecha_asignacion).toLocaleString('es-PE', { timeZone: 'UTC' })
-        : '-',
-      fecha_creacion_sd: t.fecha_creacion_sd
-        ? new Date(t.fecha_creacion_sd).toLocaleString('es-PE', { timeZone: 'UTC' })
-        : '-',
+      fecha_asignacion: formatRawDateTime(t.fecha_asignacion),
+      fecha_creacion_sd: formatRawDateTime(t.fecha_creacion_sd),
       estado: t.estado_nombre,
       descripcion: t.descripcion,
       aplicacion: t.aplicacion_nombre || 'N/A',

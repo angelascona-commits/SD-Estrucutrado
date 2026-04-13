@@ -10,6 +10,7 @@ import {
   TicketHistoryEntry,
   TicketSlaInfo,
 } from '@/modules/service-desk/interfaces/ticket.interfaces'
+import { toPeruInputDateTime, toPeruDisplayDateTime, fromPeruInputDateTime, getCurrentPeruInputDateTime} from '@/modules/shared/utils/dateTimePeru'
 
 interface Props {
   ticketId?: number
@@ -50,18 +51,16 @@ const EMPTY_SLA: TicketSlaInfo = {
   atencionMensaje: null,
 }
 
+function getFechaLocalActual() {
+  const ahora = new Date()
+  return new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16)
+}
+
 function toInputDateTime(value: string | null): string {
   if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value.slice(0, 16)
-
-  const year = date.getUTCFullYear()
-  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(date.getUTCDate()).padStart(2, '0')
-  const hours = String(date.getUTCHours()).padStart(2, '0')
-  const minutes = String(date.getUTCMinutes()).padStart(2, '0')
-
-  return `${year}-${month}-${day}T${hours}:${minutes}`
+  return String(value).replace(' ', 'T').substring(0, 16)
 }
 
 function fromInputDateTime(value: string): string | null {
@@ -70,10 +69,21 @@ function fromInputDateTime(value: string): string | null {
 }
 
 function formatHistoryDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString('es-PE', { timeZone: 'UTC' })
+  if (!value) return ''
+  return String(value).replace('T', ' ').substring(0, 16)
 }
+
+function getCurrentLocalDateTime(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
 
 function getActionTone(action: string) {
   const upper = action.toUpperCase()
@@ -191,7 +201,7 @@ export default function TicketModal({ ticketId, isOpen }: Props) {
           horario_laboral: selectedUser?.horario_laboral || '',
           fecha_delegacion:
             responsableId && changedResponsable
-              ? prev.fecha_delegacion || new Date().toISOString()
+              ? prev.fecha_delegacion || getFechaLocalActual()
               : prev.fecha_delegacion,
         }
       }
