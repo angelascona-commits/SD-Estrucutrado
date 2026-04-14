@@ -14,7 +14,12 @@ const DOMINIOS = [
     href: '/service-desk',
     icon: 'confirmation_number',
   },
-  
+  {
+    label: 'Tareo',
+    href: '/tareo',
+    icon: 'schedule',
+  }
+
 ]
 
 export default function AppSidebar({ isCollapsed }: AppSidebarProps) {
