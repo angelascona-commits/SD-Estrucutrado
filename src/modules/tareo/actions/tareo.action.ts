@@ -10,23 +10,25 @@ import type {
   ResumenDiarioTrabajadorItem,
   TareaFilters,
   TareaFormData,
-  TareaListItem,
+  TareaPeriodoListItem,
   TareoCatalogs
 } from '../interfaces/tareo.interfaces'
 import {
   createRegistro,
   createTarea,
   deleteRegistro,
-  getAllTareas,
+  getAllTareasPeriodo,
   getRegistroById,
   getRegistrosByFecha,
   getResumenDiarioGeneral,
   getResumenDiarioSolicitante,
   getResumenDiarioTrabajador,
   getTareoCatalogs,
-  getTareaById,
+  getTareaPeriodoById,
   updateRegistro,
-  updateTarea
+  updateTareaPeriodo,
+  getHorasTrabajadorByFecha,
+  getTareaPeriodoValidacion,
 } from '../repository/tareo.repository'
 import {
   applyTareaFilters,
@@ -51,9 +53,9 @@ export async function fetchTareoCatalogsAction(): Promise<ActionResult<TareoCata
 
 export async function listTareasAction(
   filters?: TareaFilters
-): Promise<ActionResult<TareaListItem[]>> {
+): Promise<ActionResult<TareaPeriodoListItem[]>> {
   try {
-    const data = await getAllTareas()
+    const data = await getAllTareasPeriodo()
     const filteredData = applyTareaFilters(data, filters)
     return { success: true, data: filteredData }
   } catch (error) {
@@ -66,19 +68,19 @@ export async function listTareasAction(
 
 export async function getTareaByIdAction(
   id: number
-): Promise<ActionResult<TareaListItem>> {
+): Promise<ActionResult<TareaPeriodoListItem>> {
   try {
-    const data = await getTareaById(id)
+    const data = await getTareaPeriodoById(id)
 
     if (!data) {
-      return { success: false, error: 'Tarea no encontrada' }
+      return { success: false, error: 'Tarea del período no encontrada' }
     }
 
     return { success: true, data }
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'No se pudo cargar la tarea'
+      error: error instanceof Error ? error.message : 'No se pudo cargar la tarea del período'
     }
   }
 }
@@ -86,35 +88,38 @@ export async function getTareaByIdAction(
 export async function saveTareaAction(
   payload: TareaFormData,
   isEditing = false
-): Promise<ActionResult<{ tareaId: number }>> {
+): Promise<ActionResult<{ tareaPeriodoId: number }>> {
   try {
     const normalizedPayload = normalizeTareaPayload(payload)
 
     if (isEditing) {
       if (!payload.id) {
-        return { success: false, error: 'El id de la tarea es obligatorio para editar' }
+        return {
+          success: false,
+          error: 'El id de la tarea del período es obligatorio para editar'
+        }
       }
 
-      const currentTask = await getTareaById(payload.id)
+      const currentTask = await getTareaPeriodoById(payload.id)
       validateTareaUpdatePayload(normalizedPayload, currentTask)
 
-      await updateTarea(payload.id, normalizedPayload)
+      await updateTareaPeriodo(payload.id, normalizedPayload)
       revalidatePath('/tareo')
 
       return {
         success: true,
-        data: { tareaId: payload.id }
+        data: { tareaPeriodoId: payload.id }
       }
     }
 
     validateTareaPayload(normalizedPayload)
 
-    const tareaId = await createTarea(normalizedPayload)
+    const tareaPeriodoId = await createTarea(normalizedPayload)
     revalidatePath('/tareo')
 
     return {
       success: true,
-      data: { tareaId }
+      data: { tareaPeriodoId }
     }
   } catch (error) {
     return {
@@ -251,6 +256,81 @@ export async function getResumenDiarioSolicitanteAction(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'No se pudo cargar el resumen por solicitante'
+    }
+  }
+}
+export async function validateRegistroRealtimeAction(
+  payload: RegistroFormData
+): Promise<ActionResult<import('../interfaces/tareo.interfaces').RegistroRealtimeValidationResult>> {
+  try {
+    const horasIngresadas = Number(payload.horas || 0)
+
+    if (!payload.fecha || !payload.trabajador_id || !payload.tarea_periodo_id || horasIngresadas <= 0) {
+      return {
+        success: true,
+        data: {
+          horas_trabajador_dia: 0,
+          horas_ingresadas: horasIngresadas,
+          total_horas_resultante: horasIngresadas,
+          horas_disponibles_periodo: 0,
+          excede_maximo_dia: false,
+          excede_horas_disponibles: false,
+          periodo_cerrado: false,
+          can_save: false,
+          messages: []
+        }
+      }
+    }
+
+    const [horasTrabajadorDia, tareaPeriodoInfo] = await Promise.all([
+      getHorasTrabajadorByFecha(payload.trabajador_id, payload.fecha, payload.id),
+      getTareaPeriodoValidacion(payload.tarea_periodo_id)
+    ])
+
+    if (!tareaPeriodoInfo) {
+      return {
+        success: false,
+        error: 'No se encontró la tarea del período'
+      }
+    }
+
+    const totalHorasResultante = horasTrabajadorDia + horasIngresadas
+    const excedeMaximoDia = totalHorasResultante > 12
+    const excedeHorasDisponibles = horasIngresadas > tareaPeriodoInfo.horas_disponibles_periodo
+    const periodoCerrado = tareaPeriodoInfo.periodo_cerrado
+
+    const messages: string[] = []
+
+    if (excedeMaximoDia) {
+      messages.push('El trabajador supera el máximo de 12 horas para el día seleccionado.')
+    }
+
+    if (excedeHorasDisponibles) {
+      messages.push('Las horas ingresadas superan las horas disponibles del período.')
+    }
+
+    if (periodoCerrado) {
+      messages.push('El período está cerrado y no admite nuevos registros.')
+    }
+
+    return {
+      success: true,
+      data: {
+        horas_trabajador_dia: horasTrabajadorDia,
+        horas_ingresadas: horasIngresadas,
+        total_horas_resultante: totalHorasResultante,
+        horas_disponibles_periodo: tareaPeriodoInfo.horas_disponibles_periodo,
+        excede_maximo_dia: excedeMaximoDia,
+        excede_horas_disponibles: excedeHorasDisponibles,
+        periodo_cerrado: periodoCerrado,
+        can_save: !excedeMaximoDia && !excedeHorasDisponibles && !periodoCerrado,
+        messages
+      }
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'No se pudo validar el registro'
     }
   }
 }

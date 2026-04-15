@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { validateRegistroRealtimeAction } from '../actions/tareo.action'
 import type {
-  CatalogItem,
   RegistroFormData,
-  TareaListItem,
+  RegistroRealtimeValidationResult,
+  TareaPeriodoListItem,
   TrabajadorItem
 } from '../interfaces/tareo.interfaces'
 import styles from '../styles/registro-tareo-modal.module.css'
@@ -14,7 +15,7 @@ interface RegistroTareoModalProps {
   onClose: () => void
   onSave: (payload: RegistroFormData, isEditing: boolean) => Promise<void> | void
   registro?: RegistroFormData | null
-  tareas: TareaListItem[]
+  tareasPeriodo: TareaPeriodoListItem[]
   trabajadores: TrabajadorItem[]
   fechaInicial?: string
 }
@@ -26,7 +27,7 @@ function getInitialState(
   if (registro) {
     return {
       id: registro.id,
-      tarea_id: registro.tarea_id,
+      tarea_periodo_id: registro.tarea_periodo_id,
       fecha: registro.fecha,
       trabajador_id: registro.trabajador_id,
       horas: registro.horas,
@@ -35,7 +36,7 @@ function getInitialState(
   }
 
   return {
-    tarea_id: 0,
+    tarea_periodo_id: 0,
     fecha: fechaInicial ?? '',
     trabajador_id: 0,
     horas: 0,
@@ -48,23 +49,68 @@ export default function RegistroTareoModal({
   onClose,
   onSave,
   registro,
-  tareas,
+  tareasPeriodo,
   trabajadores,
   fechaInicial
 }: RegistroTareoModalProps) {
   const [formData, setFormData] = useState<RegistroFormData>(getInitialState(registro, fechaInicial))
   const [saving, setSaving] = useState(false)
+  const [validation, setValidation] = useState<RegistroRealtimeValidationResult | null>(null)
+  const [validating, setValidating] = useState(false)
   const isEditing = Boolean(registro)
 
   useEffect(() => {
     if (isOpen) {
       setFormData(getInitialState(registro, fechaInicial))
+      setValidation(null)
     }
   }, [isOpen, registro, fechaInicial])
 
+  useEffect(() => {
+    const runValidation = async () => {
+      if (!isOpen) {
+        return
+      }
+
+      if (
+        !formData.fecha ||
+        !formData.trabajador_id ||
+        !formData.tarea_periodo_id ||
+        Number(formData.horas || 0) <= 0
+      ) {
+        setValidation(null)
+        return
+      }
+
+      setValidating(true)
+
+      const response = await validateRegistroRealtimeAction(formData)
+
+      if (response.success && response.data) {
+        setValidation(response.data)
+      } else {
+        setValidation(null)
+      }
+
+      setValidating(false)
+    }
+
+    void runValidation()
+  }, [
+    isOpen,
+    formData.id,
+    formData.fecha,
+    formData.trabajador_id,
+    formData.tarea_periodo_id,
+    formData.horas
+  ])
+
   const tareaSeleccionada = useMemo(() => {
-    return tareas.find((item) => item.id === Number(formData.tarea_id)) ?? null
-  }, [tareas, formData.tarea_id])
+    return (
+      tareasPeriodo.find((item) => item.tarea_periodo_id === Number(formData.tarea_periodo_id)) ??
+      null
+    )
+  }, [tareasPeriodo, formData.tarea_periodo_id])
 
   if (!isOpen) {
     return null
@@ -82,6 +128,11 @@ export default function RegistroTareoModal({
     setSaving(true)
 
     try {
+      if (validation && !validation.can_save) {
+        setSaving(false)
+        return
+      }
+
       await onSave(
         {
           ...formData,
@@ -104,7 +155,7 @@ export default function RegistroTareoModal({
               {isEditing ? 'Editar registro diario' : 'Nuevo registro diario'}
             </h2>
             <p className={styles.subtitle}>
-              Registra horas consumidas sobre una tarea para una fecha específica
+              Registra horas consumidas sobre una tarea del período
             </p>
           </div>
 
@@ -144,17 +195,18 @@ export default function RegistroTareoModal({
             </div>
 
             <div className={`${styles.field} ${styles.fullWidth}`}>
-              <label className={styles.label}>Tarea</label>
+              <label className={styles.label}>Tarea del período</label>
               <select
-                value={formData.tarea_id || ''}
-                onChange={(event) => handleChange('tarea_id', Number(event.target.value))}
+                value={formData.tarea_periodo_id || ''}
+                onChange={(event) => handleChange('tarea_periodo_id', Number(event.target.value))}
                 className={styles.select}
                 required
               >
                 <option value="">Seleccionar tarea</option>
-                {tareas.map((tarea) => (
-                  <option key={tarea.id} value={tarea.id}>
-                    {tarea.nombre} · {tarea.proyecto_nombre}
+                {tareasPeriodo.map((tarea) => (
+                  <option key={tarea.tarea_periodo_id} value={tarea.tarea_periodo_id}>
+                    {tarea.tarea_nombre} · {tarea.proyecto_nombre} · {tarea.periodo_anio}-
+                    {`${tarea.periodo_mes}`.padStart(2, '0')}
                   </option>
                 ))}
               </select>
@@ -174,10 +226,10 @@ export default function RegistroTareoModal({
             </div>
 
             <div className={styles.field}>
-              <label className={styles.label}>Horas disponibles</label>
+              <label className={styles.label}>Horas disponibles del período</label>
               <input
                 type="text"
-                value={tareaSeleccionada ? String(tareaSeleccionada.horas_disponibles) : '-'}
+                value={tareaSeleccionada ? String(tareaSeleccionada.horas_disponibles_periodo) : '-'}
                 className={styles.inputReadOnly}
                 readOnly
               />
@@ -209,9 +261,73 @@ export default function RegistroTareoModal({
                 <span className={styles.summaryValue}>{tareaSeleccionada.solicitante_nombre}</span>
               </div>
               <div className={styles.summaryItem}>
-                <span className={styles.summaryLabel}>Team</span>
-                <span className={styles.summaryValue}>{tareaSeleccionada.team_nombre ?? '-'}</span>
+                <span className={styles.summaryLabel}>Histórico arrastre</span>
+                <span className={styles.summaryValue}>
+                  {tareaSeleccionada.horas_historicas_arrastre}
+                </span>
               </div>
+              <div className={styles.summaryItem}>
+                <span className={styles.summaryLabel}>Asignadas período</span>
+                <span className={styles.summaryValue}>
+                  {tareaSeleccionada.horas_asignadas_periodo}
+                </span>
+              </div>
+              <div className={styles.summaryItem}>
+                <span className={styles.summaryLabel}>Total acumulado actual</span>
+                <span className={styles.summaryValue}>
+                  {tareaSeleccionada.horas_totales_acumuladas}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {(validation || validating) && (
+            <div className={styles.validationBox}>
+              <div className={styles.validationGrid}>
+                <div className={styles.validationItem}>
+                  <span className={styles.validationLabel}>Horas del trabajador en el día</span>
+                  <span className={styles.validationValue}>
+                    {validating ? 'Validando...' : validation?.horas_trabajador_dia ?? '-'}
+                  </span>
+                </div>
+
+                <div className={styles.validationItem}>
+                  <span className={styles.validationLabel}>Horas ingresadas</span>
+                  <span className={styles.validationValue}>
+                    {validating ? 'Validando...' : validation?.horas_ingresadas ?? '-'}
+                  </span>
+                </div>
+
+                <div className={styles.validationItem}>
+                  <span className={styles.validationLabel}>Total resultante</span>
+                  <span className={styles.validationValue}>
+                    {validating ? 'Validando...' : validation?.total_horas_resultante ?? '-'}
+                  </span>
+                </div>
+
+                <div className={styles.validationItem}>
+                  <span className={styles.validationLabel}>Disponibles del período</span>
+                  <span className={styles.validationValue}>
+                    {validating ? 'Validando...' : validation?.horas_disponibles_periodo ?? '-'}
+                  </span>
+                </div>
+              </div>
+
+              {validation && validation.messages.length > 0 && (
+                <div className={styles.validationMessages}>
+                  {validation.messages.map((message) => (
+                    <div key={message} className={styles.validationError}>
+                      {message}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {validation && validation.can_save && (
+                <div className={styles.validationSuccess}>
+                  El registro cumple las validaciones y puede guardarse.
+                </div>
+              )}
             </div>
           )}
 
@@ -219,7 +335,11 @@ export default function RegistroTareoModal({
             <button type="button" className={styles.secondaryButton} onClick={onClose}>
               Cancelar
             </button>
-            <button type="submit" className={styles.primaryButton} disabled={saving}>
+            <button
+              type="submit"
+              className={styles.primaryButton}
+              disabled={saving || validating || (validation ? !validation.can_save : false)}
+            >
               {saving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar registro'}
             </button>
           </div>

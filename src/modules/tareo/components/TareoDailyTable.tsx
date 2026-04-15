@@ -1,6 +1,6 @@
 'use client'
 
-import type { RegistroDetalleItem } from '../interfaces/tareo.interfaces'
+import type { RegistroDetalleItem, TareaPeriodoListItem } from '../interfaces/tareo.interfaces'
 import styles from '../styles/tareo-daily-table.module.css'
 
 interface TareoDailyTableProps {
@@ -8,13 +8,15 @@ interface TareoDailyTableProps {
   loading: boolean
   onEdit: (registro: RegistroDetalleItem) => void
   onDelete: (registro: RegistroDetalleItem) => void
+  onEditTask: (tareaPeriodo: TareaPeriodoListItem) => void
 }
 
 export default function TareoDailyTable({
   registros,
   loading,
   onEdit,
-  onDelete
+  onDelete,
+  onEditTask
 }: TareoDailyTableProps) {
   if (loading) {
     return <div className={styles.loadingBox}>Cargando registros...</div>
@@ -43,10 +45,47 @@ export default function TareoDailyTable({
                 <div className={styles.actions}>
                   <button
                     type="button"
+                    onClick={() =>
+                      onEditTask({
+                        tarea_periodo_id: registro.tarea_periodo_id,
+                        tarea_id: registro.tarea_id,
+                        tarea_nombre: registro.tarea_nombre,
+                        team_id: registro.team_id,
+                        team_nombre: registro.team_nombre,
+                        solicitante_id: registro.solicitante_id,
+                        solicitante_nombre: registro.solicitante_nombre,
+                        horas_maximas_estimadas: registro.solicitante_horas_maximas_estimadas,
+                        proyecto_id: registro.proyecto_id,
+                        proyecto_nombre: registro.proyecto_nombre,
+                        agrupador_id: registro.agrupador_id,
+                        agrupador_nombre: registro.agrupador_nombre,
+                        estado_id: 0,
+                        estado_nombre: registro.estado_tarea,
+                        activo: true,
+                        periodo_id: registro.periodo_id,
+                        periodo_anio: registro.anio,
+                        periodo_mes: registro.mes,
+                        periodo_cerrado: registro.cerrado,
+                        horas_historicas_arrastre: registro.horas_historicas_arrastre,
+                        horas_asignadas_periodo: registro.horas_asignadas_periodo,
+                        horas_consumidas_periodo: registro.horas_consumidas_periodo,
+                        horas_disponibles_periodo: registro.horas_disponibles_periodo,
+                        horas_totales_acumuladas: registro.horas_totales_acumuladas,
+                        comentario_periodo: null,
+                        created_at: registro.created_at,
+                        updated_at: registro.updated_at
+                      })
+                    }
+                    className={styles.secondaryButton}
+                  >
+                    Editar tarea
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => onEdit(registro)}
                     className={styles.secondaryButton}
                   >
-                    Editar
+                    Editar registro
                   </button>
                   <button
                     type="button"
@@ -80,13 +119,28 @@ export default function TareoDailyTable({
                 </div>
 
                 <div className={styles.metaItem}>
-                  <span className={styles.metaLabel}>Team</span>
-                  <span className={styles.metaValue}>{registro.team_nombre ?? '-'}</span>
+                  <span className={styles.metaLabel}>Histórico arrastre</span>
+                  <span className={styles.metaValue}>{registro.horas_historicas_arrastre}</span>
                 </div>
 
                 <div className={styles.metaItem}>
-                  <span className={styles.metaLabel}>Horas disponibles</span>
-                  <span className={styles.metaValue}>{registro.horas_disponibles}</span>
+                  <span className={styles.metaLabel}>Asignadas período</span>
+                  <span className={styles.metaValue}>{registro.horas_asignadas_periodo}</span>
+                </div>
+
+                <div className={styles.metaItem}>
+                  <span className={styles.metaLabel}>Consumidas período</span>
+                  <span className={styles.metaValue}>{registro.horas_consumidas_periodo}</span>
+                </div>
+
+                <div className={styles.metaItem}>
+                  <span className={styles.metaLabel}>Disponibles período</span>
+                  <span className={styles.metaValue}>{registro.horas_disponibles_periodo}</span>
+                </div>
+
+                <div className={styles.metaItem}>
+                  <span className={styles.metaLabel}>Acumulado total</span>
+                  <span className={styles.metaValue}>{registro.horas_totales_acumuladas}</span>
                 </div>
               </div>
 

@@ -5,6 +5,7 @@ import {
   fetchTareoCatalogsAction,
   getRegistroByIdAction,
   getResumenDiarioGeneralAction,
+  getTareaByIdAction,
   listRegistrosByFechaAction,
   listTareasAction,
   saveRegistroAction,
@@ -16,7 +17,7 @@ import type {
   RegistroFormData,
   ResumenDiarioGeneralItem,
   TareaFormData,
-  TareaListItem,
+  TareaPeriodoListItem,
   TareoCatalogs
 } from '../interfaces/tareo.interfaces'
 import styles from '../styles/tareo-view.module.css'
@@ -37,7 +38,7 @@ function getTodayValue() {
 function mapRegistroToFormData(registro: RegistroDetalleItem): RegistroFormData {
   return {
     id: registro.id,
-    tarea_id: registro.tarea_id,
+    tarea_periodo_id: registro.tarea_periodo_id,
     fecha: registro.fecha,
     trabajador_id: registro.trabajador_id,
     horas: registro.horas,
@@ -45,17 +46,18 @@ function mapRegistroToFormData(registro: RegistroDetalleItem): RegistroFormData 
   }
 }
 
-function mapTareaToFormData(tarea: TareaListItem): TareaFormData {
+function mapTareaPeriodoToFormData(tarea: TareaPeriodoListItem): TareaFormData {
   return {
-    id: tarea.id,
+    id: tarea.tarea_periodo_id,
     periodo_id: tarea.periodo_id,
-    nombre: tarea.nombre,
+    nombre: tarea.tarea_nombre,
     proyecto_id: tarea.proyecto_id,
     team_id: tarea.team_id,
     solicitante_id: tarea.solicitante_id,
     estado_id: tarea.estado_id,
-    horas_totales: tarea.horas_totales,
-    comentario_ps: tarea.comentario_ps ?? '',
+    horas_historicas_arrastre: tarea.horas_historicas_arrastre,
+    horas_asignadas_periodo: tarea.horas_asignadas_periodo,
+    comentario_periodo: tarea.comentario_periodo ?? '',
     activo: tarea.activo
   }
 }
@@ -66,7 +68,7 @@ export default function TareoView() {
   const [selectedFecha, setSelectedFecha] = useState<string>(getTodayValue())
   const [registros, setRegistros] = useState<RegistroDetalleItem[]>([])
   const [resumenGeneral, setResumenGeneral] = useState<ResumenDiarioGeneralItem[]>([])
-  const [tareas, setTareas] = useState<TareaListItem[]>([])
+  const [tareasPeriodo, setTareasPeriodo] = useState<TareaPeriodoListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingData, setLoadingData] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -97,7 +99,7 @@ export default function TareoView() {
     setLoading(false)
   }
 
-  const loadTareas = async (periodoId?: number | null) => {
+  const loadTareasPeriodo = async (periodoId?: number | null) => {
     const response = await listTareasAction(
       periodoId
         ? {
@@ -108,11 +110,11 @@ export default function TareoView() {
 
     if (!response.success) {
       setError(response.error ?? 'No se pudieron cargar las tareas')
-      setTareas([])
+      setTareasPeriodo([])
       return
     }
 
-    setTareas(response.data ?? [])
+    setTareasPeriodo(response.data ?? [])
   }
 
   const loadData = async (fecha: string, periodoId?: number | null) => {
@@ -138,7 +140,7 @@ export default function TareoView() {
       setResumenGeneral(resumenResponse.data ?? [])
     }
 
-    await loadTareas(periodoId)
+    await loadTareasPeriodo(periodoId)
 
     setLoadingData(false)
   }
@@ -175,21 +177,23 @@ export default function TareoView() {
   }
 
   const handleOpenNuevaTarea = () => {
-    setSelectedTarea(
-      selectedPeriodoId
-        ? {
-            periodo_id: selectedPeriodoId,
-            nombre: '',
-            proyecto_id: 0,
-            team_id: null,
-            solicitante_id: 0,
-            estado_id: 0,
-            horas_totales: 0,
-            comentario_ps: '',
-            activo: true
-          }
-        : null
-    )
+    if (!selectedPeriodoId) {
+      setError('Selecciona un período antes de crear una tarea')
+      return
+    }
+
+    setSelectedTarea({
+      periodo_id: selectedPeriodoId,
+      nombre: '',
+      proyecto_id: 0,
+      team_id: null,
+      solicitante_id: 0,
+      estado_id: 0,
+      horas_historicas_arrastre: 0,
+      horas_asignadas_periodo: 0,
+      comentario_periodo: '',
+      activo: true
+    })
     setTareaModalOpen(true)
   }
 
@@ -203,6 +207,18 @@ export default function TareoView() {
 
     setSelectedRegistro(mapRegistroToFormData(response.data))
     setRegistroModalOpen(true)
+  }
+
+  const handleEditTareaPeriodo = async (tareaPeriodo: TareaPeriodoListItem) => {
+    const response = await getTareaByIdAction(tareaPeriodo.tarea_periodo_id)
+
+    if (!response.success || !response.data) {
+      setError(response.error ?? 'No se pudo cargar la tarea')
+      return
+    }
+
+    setSelectedTarea(mapTareaPeriodoToFormData(response.data))
+    setTareaModalOpen(true)
   }
 
   const handleDeleteRegistro = async (registro: RegistroDetalleItem) => {
@@ -241,7 +257,7 @@ export default function TareoView() {
       throw new Error(response.error ?? 'No se pudo guardar la tarea')
     }
 
-    await loadTareas(selectedPeriodoId)
+    await loadTareasPeriodo(selectedPeriodoId)
   }
 
   if (loading) {
@@ -278,6 +294,7 @@ export default function TareoView() {
         loading={loadingData}
         onEdit={handleEditRegistro}
         onDelete={handleDeleteRegistro}
+        onEditTask={handleEditTareaPeriodo}
       />
 
       <RegistroTareoModal
@@ -288,7 +305,7 @@ export default function TareoView() {
         }}
         onSave={handleSaveRegistro}
         registro={selectedRegistro}
-        tareas={tareas}
+        tareasPeriodo={tareasPeriodo}
         trabajadores={catalogs?.trabajadores ?? []}
         fechaInicial={selectedFecha}
       />

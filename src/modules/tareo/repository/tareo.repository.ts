@@ -8,7 +8,7 @@ import type {
   ResumenDiarioTrabajadorItem,
   SolicitanteItem,
   TareaFormData,
-  TareaListItem,
+  TareaPeriodoListItem,
   TareoCatalogs,
   TrabajadorItem
 } from '../interfaces/tareo.interfaces'
@@ -85,149 +85,57 @@ export async function getTareoCatalogs(): Promise<TareoCatalogs> {
   }
 }
 
-function mapTareaRow(item: any): TareaListItem {
-  const proyecto = Array.isArray(item.tareo_proyecto) ? item.tareo_proyecto[0] : item.tareo_proyecto
-  const agrupador = Array.isArray(proyecto?.tareo_agrupador)
-    ? proyecto?.tareo_agrupador[0]
-    : proyecto?.tareo_agrupador
-  const team = Array.isArray(item.tareo_team) ? item.tareo_team[0] : item.tareo_team
-  const solicitante = Array.isArray(item.tareo_solicitante)
-    ? item.tareo_solicitante[0]
-    : item.tareo_solicitante
-  const estado = Array.isArray(item.tareo_estado_tarea)
-    ? item.tareo_estado_tarea[0]
-    : item.tareo_estado_tarea
-  const periodo = Array.isArray(item.tareo_periodo) ? item.tareo_periodo[0] : item.tareo_periodo
-
+function mapTareaPeriodoRow(item: any): TareaPeriodoListItem {
   return {
-    id: item.id,
-    nombre: item.nombre,
-    periodo_id: item.periodo_id,
-    periodo_anio: periodo?.anio ?? null,
-    periodo_mes: periodo?.mes ?? null,
-    periodo_cerrado: periodo?.cerrado ?? null,
-    proyecto_id: item.proyecto_id,
-    proyecto_nombre: proyecto?.nombre ?? '',
-    agrupador_id: agrupador?.id ?? 0,
-    agrupador_nombre: agrupador?.nombre ?? '',
+    tarea_periodo_id: item.tarea_periodo_id,
+    tarea_id: item.tarea_id,
+    tarea_nombre: item.tarea_nombre,
     team_id: item.team_id,
-    team_nombre: team?.nombre ?? null,
+    team_nombre: item.team_nombre,
     solicitante_id: item.solicitante_id,
-    solicitante_nombre: solicitante?.nombre ?? '',
+    solicitante_nombre: item.solicitante_nombre,
+    horas_maximas_estimadas:
+      item.horas_maximas_estimadas !== null ? Number(item.horas_maximas_estimadas) : null,
+    proyecto_id: item.proyecto_id,
+    proyecto_nombre: item.proyecto_nombre,
+    agrupador_id: item.agrupador_id,
+    agrupador_nombre: item.agrupador_nombre,
     estado_id: item.estado_id,
-    estado_nombre: estado?.nombre ?? '',
-    horas_totales: Number(item.horas_totales ?? 0),
-    horas_consumidas: Number(item.horas_consumidas ?? 0),
-    horas_disponibles: Number(item.horas_disponibles ?? 0),
-    comentario_ps: item.comentario_ps,
+    estado_nombre: item.estado_nombre,
     activo: item.activo,
+    periodo_id: item.periodo_id,
+    periodo_anio: item.anio,
+    periodo_mes: item.mes,
+    periodo_cerrado: item.cerrado,
+    horas_historicas_arrastre: Number(item.horas_historicas_arrastre ?? 0),
+    horas_asignadas_periodo: Number(item.horas_asignadas_periodo ?? 0),
+    horas_consumidas_periodo: Number(item.horas_consumidas_periodo ?? 0),
+    horas_disponibles_periodo: Number(item.horas_disponibles_periodo ?? 0),
+    horas_totales_acumuladas: Number(item.horas_totales_acumuladas ?? 0),
+    comentario_periodo: item.comentario_periodo,
     created_at: item.created_at,
     updated_at: item.updated_at
   }
 }
 
-export async function getAllTareas(): Promise<TareaListItem[]> {
+export async function getAllTareasPeriodo(): Promise<TareaPeriodoListItem[]> {
   const { data, error } = await supabase
-    .from('tareo_tarea')
-    .select(`
-      id,
-      nombre,
-      periodo_id,
-      proyecto_id,
-      team_id,
-      solicitante_id,
-      estado_id,
-      horas_totales,
-      horas_consumidas,
-      horas_disponibles,
-      comentario_ps,
-      activo,
-      created_at,
-      updated_at,
-      tareo_periodo:periodo_id (
-        id,
-        anio,
-        mes,
-        cerrado
-      ),
-      tareo_proyecto:proyecto_id (
-        id,
-        nombre,
-        agrupador_id,
-        tareo_agrupador:agrupador_id (
-          id,
-          nombre
-        )
-      ),
-      tareo_team:team_id (
-        id,
-        nombre
-      ),
-      tareo_solicitante:solicitante_id (
-        id,
-        nombre
-      ),
-      tareo_estado_tarea:estado_id (
-        id,
-        nombre
-      )
-    `)
+    .from('v_tareo_tarea_periodo_detalle')
+    .select('*')
     .order('updated_at', { ascending: false })
 
   if (error) {
     throw new Error(error.message)
   }
 
-  return (data ?? []).map(mapTareaRow)
+  return (data ?? []).map(mapTareaPeriodoRow)
 }
 
-export async function getTareaById(id: number): Promise<TareaListItem | null> {
+export async function getTareaPeriodoById(id: number): Promise<TareaPeriodoListItem | null> {
   const { data, error } = await supabase
-    .from('tareo_tarea')
-    .select(`
-      id,
-      nombre,
-      periodo_id,
-      proyecto_id,
-      team_id,
-      solicitante_id,
-      estado_id,
-      horas_totales,
-      horas_consumidas,
-      horas_disponibles,
-      comentario_ps,
-      activo,
-      created_at,
-      updated_at,
-      tareo_periodo:periodo_id (
-        id,
-        anio,
-        mes,
-        cerrado
-      ),
-      tareo_proyecto:proyecto_id (
-        id,
-        nombre,
-        agrupador_id,
-        tareo_agrupador:agrupador_id (
-          id,
-          nombre
-        )
-      ),
-      tareo_team:team_id (
-        id,
-        nombre
-      ),
-      tareo_solicitante:solicitante_id (
-        id,
-        nombre
-      ),
-      tareo_estado_tarea:estado_id (
-        id,
-        nombre
-      )
-    `)
-    .eq('id', id)
+    .from('v_tareo_tarea_periodo_detalle')
+    .select('*')
+    .eq('tarea_periodo_id', id)
     .single()
 
   if (error) {
@@ -238,11 +146,15 @@ export async function getTareaById(id: number): Promise<TareaListItem | null> {
     throw new Error(error.message)
   }
 
-  return mapTareaRow(data)
+  return mapTareaPeriodoRow(data)
 }
 
 export async function createTarea(payload: TareaFormData): Promise<number> {
-  const { data, error } = await supabase
+  const horasTotalesLegacy =
+    Number(payload.horas_historicas_arrastre || 0) +
+    Number(payload.horas_asignadas_periodo || 0)
+
+  const { data: tareaData, error: tareaError } = await supabase
     .from('tareo_tarea')
     .insert({
       periodo_id: payload.periodo_id,
@@ -251,22 +163,50 @@ export async function createTarea(payload: TareaFormData): Promise<number> {
       team_id: payload.team_id,
       solicitante_id: payload.solicitante_id,
       estado_id: payload.estado_id,
-      horas_totales: payload.horas_totales,
-      comentario_ps: payload.comentario_ps,
+      horas_totales: horasTotalesLegacy,
+      horas_consumidas: 0,
+      comentario_ps: payload.comentario_periodo,
       activo: payload.activo ?? true
     })
     .select('id')
     .single()
 
-  if (error) {
-    throw new Error(error.message)
+  if (tareaError) {
+    throw new Error(tareaError.message)
   }
 
-  return data.id
+  const { data: periodoData, error: periodoError } = await supabase
+    .from('tareo_tarea_periodo')
+    .insert({
+      tarea_id: tareaData.id,
+      periodo_id: payload.periodo_id,
+      horas_historicas_arrastre: payload.horas_historicas_arrastre,
+      horas_asignadas_periodo: payload.horas_asignadas_periodo,
+      comentario_periodo: payload.comentario_periodo,
+      activo: payload.activo ?? true
+    })
+    .select('id')
+    .single()
+
+  if (periodoError) {
+    throw new Error(periodoError.message)
+  }
+
+  return periodoData.id
 }
 
-export async function updateTarea(id: number, payload: TareaFormData): Promise<void> {
-  const { error } = await supabase
+export async function updateTareaPeriodo(id: number, payload: TareaFormData): Promise<void> {
+  const current = await getTareaPeriodoById(id)
+
+  if (!current) {
+    throw new Error('No se encontró la tarea del período')
+  }
+
+  const horasTotalesLegacy =
+    Number(payload.horas_historicas_arrastre || 0) +
+    Number(payload.horas_asignadas_periodo || 0)
+
+  const { error: tareaError } = await supabase
     .from('tareo_tarea')
     .update({
       periodo_id: payload.periodo_id,
@@ -275,14 +215,29 @@ export async function updateTarea(id: number, payload: TareaFormData): Promise<v
       team_id: payload.team_id,
       solicitante_id: payload.solicitante_id,
       estado_id: payload.estado_id,
-      horas_totales: payload.horas_totales,
-      comentario_ps: payload.comentario_ps,
+      horas_totales: horasTotalesLegacy,
+      comentario_ps: payload.comentario_periodo,
+      activo: payload.activo ?? true
+    })
+    .eq('id', current.tarea_id)
+
+  if (tareaError) {
+    throw new Error(tareaError.message)
+  }
+
+  const { error: periodoError } = await supabase
+    .from('tareo_tarea_periodo')
+    .update({
+      periodo_id: payload.periodo_id,
+      horas_historicas_arrastre: payload.horas_historicas_arrastre,
+      horas_asignadas_periodo: payload.horas_asignadas_periodo,
+      comentario_periodo: payload.comentario_periodo,
       activo: payload.activo ?? true
     })
     .eq('id', id)
 
-  if (error) {
-    throw new Error(error.message)
+  if (periodoError) {
+    throw new Error(periodoError.message)
   }
 }
 
@@ -301,9 +256,11 @@ export async function getRegistrosByFecha(fecha: string): Promise<RegistroDetall
   return (data ?? []).map((item: any) => ({
     ...item,
     horas: Number(item.horas ?? 0),
-    horas_totales: Number(item.horas_totales ?? 0),
-    horas_consumidas: Number(item.horas_consumidas ?? 0),
-    horas_disponibles: Number(item.horas_disponibles ?? 0),
+    horas_historicas_arrastre: Number(item.horas_historicas_arrastre ?? 0),
+    horas_asignadas_periodo: Number(item.horas_asignadas_periodo ?? 0),
+    horas_consumidas_periodo: Number(item.horas_consumidas_periodo ?? 0),
+    horas_disponibles_periodo: Number(item.horas_disponibles_periodo ?? 0),
+    horas_totales_acumuladas: Number(item.horas_totales_acumuladas ?? 0),
     solicitante_horas_maximas_estimadas:
       item.solicitante_horas_maximas_estimadas !== null
         ? Number(item.solicitante_horas_maximas_estimadas)
@@ -329,9 +286,11 @@ export async function getRegistroById(id: number): Promise<RegistroDetalleItem |
   return {
     ...data,
     horas: Number(data.horas ?? 0),
-    horas_totales: Number(data.horas_totales ?? 0),
-    horas_consumidas: Number(data.horas_consumidas ?? 0),
-    horas_disponibles: Number(data.horas_disponibles ?? 0),
+    horas_historicas_arrastre: Number(data.horas_historicas_arrastre ?? 0),
+    horas_asignadas_periodo: Number(data.horas_asignadas_periodo ?? 0),
+    horas_consumidas_periodo: Number(data.horas_consumidas_periodo ?? 0),
+    horas_disponibles_periodo: Number(data.horas_disponibles_periodo ?? 0),
+    horas_totales_acumuladas: Number(data.horas_totales_acumuladas ?? 0),
     solicitante_horas_maximas_estimadas:
       data.solicitante_horas_maximas_estimadas !== null
         ? Number(data.solicitante_horas_maximas_estimadas)
@@ -340,10 +299,21 @@ export async function getRegistroById(id: number): Promise<RegistroDetalleItem |
 }
 
 export async function createRegistro(payload: RegistroFormData): Promise<number> {
+  const { data: tareaPeriodo, error: tareaPeriodoError } = await supabase
+    .from('tareo_tarea_periodo')
+    .select('tarea_id')
+    .eq('id', payload.tarea_periodo_id)
+    .single()
+
+  if (tareaPeriodoError) {
+    throw new Error(tareaPeriodoError.message)
+  }
+
   const { data, error } = await supabase
     .from('tareo_registro')
     .insert({
-      tarea_id: payload.tarea_id,
+      tarea_id: tareaPeriodo.tarea_id,
+      tarea_periodo_id: payload.tarea_periodo_id,
       fecha: payload.fecha,
       trabajador_id: payload.trabajador_id,
       horas: payload.horas,
@@ -358,12 +328,22 @@ export async function createRegistro(payload: RegistroFormData): Promise<number>
 
   return data.id
 }
-
 export async function updateRegistro(id: number, payload: RegistroFormData): Promise<void> {
+  const { data: tareaPeriodo, error: tareaPeriodoError } = await supabase
+    .from('tareo_tarea_periodo')
+    .select('tarea_id')
+    .eq('id', payload.tarea_periodo_id)
+    .single()
+
+  if (tareaPeriodoError) {
+    throw new Error(tareaPeriodoError.message)
+  }
+
   const { error } = await supabase
     .from('tareo_registro')
     .update({
-      tarea_id: payload.tarea_id,
+      tarea_id: tareaPeriodo.tarea_id,
+      tarea_periodo_id: payload.tarea_periodo_id,
       fecha: payload.fecha,
       trabajador_id: payload.trabajador_id,
       horas: payload.horas,
@@ -375,7 +355,6 @@ export async function updateRegistro(id: number, payload: RegistroFormData): Pro
     throw new Error(error.message)
   }
 }
-
 export async function deleteRegistro(id: number): Promise<void> {
   const { error } = await supabase
     .from('tareo_registro')
@@ -483,4 +462,51 @@ export async function getResumenDiarioSolicitante(
         ? Number(item.horas_maximas_estimadas)
         : null
   })) as ResumenDiarioSolicitanteItem[]
+}
+export async function getHorasTrabajadorByFecha(
+  trabajadorId: number,
+  fecha: string,
+  excludeRegistroId?: number
+): Promise<number> {
+  let query = supabase
+    .from('tareo_registro')
+    .select('horas')
+    .eq('trabajador_id', trabajadorId)
+    .eq('fecha', fecha)
+
+  if (excludeRegistroId) {
+    query = query.neq('id', excludeRegistroId)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data ?? []).reduce((acc, item) => acc + Number(item.horas ?? 0), 0)
+}
+
+export async function getTareaPeriodoValidacion(tareaPeriodoId: number): Promise<{
+  horas_disponibles_periodo: number
+  periodo_cerrado: boolean
+} | null> {
+  const { data, error } = await supabase
+    .from('v_tareo_tarea_periodo_detalle')
+    .select('horas_disponibles_periodo, cerrado')
+    .eq('tarea_periodo_id', tareaPeriodoId)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null
+    }
+
+    throw new Error(error.message)
+  }
+
+  return {
+    horas_disponibles_periodo: Number(data.horas_disponibles_periodo ?? 0),
+    periodo_cerrado: Boolean(data.cerrado)
+  }
 }

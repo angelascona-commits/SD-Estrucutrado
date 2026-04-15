@@ -40,8 +40,9 @@ function getInitialState(tarea?: TareaFormData | null): TareaFormData {
       team_id: tarea.team_id,
       solicitante_id: tarea.solicitante_id,
       estado_id: tarea.estado_id,
-      horas_totales: tarea.horas_totales,
-      comentario_ps: tarea.comentario_ps ?? '',
+      horas_historicas_arrastre: tarea.horas_historicas_arrastre,
+      horas_asignadas_periodo: tarea.horas_asignadas_periodo,
+      comentario_periodo: tarea.comentario_periodo ?? '',
       activo: tarea.activo ?? true
     }
   }
@@ -53,8 +54,9 @@ function getInitialState(tarea?: TareaFormData | null): TareaFormData {
     team_id: null,
     solicitante_id: 0,
     estado_id: 0,
-    horas_totales: 0,
-    comentario_ps: '',
+    horas_historicas_arrastre: 0,
+    horas_asignadas_periodo: 0,
+    comentario_periodo: '',
     activo: true
   }
 }
@@ -121,7 +123,7 @@ export default function TareaModal({
       await onSave(
         {
           ...formData,
-          comentario_ps: formData.comentario_ps ?? null
+          comentario_periodo: formData.comentario_periodo ?? null
         },
         isEditing
       )
@@ -138,7 +140,7 @@ export default function TareaModal({
           <div>
             <h2 className={styles.title}>{isEditing ? 'Editar tarea' : 'Nueva tarea'}</h2>
             <p className={styles.subtitle}>
-              Configura la bolsa de horas y los datos base de la tarea
+              Configura la tarea y su bolsa de horas para el período
             </p>
           </div>
 
@@ -148,147 +150,174 @@ export default function TareaModal({
         </div>
 
         <form className={styles.form} onSubmit={handleSubmit}>
-          <div className={styles.grid}>
-            <div className={styles.field}>
-              <label className={styles.label}>Período</label>
-              <select
-                value={formData.periodo_id || ''}
-                onChange={(event) => handleChange('periodo_id', Number(event.target.value))}
-                className={styles.select}
-                required
-              >
-                <option value="">Seleccionar período</option>
-                {periodos.map((periodo) => (
-                  <option key={periodo.id} value={periodo.id}>
-                    {buildPeriodoLabel(periodo)}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className={styles.section}>
+            <h3 className={styles.sectionTitle}>Datos generales</h3>
 
-            <div className={styles.field}>
-              <label className={styles.label}>Estado</label>
-              <select
-                value={formData.estado_id || ''}
-                onChange={(event) => handleChange('estado_id', Number(event.target.value))}
-                className={styles.select}
-                required
-              >
-                <option value="">Seleccionar estado</option>
-                {estadosTarea.map((estado) => (
-                  <option key={estado.id} value={estado.id}>
-                    {estado.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className={styles.grid}>
+              <div className={`${styles.field} ${styles.fullWidth}`}>
+                <label className={styles.label}>Nombre de tarea</label>
+                <input
+                  type="text"
+                  value={formData.nombre}
+                  onChange={(event) => handleChange('nombre', event.target.value)}
+                  className={styles.input}
+                  required
+                />
+              </div>
 
-            <div className={`${styles.field} ${styles.fullWidth}`}>
-              <label className={styles.label}>Nombre de tarea</label>
-              <input
-                type="text"
-                value={formData.nombre}
-                onChange={(event) => handleChange('nombre', event.target.value)}
-                className={styles.input}
-                required
-              />
-            </div>
+              <div className={styles.field}>
+                <label className={styles.label}>Proyecto</label>
+                <select
+                  value={formData.proyecto_id || ''}
+                  onChange={(event) => handleChange('proyecto_id', Number(event.target.value))}
+                  className={styles.select}
+                  required
+                >
+                  <option value="">Seleccionar proyecto</option>
+                  {proyectos.map((proyecto) => (
+                    <option key={proyecto.id} value={proyecto.id}>
+                      {proyecto.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className={styles.field}>
-              <label className={styles.label}>Proyecto</label>
-              <select
-                value={formData.proyecto_id || ''}
-                onChange={(event) => handleChange('proyecto_id', Number(event.target.value))}
-                className={styles.select}
-                required
-              >
-                <option value="">Seleccionar proyecto</option>
-                {proyectos.map((proyecto) => (
-                  <option key={proyecto.id} value={proyecto.id}>
-                    {proyecto.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className={styles.field}>
+                <label className={styles.label}>Agrupador</label>
+                <input
+                  type="text"
+                  value={agrupadorSeleccionado?.nombre ?? ''}
+                  className={styles.inputReadOnly}
+                  readOnly
+                />
+              </div>
 
-            <div className={styles.field}>
-              <label className={styles.label}>Agrupador</label>
-              <input
-                type="text"
-                value={agrupadorSeleccionado?.nombre ?? ''}
-                className={styles.inputReadOnly}
-                readOnly
-              />
-            </div>
+              <div className={styles.field}>
+                <label className={styles.label}>Solicitante</label>
+                <select
+                  value={formData.solicitante_id || ''}
+                  onChange={(event) => handleChange('solicitante_id', Number(event.target.value))}
+                  className={styles.select}
+                  required
+                >
+                  <option value="">Seleccionar solicitante</option>
+                  {solicitantes.map((solicitante) => (
+                    <option key={solicitante.id} value={solicitante.id}>
+                      {solicitante.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className={styles.field}>
-              <label className={styles.label}>Solicitante</label>
-              <select
-                value={formData.solicitante_id || ''}
-                onChange={(event) => handleChange('solicitante_id', Number(event.target.value))}
-                className={styles.select}
-                required
-              >
-                <option value="">Seleccionar solicitante</option>
-                {solicitantes.map((solicitante) => (
-                  <option key={solicitante.id} value={solicitante.id}>
-                    {solicitante.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className={styles.field}>
+                <label className={styles.label}>Team</label>
+                <select
+                  value={formData.team_id || ''}
+                  onChange={(event) =>
+                    handleChange('team_id', event.target.value ? Number(event.target.value) : null)
+                  }
+                  className={styles.select}
+                >
+                  <option value="">Seleccionar team</option>
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className={styles.field}>
-              <label className={styles.label}>Team</label>
-              <select
-                value={formData.team_id || ''}
-                onChange={(event) =>
-                  handleChange('team_id', event.target.value ? Number(event.target.value) : null)
-                }
-                className={styles.select}
-              >
-                <option value="">Seleccionar team</option>
-                {teams.map((team) => (
-                  <option key={team.id} value={team.id}>
-                    {team.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className={styles.field}>
+                <label className={styles.label}>Estado</label>
+                <select
+                  value={formData.estado_id || ''}
+                  onChange={(event) => handleChange('estado_id', Number(event.target.value))}
+                  className={styles.select}
+                  required
+                >
+                  <option value="">Seleccionar estado</option>
+                  {estadosTarea.map((estado) => (
+                    <option key={estado.id} value={estado.id}>
+                      {estado.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className={styles.field}>
-              <label className={styles.label}>Horas totales</label>
-              <input
-                type="number"
-                min="0"
-                step="0.5"
-                value={formData.horas_totales || ''}
-                onChange={(event) => handleChange('horas_totales', Number(event.target.value))}
-                className={styles.input}
-                required
-              />
+              <div className={styles.field}>
+                <label className={styles.label}>Activo</label>
+                <select
+                  value={formData.activo ? 'true' : 'false'}
+                  onChange={(event) => handleChange('activo', event.target.value === 'true')}
+                  className={styles.select}
+                >
+                  <option value="true">Activo</option>
+                  <option value="false">Inactivo</option>
+                </select>
+              </div>
             </div>
+          </div>
 
-            <div className={styles.field}>
-              <label className={styles.label}>Activo</label>
-              <select
-                value={formData.activo ? 'true' : 'false'}
-                onChange={(event) => handleChange('activo', event.target.value === 'true')}
-                className={styles.select}
-              >
-                <option value="true">Activo</option>
-                <option value="false">Inactivo</option>
-              </select>
-            </div>
+          <div className={styles.section}>
+            <h3 className={styles.sectionTitle}>Configuración del período</h3>
 
-            <div className={`${styles.field} ${styles.fullWidth}`}>
-              <label className={styles.label}>Comentario PS</label>
-              <textarea
-                value={formData.comentario_ps ?? ''}
-                onChange={(event) => handleChange('comentario_ps', event.target.value)}
-                className={styles.textarea}
-                rows={4}
-              />
+            <div className={styles.grid}>
+              <div className={styles.field}>
+                <label className={styles.label}>Período</label>
+                <select
+                  value={formData.periodo_id || ''}
+                  onChange={(event) => handleChange('periodo_id', Number(event.target.value))}
+                  className={styles.select}
+                  required
+                >
+                  <option value="">Seleccionar período</option>
+                  {periodos.map((periodo) => (
+                    <option key={periodo.id} value={periodo.id}>
+                      {buildPeriodoLabel(periodo)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label}>Horas históricas arrastre</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={formData.horas_historicas_arrastre || ''}
+                  onChange={(event) =>
+                    handleChange('horas_historicas_arrastre', Number(event.target.value))
+                  }
+                  className={styles.input}
+                  required
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label}>Horas asignadas del período</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={formData.horas_asignadas_periodo || ''}
+                  onChange={(event) =>
+                    handleChange('horas_asignadas_periodo', Number(event.target.value))
+                  }
+                  className={styles.input}
+                  required
+                />
+              </div>
+
+              <div className={`${styles.field} ${styles.fullWidth}`}>
+                <label className={styles.label}>Comentario del período</label>
+                <textarea
+                  value={formData.comentario_periodo ?? ''}
+                  onChange={(event) => handleChange('comentario_periodo', event.target.value)}
+                  className={styles.textarea}
+                  rows={4}
+                />
+              </div>
             </div>
           </div>
 
@@ -301,6 +330,13 @@ export default function TareaModal({
               <span className={styles.summaryLabel}>Horas máx. solicitante</span>
               <span className={styles.summaryValue}>
                 {solicitanteSeleccionado?.horas_maximas_estimadas ?? '-'}
+              </span>
+            </div>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>Total visible inicial</span>
+              <span className={styles.summaryValue}>
+                {Number(formData.horas_historicas_arrastre || 0) +
+                  Number(formData.horas_asignadas_periodo || 0)}
               </span>
             </div>
           </div>

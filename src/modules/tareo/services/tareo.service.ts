@@ -2,7 +2,7 @@ import type {
   RegistroFormData,
   TareaFilters,
   TareaFormData,
-  TareaListItem
+  TareaPeriodoListItem
 } from '../interfaces/tareo.interfaces'
 
 export function validateTareaPayload(payload: TareaFormData): void {
@@ -26,23 +26,27 @@ export function validateTareaPayload(payload: TareaFormData): void {
     throw new Error('El estado es obligatorio')
   }
 
-  if (Number(payload.horas_totales) <= 0) {
-    throw new Error('Las horas totales deben ser mayores a 0')
+  if (Number(payload.horas_historicas_arrastre) < 0) {
+    throw new Error('Las horas históricas no pueden ser menores a 0')
+  }
+
+  if (Number(payload.horas_asignadas_periodo) < 0) {
+    throw new Error('Las horas asignadas del período no pueden ser menores a 0')
   }
 }
 
 export function validateTareaUpdatePayload(
   payload: TareaFormData,
-  currentTask: TareaListItem | null
+  currentTask: TareaPeriodoListItem | null
 ): void {
   validateTareaPayload(payload)
 
   if (!currentTask) {
-    throw new Error('No se encontró la tarea a editar')
+    throw new Error('No se encontró la tarea del período a editar')
   }
 
-  if (Number(payload.horas_totales) < Number(currentTask.horas_consumidas)) {
-    throw new Error('Las horas totales no pueden ser menores a las horas consumidas')
+  if (Number(payload.horas_asignadas_periodo) < Number(currentTask.horas_consumidas_periodo)) {
+    throw new Error('Las horas asignadas del período no pueden ser menores a las horas consumidas')
   }
 }
 
@@ -50,20 +54,21 @@ export function normalizeTareaPayload(payload: TareaFormData): TareaFormData {
   return {
     ...payload,
     nombre: payload.nombre.trim(),
-    proyecto_id: Number(payload.proyecto_id),
     periodo_id: Number(payload.periodo_id),
+    proyecto_id: Number(payload.proyecto_id),
     solicitante_id: Number(payload.solicitante_id),
     estado_id: Number(payload.estado_id),
     team_id: payload.team_id ? Number(payload.team_id) : null,
-    horas_totales: Number(payload.horas_totales),
-    comentario_ps: payload.comentario_ps?.trim() || null,
+    horas_historicas_arrastre: Number(payload.horas_historicas_arrastre),
+    horas_asignadas_periodo: Number(payload.horas_asignadas_periodo),
+    comentario_periodo: payload.comentario_periodo?.trim() || null,
     activo: payload.activo ?? true
   }
 }
 
 export function validateRegistroPayload(payload: RegistroFormData): void {
-  if (!payload.tarea_id) {
-    throw new Error('La tarea es obligatoria')
+  if (!payload.tarea_periodo_id) {
+    throw new Error('La tarea del período es obligatoria')
   }
 
   if (!payload.fecha) {
@@ -86,7 +91,7 @@ export function validateRegistroPayload(payload: RegistroFormData): void {
 export function normalizeRegistroPayload(payload: RegistroFormData): RegistroFormData {
   return {
     ...payload,
-    tarea_id: Number(payload.tarea_id),
+    tarea_periodo_id: Number(payload.tarea_periodo_id),
     trabajador_id: Number(payload.trabajador_id),
     horas: Number(payload.horas),
     comentario: payload.comentario?.trim() || null
@@ -102,9 +107,9 @@ function normalizeText(value: string): string {
 }
 
 export function applyTareaFilters(
-  items: TareaListItem[],
+  items: TareaPeriodoListItem[],
   filters?: TareaFilters
-): TareaListItem[] {
+): TareaPeriodoListItem[] {
   if (!filters) {
     return items
   }
@@ -145,18 +150,20 @@ export function applyTareaFilters(
     }
 
     const searchableValues = [
-      item.nombre,
+      item.tarea_nombre,
       item.proyecto_nombre,
       item.agrupador_nombre,
       item.solicitante_nombre,
       item.team_nombre ?? '',
       item.estado_nombre,
-      item.comentario_ps ?? '',
-      item.periodo_anio ? String(item.periodo_anio) : '',
-      item.periodo_mes ? String(item.periodo_mes) : '',
-      String(item.horas_totales),
-      String(item.horas_consumidas),
-      String(item.horas_disponibles),
+      item.comentario_periodo ?? '',
+      String(item.periodo_anio),
+      String(item.periodo_mes),
+      String(item.horas_historicas_arrastre),
+      String(item.horas_asignadas_periodo),
+      String(item.horas_consumidas_periodo),
+      String(item.horas_disponibles_periodo),
+      String(item.horas_totales_acumuladas),
       item.activo ? 'activo' : 'inactivo',
       item.periodo_cerrado ? 'cerrado' : 'abierto'
     ]
