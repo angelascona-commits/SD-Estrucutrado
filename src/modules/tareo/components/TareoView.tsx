@@ -26,6 +26,7 @@ import TareaModal from './TareaModal'
 import TareoHeader from './TareoHeader'
 import TareoDailyWidgets from './TareoDailyWidgets'
 import TareoDailyTable from './TareoDailyTable'
+import TareoDailyFilters, { type TareoDailyFilterState } from './TareoDailyFilters'
 
 function getTodayValue() {
   const now = new Date()
@@ -44,6 +45,62 @@ function mapRegistroToFormData(registro: RegistroDetalleItem): RegistroFormData 
     horas: registro.horas,
     comentario: registro.comentario ?? ''
   }
+}
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+function applyDailyFilters(
+  registros: RegistroDetalleItem[],
+  filters: TareoDailyFilterState
+) {
+  const search = normalizeText(filters.search)
+
+  return registros.filter((item) => {
+    if (filters.tarea && item.tarea_nombre !== filters.tarea) {
+      return false
+    }
+
+    if (filters.proyecto && item.proyecto_nombre !== filters.proyecto) {
+      return false
+    }
+
+    if (filters.agrupador && item.agrupador_nombre !== filters.agrupador) {
+      return false
+    }
+
+    if (filters.trabajador && item.trabajador_nombre !== filters.trabajador) {
+      return false
+    }
+
+    if (filters.solicitante && item.solicitante_nombre !== filters.solicitante) {
+      return false
+    }
+
+    if (!search) {
+      return true
+    }
+
+    const values = [
+      item.tarea_nombre,
+      item.proyecto_nombre,
+      item.agrupador_nombre,
+      item.trabajador_nombre,
+      item.solicitante_nombre,
+      item.team_nombre ?? '',
+      item.comentario ?? '',
+      String(item.horas),
+      String(item.horas_disponibles_periodo),
+      String(item.horas_asignadas_periodo),
+      String(item.horas_consumidas_periodo)
+    ]
+
+    return values.some((value) => normalizeText(value).includes(search))
+  })
 }
 
 function mapTareaPeriodoToFormData(tarea: TareaPeriodoListItem): TareaFormData {
@@ -77,6 +134,14 @@ export default function TareoView() {
   const [tareaModalOpen, setTareaModalOpen] = useState(false)
   const [selectedRegistro, setSelectedRegistro] = useState<RegistroFormData | null>(null)
   const [selectedTarea, setSelectedTarea] = useState<TareaFormData | null>(null)
+    const [dailyFilters, setDailyFilters] = useState<TareoDailyFilterState>({
+    search: '',
+    tarea: '',
+    proyecto: '',
+    agrupador: '',
+    trabajador: '',
+    solicitante: ''
+  })
 
   const loadCatalogs = async () => {
     setLoading(true)
@@ -170,6 +235,13 @@ export default function TareoView() {
   }, [registros])
 
   const totalRegistrosDia = registros.length
+    const registrosFiltrados = useMemo(() => {
+    return applyDailyFilters(registros, dailyFilters)
+  }, [registros, dailyFilters])
+
+  const horasVisibles = useMemo(() => {
+    return registrosFiltrados.reduce((acc, item) => acc + Number(item.horas ?? 0), 0)
+  }, [registrosFiltrados])
 
   const handleOpenNuevoRegistro = () => {
     setSelectedRegistro(null)
@@ -288,9 +360,16 @@ export default function TareoView() {
         totalRegistrosDia={totalRegistrosDia}
         totalTrabajadoresDia={totalTrabajadoresDia}
       />
+            <TareoDailyFilters
+        filters={dailyFilters}
+        onChange={setDailyFilters}
+        registros={registros}
+        totalVisible={registrosFiltrados.length}
+        horasVisibles={horasVisibles}
+      />
 
       <TareoDailyTable
-        registros={registros}
+        registros={registrosFiltrados}
         loading={loadingData}
         onEdit={handleEditRegistro}
         onDelete={handleDeleteRegistro}

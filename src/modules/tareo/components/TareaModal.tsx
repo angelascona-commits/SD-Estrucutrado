@@ -30,7 +30,10 @@ interface TareaModalProps {
   estadosTarea: CatalogItem[]
 }
 
-function getInitialState(tarea?: TareaFormData | null): TareaFormData {
+function getInitialState(
+  tarea?: TareaFormData | null,
+  estadoPendienteId?: number
+): TareaFormData {
   if (tarea) {
     return {
       id: tarea.id,
@@ -53,7 +56,7 @@ function getInitialState(tarea?: TareaFormData | null): TareaFormData {
     proyecto_id: 0,
     team_id: null,
     solicitante_id: 0,
-    estado_id: 0,
+    estado_id: estadoPendienteId ?? 0,
     horas_historicas_arrastre: 0,
     horas_asignadas_periodo: 0,
     comentario_periodo: '',
@@ -78,18 +81,26 @@ export default function TareaModal({
   teams,
   estadosTarea
 }: TareaModalProps) {
-  const [formData, setFormData] = useState<TareaFormData>(getInitialState(tarea))
+  const estadoPendiente = useMemo(() => {
+    return (
+      estadosTarea.find((item) => item.nombre.trim().toLowerCase() === 'pendiente') ?? null
+    )
+  }, [estadosTarea])
+
+  const [formData, setFormData] = useState<TareaFormData>(
+    getInitialState(tarea, estadoPendiente?.id)
+  )
   const [saving, setSaving] = useState(false)
   const [usaArrastre, setUsaArrastre] = useState(false)
   const isEditing = Boolean(tarea?.id)
 
   useEffect(() => {
     if (isOpen) {
-      const initialState = getInitialState(tarea)
+      const initialState = getInitialState(tarea, estadoPendiente?.id)
       setFormData(initialState)
       setUsaArrastre(Number(initialState.horas_historicas_arrastre || 0) > 0)
     }
-  }, [isOpen, tarea])
+  }, [isOpen, tarea, estadoPendiente?.id])
 
   const proyectoSeleccionado = useMemo(() => {
     return proyectos.find((item) => item.id === Number(formData.proyecto_id)) ?? null
@@ -137,6 +148,8 @@ export default function TareaModal({
       await onSave(
         {
           ...formData,
+          estado_id: isEditing ? formData.estado_id : (estadoPendiente?.id ?? formData.estado_id),
+          activo: isEditing ? formData.activo : true,
           horas_historicas_arrastre: usaArrastre
             ? Number(formData.horas_historicas_arrastre || 0)
             : 0,
@@ -244,34 +257,38 @@ export default function TareaModal({
                 </select>
               </div>
 
-              <div className={styles.field}>
-                <label className={styles.label}>Estado</label>
-                <select
-                  value={formData.estado_id || ''}
-                  onChange={(event) => handleChange('estado_id', Number(event.target.value))}
-                  className={styles.select}
-                  required
-                >
-                  <option value="">Seleccionar estado</option>
-                  {estadosTarea.map((estado) => (
-                    <option key={estado.id} value={estado.id}>
-                      {estado.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {isEditing && (
+                <>
+                  <div className={styles.field}>
+                    <label className={styles.label}>Estado</label>
+                    <select
+                      value={formData.estado_id || ''}
+                      onChange={(event) => handleChange('estado_id', Number(event.target.value))}
+                      className={styles.select}
+                      required
+                    >
+                      <option value="">Seleccionar estado</option>
+                      {estadosTarea.map((estado) => (
+                        <option key={estado.id} value={estado.id}>
+                          {estado.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div className={styles.field}>
-                <label className={styles.label}>Activo</label>
-                <select
-                  value={formData.activo ? 'true' : 'false'}
-                  onChange={(event) => handleChange('activo', event.target.value === 'true')}
-                  className={styles.select}
-                >
-                  <option value="true">Activo</option>
-                  <option value="false">Inactivo</option>
-                </select>
-              </div>
+                  <div className={styles.field}>
+                    <label className={styles.label}>Activo</label>
+                    <select
+                      value={formData.activo ? 'true' : 'false'}
+                      onChange={(event) => handleChange('activo', event.target.value === 'true')}
+                      className={styles.select}
+                    >
+                      <option value="true">Activo</option>
+                      <option value="false">Inactivo</option>
+                    </select>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -360,6 +377,18 @@ export default function TareaModal({
               <span className={styles.summaryValue}>
                 {solicitanteSeleccionado?.horas_maximas_estimadas ?? '-'}
               </span>
+            </div>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>Estado inicial</span>
+              <span className={styles.summaryValue}>
+                {isEditing
+                  ? estadosTarea.find((item) => item.id === formData.estado_id)?.nombre ?? '-'
+                  : 'Pendiente'}
+              </span>
+            </div>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>Activo inicial</span>
+              <span className={styles.summaryValue}>{isEditing ? (formData.activo ? 'Activo' : 'Inactivo') : 'Activo'}</span>
             </div>
             <div className={styles.summaryItem}>
               <span className={styles.summaryLabel}>Total visible inicial</span>
