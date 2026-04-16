@@ -21,6 +21,14 @@ interface TareoDailyFiltersProps {
   horasVisibles: number
 }
 
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
 function getUniqueValues(values: Array<string | null | undefined>) {
   return Array.from(
     new Set(
@@ -42,6 +50,74 @@ function hasActiveFilters(filters: TareoDailyFilterState) {
   )
 }
 
+function applyFilters(
+  registros: RegistroDetalleItem[],
+  filters: TareoDailyFilterState,
+  excludeField?: keyof TareoDailyFilterState
+) {
+  const search = excludeField === 'search' ? '' : normalizeText(filters.search)
+
+  return registros.filter((item) => {
+    if (excludeField !== 'tarea' && filters.tarea && item.tarea_nombre !== filters.tarea) {
+      return false
+    }
+
+    if (
+      excludeField !== 'proyecto' &&
+      filters.proyecto &&
+      item.proyecto_nombre !== filters.proyecto
+    ) {
+      return false
+    }
+
+    if (
+      excludeField !== 'agrupador' &&
+      filters.agrupador &&
+      item.agrupador_nombre !== filters.agrupador
+    ) {
+      return false
+    }
+
+    if (
+      excludeField !== 'trabajador' &&
+      filters.trabajador &&
+      item.trabajador_nombre !== filters.trabajador
+    ) {
+      return false
+    }
+
+    if (
+      excludeField !== 'solicitante' &&
+      filters.solicitante &&
+      item.solicitante_nombre !== filters.solicitante
+    ) {
+      return false
+    }
+
+    if (!search) {
+      return true
+    }
+
+    const values = [
+      item.tarea_nombre,
+      item.proyecto_nombre,
+      item.agrupador_nombre,
+      item.trabajador_nombre,
+      item.solicitante_nombre,
+      item.team_nombre ?? '',
+      item.comentario ?? '',
+      String(item.horas),
+      String(item.horas_disponibles_periodo),
+      String(item.horas_asignadas_periodo),
+      String(item.horas_consumidas_periodo),
+      String(item.horas_historicas_arrastre),
+      String(item.horas_totales_acumuladas)
+    ]
+
+    return values.some((value) => normalizeText(value).includes(search))
+  })
+}
+
 export default function TareoDailyFilters({
   filters,
   onChange,
@@ -51,26 +127,35 @@ export default function TareoDailyFilters({
 }: TareoDailyFiltersProps) {
   const [showFilters, setShowFilters] = useState(false)
 
-  const tareas = useMemo(
-    () => getUniqueValues(registros.map((item) => item.tarea_nombre)),
-    [registros]
-  )
-  const proyectos = useMemo(
-    () => getUniqueValues(registros.map((item) => item.proyecto_nombre)),
-    [registros]
-  )
-  const agrupadores = useMemo(
-    () => getUniqueValues(registros.map((item) => item.agrupador_nombre)),
-    [registros]
-  )
-  const trabajadores = useMemo(
-    () => getUniqueValues(registros.map((item) => item.trabajador_nombre)),
-    [registros]
-  )
-  const solicitantes = useMemo(
-    () => getUniqueValues(registros.map((item) => item.solicitante_nombre)),
-    [registros]
-  )
+  const tareas = useMemo(() => {
+    return getUniqueValues(
+      applyFilters(registros, filters, 'tarea').map((item) => item.tarea_nombre)
+    )
+  }, [registros, filters])
+
+  const proyectos = useMemo(() => {
+    return getUniqueValues(
+      applyFilters(registros, filters, 'proyecto').map((item) => item.proyecto_nombre)
+    )
+  }, [registros, filters])
+
+  const agrupadores = useMemo(() => {
+    return getUniqueValues(
+      applyFilters(registros, filters, 'agrupador').map((item) => item.agrupador_nombre)
+    )
+  }, [registros, filters])
+
+  const trabajadores = useMemo(() => {
+    return getUniqueValues(
+      applyFilters(registros, filters, 'trabajador').map((item) => item.trabajador_nombre)
+    )
+  }, [registros, filters])
+
+  const solicitantes = useMemo(() => {
+    return getUniqueValues(
+      applyFilters(registros, filters, 'solicitante').map((item) => item.solicitante_nombre)
+    )
+  }, [registros, filters])
 
   const activeFilters = hasActiveFilters(filters)
 
