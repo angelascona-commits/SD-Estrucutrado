@@ -40,7 +40,7 @@ function getInitialState(tarea?: TareaFormData | null): TareaFormData {
       team_id: tarea.team_id,
       solicitante_id: tarea.solicitante_id,
       estado_id: tarea.estado_id,
-      horas_historicas_arrastre: tarea.horas_historicas_arrastre,
+      horas_historicas_arrastre: tarea.horas_historicas_arrastre ?? 0,
       horas_asignadas_periodo: tarea.horas_asignadas_periodo,
       comentario_periodo: tarea.comentario_periodo ?? '',
       activo: tarea.activo ?? true
@@ -80,11 +80,14 @@ export default function TareaModal({
 }: TareaModalProps) {
   const [formData, setFormData] = useState<TareaFormData>(getInitialState(tarea))
   const [saving, setSaving] = useState(false)
+  const [usaArrastre, setUsaArrastre] = useState(false)
   const isEditing = Boolean(tarea?.id)
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(getInitialState(tarea))
+      const initialState = getInitialState(tarea)
+      setFormData(initialState)
+      setUsaArrastre(Number(initialState.horas_historicas_arrastre || 0) > 0)
     }
   }, [isOpen, tarea])
 
@@ -115,6 +118,17 @@ export default function TareaModal({
     }))
   }
 
+  const handleToggleArrastre = (checked: boolean) => {
+    setUsaArrastre(checked)
+
+    if (!checked) {
+      setFormData((prev) => ({
+        ...prev,
+        horas_historicas_arrastre: 0
+      }))
+    }
+  }
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSaving(true)
@@ -123,6 +137,9 @@ export default function TareaModal({
       await onSave(
         {
           ...formData,
+          horas_historicas_arrastre: usaArrastre
+            ? Number(formData.horas_historicas_arrastre || 0)
+            : 0,
           comentario_periodo: formData.comentario_periodo ?? null
         },
         isEditing
@@ -280,21 +297,6 @@ export default function TareaModal({
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>Horas históricas arrastre</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={formData.horas_historicas_arrastre || ''}
-                  onChange={(event) =>
-                    handleChange('horas_historicas_arrastre', Number(event.target.value))
-                  }
-                  className={styles.input}
-                  required
-                />
-              </div>
-
-              <div className={styles.field}>
                 <label className={styles.label}>Horas asignadas del período</label>
                 <input
                   type="number"
@@ -308,6 +310,33 @@ export default function TareaModal({
                   required
                 />
               </div>
+
+              <div className={`${styles.field} ${styles.fullWidth}`}>
+                <label className={styles.checkboxRow}>
+                  <input
+                    type="checkbox"
+                    checked={usaArrastre}
+                    onChange={(event) => handleToggleArrastre(event.target.checked)}
+                  />
+                  <span>Esta tarea viene de un período anterior</span>
+                </label>
+              </div>
+
+              {usaArrastre && (
+                <div className={styles.field}>
+                  <label className={styles.label}>Horas históricas de arrastre</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value={formData.horas_historicas_arrastre || ''}
+                    onChange={(event) =>
+                      handleChange('horas_historicas_arrastre', Number(event.target.value))
+                    }
+                    className={styles.input}
+                  />
+                </div>
+              )}
 
               <div className={`${styles.field} ${styles.fullWidth}`}>
                 <label className={styles.label}>Comentario del período</label>
@@ -335,7 +364,7 @@ export default function TareaModal({
             <div className={styles.summaryItem}>
               <span className={styles.summaryLabel}>Total visible inicial</span>
               <span className={styles.summaryValue}>
-                {Number(formData.horas_historicas_arrastre || 0) +
+                {(usaArrastre ? Number(formData.horas_historicas_arrastre || 0) : 0) +
                   Number(formData.horas_asignadas_periodo || 0)}
               </span>
             </div>

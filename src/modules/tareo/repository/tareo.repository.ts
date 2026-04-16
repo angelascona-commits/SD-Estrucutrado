@@ -510,3 +510,16 @@ export async function getTareaPeriodoValidacion(tareaPeriodoId: number): Promise
     periodo_cerrado: Boolean(data.cerrado)
   }
 }
+export async function closePeriodoAndCarryOverTasks(
+  periodoActualId: number,
+  periodoSiguienteId: number
+): Promise<void> {
+  const { error } = await supabase.rpc('tareo_cerrar_periodo_y_arrastrar', {
+    p_periodo_actual_id: periodoActualId,
+    p_periodo_siguiente_id: periodoSiguienteId
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}

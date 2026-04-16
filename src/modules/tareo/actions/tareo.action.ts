@@ -29,6 +29,7 @@ import {
   updateTareaPeriodo,
   getHorasTrabajadorByFecha,
   getTareaPeriodoValidacion,
+  closePeriodoAndCarryOverTasks,
 } from '../repository/tareo.repository'
 import {
   applyTareaFilters,
@@ -331,6 +332,29 @@ export async function validateRegistroRealtimeAction(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'No se pudo validar el registro'
+    }
+  }
+  
+}
+export async function closePeriodoAndCarryOverTasksAction(
+  periodoActualId: number,
+  periodoSiguienteId: number
+): Promise<ActionResult<{ periodoActualId: number; periodoSiguienteId: number }>> {
+  try {
+    await closePeriodoAndCarryOverTasks(periodoActualId, periodoSiguienteId)
+    revalidatePath('/tareo')
+
+    return {
+      success: true,
+      data: {
+        periodoActualId,
+        periodoSiguienteId
+      }
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'No se pudo cerrar el período'
     }
   }
 }
