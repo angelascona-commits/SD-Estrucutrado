@@ -18,6 +18,7 @@ import {
   createTarea,
   deleteRegistro,
   getAllTareasPeriodo,
+  getRegistrosByPeriodo,
   getRegistroById,
   getRegistrosByFecha,
   getResumenDiarioGeneral,
@@ -37,7 +38,8 @@ import {
   normalizeTareaPayload,
   validateRegistroPayload,
   validateTareaPayload,
-  validateTareaUpdatePayload
+  validateTareaUpdatePayload,
+  generateTareoExcel
 } from '../services/tareo.service'
 
 export async function fetchTareoCatalogsAction(): Promise<ActionResult<TareoCatalogs>> {
@@ -356,5 +358,35 @@ export async function closePeriodoAndCarryOverTasksAction(
       success: false,
       error: error instanceof Error ? error.message : 'No se pudo cerrar el período'
     }
+  }
+}
+export async function exportTareoAction(
+  periodoId: number
+): Promise<ActionResult<{ base64: string; fileName: string }>> {
+  try {
+    // 1. Obtener todos los registros diarios de ese período específico
+    const registros = await getRegistrosByPeriodo(periodoId)
+
+    if (registros.length === 0) {
+      return { success: false, error: 'No hay horas registradas para el período seleccionado.' }
+    }
+
+    // 2. Extraer el año y mes para el nombre del archivo
+    const first = registros[0]
+    const periodoLabel = `${first.anio}-${String(first.mes).padStart(2, '0')}`
+
+    // 3. Generar el Excel
+    const workbook = await generateTareoExcel(registros, periodoLabel)
+    const buffer = await workbook.xlsx.writeBuffer()
+    
+    return {
+      success: true,
+      data: {
+        base64: Buffer.from(buffer).toString('base64'),
+        fileName: `REPORTE_TAREO_${periodoLabel}.xlsx`
+      }
+    }
+  } catch (error) {
+    return { success: false, error: 'Error al generar el archivo Excel.' }
   }
 }

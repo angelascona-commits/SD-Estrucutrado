@@ -113,6 +113,7 @@ function mapTareaPeriodoRow(item: any): TareaPeriodoListItem {
     horas_disponibles_periodo: Number(item.horas_disponibles_periodo ?? 0),
     horas_totales_acumuladas: Number(item.horas_totales_acumuladas ?? 0),
     comentario_periodo: item.comentario_periodo,
+    comentario_dm: item.comentario_dm,
     created_at: item.created_at,
     updated_at: item.updated_at
   }
@@ -166,6 +167,7 @@ export async function createTarea(payload: TareaFormData): Promise<number> {
       horas_totales: horasTotalesLegacy,
       horas_consumidas: 0,
       comentario_ps: payload.comentario_periodo,
+      comentario_dm: payload.comentario_dm,
       activo: payload.activo ?? true
     })
     .select('id')
@@ -217,6 +219,7 @@ export async function updateTareaPeriodo(id: number, payload: TareaFormData): Pr
       estado_id: payload.estado_id,
       horas_totales: horasTotalesLegacy,
       comentario_ps: payload.comentario_periodo,
+      comentario_dm: payload.comentario_dm,
       activo: payload.activo ?? true
     })
     .eq('id', current.tarea_id)
@@ -522,4 +525,20 @@ export async function closePeriodoAndCarryOverTasks(
   if (error) {
     throw new Error(error.message)
   }
+}
+
+export async function getRegistrosByPeriodo(periodoId: number): Promise<RegistroDetalleItem[]> {
+  const { data, error } = await supabase
+    .from('v_tareo_registro_detalle')
+    .select('*')
+    .eq('periodo_id', periodoId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data ?? []).map((item: any) => ({
+    ...item,
+    horas: Number(item.horas ?? 0)
+  })) as RegistroDetalleItem[]
 }

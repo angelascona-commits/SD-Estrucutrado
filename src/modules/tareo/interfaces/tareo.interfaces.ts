@@ -46,6 +46,7 @@ export interface TareaFormData {
   horas_historicas_arrastre: number
   horas_asignadas_periodo: number
   comentario_periodo: string | null
+  comentario_dm: string | null
   activo?: boolean
 }
 
@@ -95,6 +96,7 @@ export interface TareaPeriodoListItem {
   horas_disponibles_periodo: number
   horas_totales_acumuladas: number
   comentario_periodo: string | null
+  comentario_dm: string | null
   created_at: string
   updated_at: string
 }

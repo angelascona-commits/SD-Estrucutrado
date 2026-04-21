@@ -10,7 +10,8 @@ import {
   listTareasAction,
   saveRegistroAction,
   saveTareaAction,
-  deleteRegistroAction
+  deleteRegistroAction,
+  exportTareoAction
 } from '../actions/tareo.action'
 import type {
   RegistroDetalleItem,
@@ -115,6 +116,7 @@ function mapTareaPeriodoToFormData(tarea: TareaPeriodoListItem): TareaFormData {
     horas_historicas_arrastre: tarea.horas_historicas_arrastre,
     horas_asignadas_periodo: tarea.horas_asignadas_periodo,
     comentario_periodo: tarea.comentario_periodo ?? '',
+    comentario_dm: tarea.comentario_dm ?? '',
     activo: tarea.activo
   }
 }
@@ -129,7 +131,7 @@ export default function TareoView() {
   const [loading, setLoading] = useState(true)
   const [loadingData, setLoadingData] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
+  const [exporting, setExporting] = useState(false)
   const [registroModalOpen, setRegistroModalOpen] = useState(false)
   const [tareaModalOpen, setTareaModalOpen] = useState(false)
   const [selectedRegistro, setSelectedRegistro] = useState<RegistroFormData | null>(null)
@@ -264,6 +266,7 @@ export default function TareoView() {
       horas_historicas_arrastre: 0,
       horas_asignadas_periodo: 0,
       comentario_periodo: '',
+      comentario_dm: '',
       activo: true
     })
     setTareaModalOpen(true)
@@ -331,7 +334,34 @@ export default function TareoView() {
 
     await loadTareasPeriodo(selectedPeriodoId)
   }
+  const handleExportExcel = async () => {
+    if (!selectedPeriodoId) {
+      setError('Selecciona un período para exportar')
+      return
+    }
 
+    setExporting(true)
+    setError(null)
+
+    const response = await exportTareoAction(selectedPeriodoId)
+
+    if (!response.success || !response.data) {
+      setError(response.error ?? 'Error al generar el reporte')
+      setExporting(false)
+      return
+    }
+
+    // Lógica para forzar la descarga en el navegador usando Base64
+    const { base64, fileName } = response.data
+    const link = document.createElement('a')
+    link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    setExporting(false)
+  }
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
@@ -350,6 +380,8 @@ export default function TareoView() {
         onFechaChange={setSelectedFecha}
         onNuevoRegistro={handleOpenNuevoRegistro}
         onNuevaTarea={handleOpenNuevaTarea}
+        onExport={handleExportExcel}
+        isExporting={exporting}
       />
 
       {error && <div className={styles.errorBox}>{error}</div>}

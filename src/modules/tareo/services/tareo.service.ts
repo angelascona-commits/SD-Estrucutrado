@@ -1,8 +1,10 @@
+import ExcelJS from 'exceljs'
 import type {
   RegistroFormData,
   TareaFilters,
   TareaFormData,
-  TareaPeriodoListItem
+  TareaPeriodoListItem,
+  RegistroDetalleItem
 } from '../interfaces/tareo.interfaces'
 
 export function validateTareaPayload(payload: TareaFormData): void {
@@ -59,9 +61,10 @@ export function normalizeTareaPayload(payload: TareaFormData): TareaFormData {
     solicitante_id: Number(payload.solicitante_id),
     estado_id: Number(payload.estado_id),
     team_id: payload.team_id ? Number(payload.team_id) : null,
-    horas_historicas_arrastre: Number(payload.horas_historicas_arrastre),
-    horas_asignadas_periodo: Number(payload.horas_asignadas_periodo),
+    horas_historicas_arrastre: Number(payload.horas_historicas_arrastre || 0),
+    horas_asignadas_periodo: Number(payload.horas_asignadas_periodo || 0),
     comentario_periodo: payload.comentario_periodo?.trim() || null,
+    comentario_dm: payload.comentario_dm?.trim() || null,
     activo: payload.activo ?? true
   }
 }
@@ -170,4 +173,108 @@ export function applyTareaFilters(
 
     return searchableValues.some((value) => normalizeText(value).includes(search))
   })
+}
+function sortRegistros(registros: RegistroDetalleItem[]): RegistroDetalleItem[] {
+  return [...registros].sort((a, b) => {
+    const res = a.solicitante_nombre.localeCompare(b.solicitante_nombre)
+    if (res !== 0) return res
+    return new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+  })
+}
+function sortTareoData(items: TareaPeriodoListItem[]): TareaPeriodoListItem[] {
+  return [...items].sort((a, b) => {
+    const sortSolicitante = a.solicitante_nombre.localeCompare(b.solicitante_nombre)
+    if (sortSolicitante !== 0) return sortSolicitante
+
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  })
+}
+
+// Función auxiliar para crear las hojas de detalle
+function createDetailSheet(
+  workbook: ExcelJS.Workbook,
+  name: string,
+  registros: RegistroDetalleItem[],
+  periodoLabel: string
+) {
+  const sheet = workbook.addWorksheet(name)
+
+  // Las columnas exactas de tu imagen
+  sheet.columns = [
+    { header: 'Task Name', key: 'nombre', width: 45 },
+    { header: 'Week (drop down)', key: 'periodo', width: 25 },
+    { header: 'Assignee', key: 'assignee', width: 20 },
+    { header: 'Team (labels)', key: 'team', width: 20 },
+    { header: 'Solicitante (drop down)', key: 'solicitante', width: 25 },
+    { header: 'Pry - Protecta (drop down)', key: 'proyecto', width: 35 },
+    { header: 'Agrupador', key: 'agrupador', width: 25 },
+    { header: 'Horas Estimadas', key: 'horas', width: 18 },
+    { header: 'Estado', key: 'estado', width: 15 },
+    { header: 'Comentario PS', key: 'comentario_ps', width: 40 },
+    { header: 'Comentario DM', key: 'comentario_dm', width: 40 }
+  ]
+
+  // Título
+  sheet.insertRow(1, [`REPORTE DE TAREO - PERÍODO: ${periodoLabel}`])
+  sheet.mergeCells('A1:K1')
+  sheet.getRow(1).font = { size: 14, bold: true }
+  sheet.getRow(1).alignment = { horizontal: 'center' }
+
+  // Estilos del encabezado
+  const headerRow = sheet.getRow(2)
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+  headerRow.eachCell((cell) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF111827' } }
+    cell.alignment = { horizontal: 'center' }
+  })
+  function formatWeekDate(fechaStr: string): string {
+    const [yyyy, mm, dd] = fechaStr.split('-')
+    const meses = [
+      'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+      'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+    ]
+    const mesNombre = meses[parseInt(mm, 10) - 1]
+    const shortYear = yyyy.substring(2)
+    return `${mesNombre} ${yyyy} (${dd}/${mm}/${shortYear})`
+  }
+  // Insertar cada registro diario como una fila independiente
+  registros.forEach((reg) => {
+    sheet.addRow({
+      nombre: reg.tarea_nombre,
+      periodo: formatWeekDate(reg.fecha),
+      assignee: reg.trabajador_nombre,
+      team: reg.team_nombre ?? '',
+      solicitante: reg.solicitante_nombre,
+      proyecto: reg.proyecto_nombre,
+      agrupador: reg.agrupador_nombre,
+      horas: Number(reg.horas), // Las horas específicas de ese día
+      estado: reg.estado_tarea,
+      comentario_ps: reg.comentario ?? '', // El comentario específico que puso el trabajador ese día
+      comentario_dm: '' // Columna vacía para que el cliente la llene
+    })
+  })
+}
+
+// Función principal de generación
+export async function generateTareoExcel(
+  registros: RegistroDetalleItem[],
+  periodoLabel: string
+): Promise<ExcelJS.Workbook> {
+  const workbook = new ExcelJS.Workbook()
+
+  // Ordenar los registros antes de separarlos
+  const sortedRegistros = sortRegistros(registros)
+
+  // Separar en Ágil y Proyectos
+  const agilData = sortedRegistros.filter((item) => {
+    const agg = item.agrupador_nombre.toLowerCase()
+    return agg.includes('squad') || agg.includes('mantenimiento') || agg.includes('agil')
+  })
+
+  const proyectosData = sortedRegistros.filter((item) => !agilData.includes(item))
+
+  createDetailSheet(workbook, 'Agil', agilData, periodoLabel)
+  createDetailSheet(workbook, 'Proyectos', proyectosData, periodoLabel)
+
+  return workbook
 }

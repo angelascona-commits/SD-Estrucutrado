@@ -11,6 +11,8 @@ interface TareoHeaderProps {
   onFechaChange: (value: string) => void
   onNuevoRegistro: () => void
   onNuevaTarea: () => void
+  onExport: () => void;
+  isExporting: boolean;
 }
 
 function buildPeriodoLabel(periodo: PeriodoItem) {
@@ -25,7 +27,9 @@ export default function TareoHeader({
   onPeriodoChange,
   onFechaChange,
   onNuevoRegistro,
-  onNuevaTarea
+  onNuevaTarea,
+  onExport,
+  isExporting
 }: TareoHeaderProps) {
   return (
     <div className={styles.container}>
@@ -34,8 +38,17 @@ export default function TareoHeader({
           <h1 className={styles.title}>Tareo diario</h1>
           <p className={styles.subtitle}>Registro operativo diario de horas por tarea</p>
         </div>
+        
 
         <div className={styles.actions}>
+          <button 
+            type="button" 
+            onClick={onExport} 
+            className={styles.secondaryButton}
+            disabled={isExporting}
+          >
+            {isExporting ? 'Generando Excel...' : 'Exportar Reporte'}
+          </button>
           <button type="button" onClick={onNuevaTarea} className={styles.secondaryButton}>
             Nueva tarea
           </button>
