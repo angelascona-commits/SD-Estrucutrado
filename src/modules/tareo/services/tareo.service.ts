@@ -257,24 +257,130 @@ function createDetailSheet(
 
 // Función principal de generación
 export async function generateTareoExcel(
+  tareasPeriodo: TareaPeriodoListItem[],
   registros: RegistroDetalleItem[],
-  periodoLabel: string
+  periodoLabel: string,
+  costoHora: number
 ): Promise<ExcelJS.Workbook> {
-  const workbook = new ExcelJS.Workbook()
+  const workbook = new ExcelJS.Workbook();
+  
+  // Separación de datos para detalle y resumen
+  const agilRegs = registros.filter(r => (r.agrupador_nombre || '').toLowerCase().includes('squad') || (r.agrupador_nombre || '').toLowerCase().includes('agil'));
+  const proyRegs = registros.filter(r => !agilRegs.includes(r));
 
-  // Ordenar los registros antes de separarlos
-  const sortedRegistros = sortRegistros(registros)
+  const agilTareas = tareasPeriodo.filter(t => (t.agrupador_nombre || '').toLowerCase().includes('squad') || (t.agrupador_nombre || '').toLowerCase().includes('agil'));
+  const proyTareas = tareasPeriodo.filter(t => !agilTareas.includes(t));
 
-  // Separar en Ágil y Proyectos
-  const agilData = sortedRegistros.filter((item) => {
-    const agg = item.agrupador_nombre.toLowerCase()
-    return agg.includes('squad') || agg.includes('mantenimiento') || agg.includes('agil')
-  })
+  // Hojas de detalle
+  createDetailSheet(workbook, 'Agil', agilRegs, periodoLabel);
+  createDetailSheet(workbook, 'Proyectos', proyRegs, periodoLabel);
+  
+  // Hoja de resumen con el nuevo formato
+  createSummarySheet(workbook, agilTareas, proyTareas, costoHora);
 
-  const proyectosData = sortedRegistros.filter((item) => !agilData.includes(item))
+  return workbook;
+}
+function createSummarySheet(
+  workbook: ExcelJS.Workbook,
+  agilTareas: TareaPeriodoListItem[],
+  proyectosTareas: TareaPeriodoListItem[],
+  costoHora: number
+) {
+  const sheet = workbook.addWorksheet('Resumen');
+  
+  // Configuración de anchos de columna
+  sheet.getColumn(1).width = 50; // Agrupador / Proyecto
+  sheet.getColumn(2).width = 15; // Horas
+  sheet.getColumn(3).width = 20; // Monto S/
 
-  createDetailSheet(workbook, 'Agil', agilData, periodoLabel)
-  createDetailSheet(workbook, 'Proyectos', proyectosData, periodoLabel)
+  const addTable = (title: string, tareas: TareaPeriodoListItem[], groupByKey: 'proyecto_nombre' | 'agrupador_nombre', startRow: number) => {
+    // Usamos las horas que el sistema ya calculó (horas_consumidas_periodo)
+    const grouped = tareas.reduce((acc, t) => {
+      const name = t[groupByKey] || 'Sin asignar';
+      const horas = Number(t.horas_consumidas_periodo || 0);
+      acc[name] = (acc[name] || 0) + horas;
+      return acc;
+    }, {} as Record<string, number>);
 
-  return workbook
+    // Título de la tabla
+    const titleCell = sheet.getCell(`A${startRow}`);
+    titleCell.value = title;
+    titleCell.font = { bold: true, size: 12 };
+
+    // Cabecera
+    const header = sheet.getRow(startRow + 1);
+    header.values = [groupByKey === 'proyecto_nombre' ? 'Pry - Protecta' : 'Agrupador', 'Horas', 'Monto a pagar'];
+    styleRow(header, true);
+
+    let currentRow = startRow + 2;
+    let totalH = 0;
+
+    Object.entries(grouped).forEach(([name, h]) => {
+      const row = sheet.addRow([name, h, h * costoHora]);
+      row.getCell(2).numFmt = '#,##0.00';
+      row.getCell(3).numFmt = '"S/ "#,##0.00'; // Cambio a Soles
+      styleRow(row);
+      totalH += h;
+      currentRow++;
+    });
+
+    // Fila de Subtotal
+    const subtotal = sheet.addRow(['Sub Total', totalH, totalH * costoHora]);
+    subtotal.font = { bold: true };
+    subtotal.getCell(3).numFmt = '"S/ "#,##0.00';
+    styleRow(subtotal);
+
+    return { h: totalH, m: totalH * costoHora, next: currentRow + 3 };
+  };
+
+  // 1. RESUMEN AGIL (Agrupado por Proyecto)
+  const resAgil = addTable('RESUMEN AGIL', agilTareas, 'proyecto_nombre', 1);
+
+  // 2. RESUMEN PROYECTOS (Agrupado por Agrupador)
+  const resProy = addTable('RESUMEN PROYECTOS', proyectosTareas, 'agrupador_nombre', resAgil.next);
+
+  // 3. CONSOLIDADO GENERAL
+  const genStart = resProy.next;
+  const genTitle = sheet.getCell(`A${genStart}`);
+  genTitle.value = 'CONSOLIDADO GENERAL';
+  genTitle.font = { bold: true, size: 12 };
+
+  const genHeader = sheet.getRow(genStart + 1);
+  genHeader.values = ['Categoría', 'Total Horas', 'Total a Pagar'];
+  styleRow(genHeader, true);
+
+  const r1 = sheet.addRow(['Agil', resAgil.h, resAgil.m]);
+  r1.getCell(3).numFmt = '"S/ "#,##0.00';
+  styleRow(r1);
+
+  const r2 = sheet.addRow(['Proyectos', resProy.h, resProy.m]);
+  r2.getCell(3).numFmt = '"S/ "#,##0.00';
+  styleRow(r2);
+
+  const total = sheet.addRow(['TOTAL GENERAL', resAgil.h + resProy.h, resAgil.m + resProy.m]);
+  total.font = { bold: true, size: 11 };
+  total.getCell(3).numFmt = '"S/ "#,##0.00';
+  styleRow(total);
+}
+function styleRow(row: ExcelJS.Row, isHeader: boolean = false) {
+  row.eachCell((cell) => {
+    cell.border = {
+      top: { style: 'thin', color: { argb: '000000' } },
+      left: { style: 'thin', color: { argb: '000000' } },
+      bottom: { style: 'thin', color: { argb: '000000' } },
+      right: { style: 'thin', color: { argb: '000000' } }
+    };
+    
+    if (isHeader) {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFF9FAF8' } // Gris muy claro para cabeceras
+      };
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: 'center' };
+    } else {
+      cell.alignment = { horizontal: 'left', indent: 1 };
+    }
+  });
 }

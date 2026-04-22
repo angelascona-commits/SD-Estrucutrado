@@ -46,6 +46,7 @@ function getInitialState(
       horas_historicas_arrastre: tarea.horas_historicas_arrastre ?? 0,
       horas_asignadas_periodo: tarea.horas_asignadas_periodo,
       comentario_periodo: tarea.comentario_periodo ?? '',
+      comentario_dm: tarea.comentario_dm ?? null,
       activo: tarea.activo ?? true
     }
   }
@@ -60,6 +61,7 @@ function getInitialState(
     horas_historicas_arrastre: 0,
     horas_asignadas_periodo: 0,
     comentario_periodo: '',
+    comentario_dm: null,
     activo: true
   }
 }

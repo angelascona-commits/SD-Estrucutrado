@@ -136,7 +136,7 @@ export default function TareoView() {
   const [tareaModalOpen, setTareaModalOpen] = useState(false)
   const [selectedRegistro, setSelectedRegistro] = useState<RegistroFormData | null>(null)
   const [selectedTarea, setSelectedTarea] = useState<TareaFormData | null>(null)
-    const [dailyFilters, setDailyFilters] = useState<TareoDailyFilterState>({
+  const [dailyFilters, setDailyFilters] = useState<TareoDailyFilterState>({
     search: '',
     tarea: '',
     proyecto: '',
@@ -144,7 +144,8 @@ export default function TareoView() {
     trabajador: '',
     solicitante: ''
   })
-
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportCosto, setExportCosto] = useState('65')
   const loadCatalogs = async () => {
     setLoading(true)
     setError(null)
@@ -170,8 +171,8 @@ export default function TareoView() {
     const response = await listTareasAction(
       periodoId
         ? {
-            periodo_id: periodoId
-          }
+          periodo_id: periodoId
+        }
         : undefined
     )
 
@@ -237,7 +238,7 @@ export default function TareoView() {
   }, [registros])
 
   const totalRegistrosDia = registros.length
-    const registrosFiltrados = useMemo(() => {
+  const registrosFiltrados = useMemo(() => {
     return applyDailyFilters(registros, dailyFilters)
   }, [registros, dailyFilters])
 
@@ -339,28 +340,36 @@ export default function TareoView() {
       setError('Selecciona un período para exportar')
       return
     }
+    setExportModalOpen(true)
+  }
+  const confirmExport = async () => {
+    const costoHora = parseFloat(exportCosto)
+    if (isNaN(costoHora) || costoHora <= 0) {
+      setError('El costo por hora debe ser mayor a 0.')
+      return
+    }
 
     setExporting(true)
     setError(null)
 
-    const response = await exportTareoAction(selectedPeriodoId)
+    try {
+      const response = await exportTareoAction(selectedPeriodoId!, costoHora)
 
-    if (!response.success || !response.data) {
-      setError(response.error ?? 'Error al generar el reporte')
+      if (response.success && response.data) {
+        const { base64, fileName } = response.data
+        const link = document.createElement('a')
+        link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`
+        link.download = fileName
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        setExportModalOpen(false) // Cerramos el modal al terminar
+      } else {
+        setError(response.error ?? 'Error al generar el reporte')
+      }
+    } finally {
       setExporting(false)
-      return
     }
-
-    // Lógica para forzar la descarga en el navegador usando Base64
-    const { base64, fileName } = response.data
-    const link = document.createElement('a')
-    link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`
-    link.download = fileName
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-
-    setExporting(false)
   }
   if (loading) {
     return (
@@ -372,6 +381,36 @@ export default function TareoView() {
 
   return (
     <div className={styles.container}>
+      {exportModalOpen && (
+        <div className={styles.backdrop} style={{ zIndex: 1000, position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className={styles.modal} style={{ background: '#fff', borderRadius: '18px', width: '400px', padding: '24px' }}>
+            <h3 className={styles.title} style={{ margin: '0 0 16px 0', fontSize: '20px' }}>Exportar Reporte</h3>
+            <p className={styles.subtitle} style={{ marginBottom: '16px', color: '#6b7280' }}>
+              Ingrese el costo unitario por hora para calcular los totales en el resumen.
+            </p>
+
+            <div className={styles.field} style={{ marginBottom: '24px' }}>
+              <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Costo por Hora (S/.)</label>
+              <input
+                type="number"
+                value={exportCosto}
+                onChange={(e) => setExportCosto(e.target.value)}
+                className={styles.input}
+                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+              />
+            </div>
+
+            <div className={styles.actions} style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setExportModalOpen(false)}>
+                Cancelar
+              </button>
+              <button type="button" className={styles.primaryButton} onClick={confirmExport} disabled={exporting}>
+                {exporting ? 'Generando...' : 'Descargar Excel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <TareoHeader
         periodos={catalogs?.periodos ?? []}
         selectedPeriodoId={selectedPeriodoId}
@@ -392,7 +431,7 @@ export default function TareoView() {
         totalRegistrosDia={totalRegistrosDia}
         totalTrabajadoresDia={totalTrabajadoresDia}
       />
-            <TareoDailyFilters
+      <TareoDailyFilters
         filters={dailyFilters}
         onChange={setDailyFilters}
         registros={registros}
@@ -438,4 +477,5 @@ export default function TareoView() {
       />
     </div>
   )
+
 }

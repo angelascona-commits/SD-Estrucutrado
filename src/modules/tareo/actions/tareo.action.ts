@@ -361,22 +361,27 @@ export async function closePeriodoAndCarryOverTasksAction(
   }
 }
 export async function exportTareoAction(
-  periodoId: number
+  periodoId: number,
+  costoHora: number
 ): Promise<ActionResult<{ base64: string; fileName: string }>> {
   try {
-    // 1. Obtener todos los registros diarios de ese período específico
-    const registros = await getRegistrosByPeriodo(periodoId)
+    // Traemos todo en paralelo: Registros diarios (detalle) y Tareas del mes (resumen)
+    const [allTareas, registros] = await Promise.all([
+      getAllTareasPeriodo(),
+      getRegistrosByPeriodo(periodoId)
+    ])
+
+    const tareasPeriodo = allTareas.filter((t) => t.periodo_id === periodoId)
 
     if (registros.length === 0) {
-      return { success: false, error: 'No hay horas registradas para el período seleccionado.' }
+      return { success: false, error: 'No existen registros operativos para este período.' }
     }
 
-    // 2. Extraer el año y mes para el nombre del archivo
     const first = registros[0]
     const periodoLabel = `${first.anio}-${String(first.mes).padStart(2, '0')}`
 
-    // 3. Generar el Excel
-    const workbook = await generateTareoExcel(registros, periodoLabel)
+    // Pasamos ambas listas al generador
+    const workbook = await generateTareoExcel(tareasPeriodo, registros, periodoLabel, costoHora)
     const buffer = await workbook.xlsx.writeBuffer()
     
     return {
