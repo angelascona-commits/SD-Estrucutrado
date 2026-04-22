@@ -72,6 +72,7 @@ export default function TareoDailyTable({
                         horas_disponibles_periodo: registro.horas_disponibles_periodo,
                         horas_totales_acumuladas: registro.horas_totales_acumuladas,
                         comentario_periodo: null,
+                        comentario_dm: null,
                         created_at: registro.created_at,
                         updated_at: registro.updated_at
                       })
