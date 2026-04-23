@@ -32,6 +32,180 @@ CREATE TABLE public.producto (
   nombre character varying NOT NULL,
   CONSTRAINT producto_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.tareo_agrupador (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  nombre character varying NOT NULL UNIQUE,
+  activo boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tareo_agrupador_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tareo_ajuste (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  tarea_id bigint NOT NULL,
+  tipo character varying NOT NULL,
+  horas_antes numeric,
+  horas_despues numeric,
+  descripcion text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tareo_ajuste_pkey PRIMARY KEY (id),
+  CONSTRAINT tareo_ajuste_tarea_id_fkey FOREIGN KEY (tarea_id) REFERENCES public.tareo_tarea(id)
+);
+CREATE TABLE public.tareo_comentario_draft (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  link_id uuid NOT NULL,
+  tarea_periodo_id integer NOT NULL,
+  comentario_dm text NOT NULL,
+  estado character varying DEFAULT 'Pendiente'::character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT tareo_comentario_draft_pkey PRIMARY KEY (id),
+  CONSTRAINT tareo_comentario_draft_link_id_fkey FOREIGN KEY (link_id) REFERENCES public.tareo_reporte_link(id),
+  CONSTRAINT tareo_comentario_draft_tarea_periodo_id_fkey FOREIGN KEY (tarea_periodo_id) REFERENCES public.tareo_tarea_periodo(id)
+);
+CREATE TABLE public.tareo_comentarios_externos (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  referencia_tipo character varying NOT NULL,
+  referencia_id integer NOT NULL,
+  comentario_protecta text,
+  comentario_dev text,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT tareo_comentarios_externos_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tareo_delegacion (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  fecha date NOT NULL,
+  tarea_id bigint NOT NULL,
+  trabajador_origen_id bigint NOT NULL,
+  trabajador_destino_id bigint NOT NULL,
+  horas numeric NOT NULL CHECK (horas > 0::numeric AND horas <= 12::numeric),
+  motivo text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tareo_delegacion_pkey PRIMARY KEY (id),
+  CONSTRAINT tareo_delegacion_tarea_id_fkey FOREIGN KEY (tarea_id) REFERENCES public.tareo_tarea(id),
+  CONSTRAINT tareo_delegacion_trabajador_origen_id_fkey FOREIGN KEY (trabajador_origen_id) REFERENCES public.tareo_trabajador(id),
+  CONSTRAINT tareo_delegacion_trabajador_destino_id_fkey FOREIGN KEY (trabajador_destino_id) REFERENCES public.tareo_trabajador(id)
+);
+CREATE TABLE public.tareo_estado_tarea (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  nombre character varying NOT NULL UNIQUE,
+  activo boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tareo_estado_tarea_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tareo_historial (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  entidad character varying NOT NULL,
+  entidad_id bigint NOT NULL,
+  accion character varying NOT NULL,
+  descripcion text,
+  fecha_movimiento timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tareo_historial_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tareo_periodo (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  anio integer NOT NULL,
+  mes integer NOT NULL CHECK (mes >= 1 AND mes <= 12),
+  fecha_inicio date NOT NULL,
+  fecha_fin date NOT NULL,
+  cerrado boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tareo_periodo_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tareo_proyecto (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  agrupador_id bigint NOT NULL,
+  nombre character varying NOT NULL,
+  activo boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tareo_proyecto_pkey PRIMARY KEY (id),
+  CONSTRAINT tareo_proyecto_agrupador_id_fkey FOREIGN KEY (agrupador_id) REFERENCES public.tareo_agrupador(id)
+);
+CREATE TABLE public.tareo_registro (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  tarea_id bigint,
+  fecha date NOT NULL,
+  trabajador_id bigint NOT NULL,
+  horas numeric NOT NULL CHECK (horas > 0::numeric AND horas <= 12::numeric),
+  comentario text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  tarea_periodo_id bigint NOT NULL,
+  CONSTRAINT tareo_registro_pkey PRIMARY KEY (id),
+  CONSTRAINT tareo_registro_tarea_id_fkey FOREIGN KEY (tarea_id) REFERENCES public.tareo_tarea(id),
+  CONSTRAINT tareo_registro_trabajador_id_fkey FOREIGN KEY (trabajador_id) REFERENCES public.tareo_trabajador(id),
+  CONSTRAINT tareo_registro_tarea_periodo_id_fkey FOREIGN KEY (tarea_periodo_id) REFERENCES public.tareo_tarea_periodo(id)
+);
+CREATE TABLE public.tareo_reporte_link (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  periodo_id integer NOT NULL,
+  token text NOT NULL DEFAULT encode(gen_random_bytes(16), 'hex'::text) UNIQUE,
+  fecha_expiracion timestamp with time zone NOT NULL,
+  activo boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT tareo_reporte_link_pkey PRIMARY KEY (id),
+  CONSTRAINT tareo_reporte_link_periodo_id_fkey FOREIGN KEY (periodo_id) REFERENCES public.tareo_periodo(id)
+);
+CREATE TABLE public.tareo_solicitante (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  nombre character varying NOT NULL UNIQUE,
+  horas_maximas_estimadas numeric,
+  activo boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tareo_solicitante_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tareo_tarea (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  periodo_id bigint NOT NULL,
+  nombre character varying NOT NULL,
+  proyecto_id bigint NOT NULL,
+  team_id bigint,
+  solicitante_id bigint NOT NULL,
+  estado_id bigint NOT NULL,
+  horas_totales numeric NOT NULL CHECK (horas_totales > 0::numeric),
+  horas_consumidas numeric NOT NULL DEFAULT 0 CHECK (horas_consumidas >= 0::numeric),
+  horas_disponibles numeric DEFAULT (horas_totales - horas_consumidas),
+  comentario_ps text,
+  activo boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  comentario_dm text,
+  CONSTRAINT tareo_tarea_pkey PRIMARY KEY (id),
+  CONSTRAINT tareo_tarea_proyecto_id_fkey FOREIGN KEY (proyecto_id) REFERENCES public.tareo_proyecto(id),
+  CONSTRAINT tareo_tarea_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.tareo_team(id),
+  CONSTRAINT tareo_tarea_solicitante_id_fkey FOREIGN KEY (solicitante_id) REFERENCES public.tareo_solicitante(id),
+  CONSTRAINT tareo_tarea_estado_id_fkey FOREIGN KEY (estado_id) REFERENCES public.tareo_estado_tarea(id)
+);
+CREATE TABLE public.tareo_tarea_periodo (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  tarea_id bigint NOT NULL,
+  periodo_id bigint NOT NULL,
+  horas_historicas_arrastre numeric NOT NULL DEFAULT 0 CHECK (horas_historicas_arrastre >= 0::numeric),
+  horas_asignadas_periodo numeric NOT NULL DEFAULT 0 CHECK (horas_asignadas_periodo >= 0::numeric),
+  horas_consumidas_periodo numeric NOT NULL DEFAULT 0 CHECK (horas_consumidas_periodo >= 0::numeric),
+  horas_disponibles_periodo numeric DEFAULT (horas_asignadas_periodo - horas_consumidas_periodo),
+  comentario_periodo text,
+  activo boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tareo_tarea_periodo_pkey PRIMARY KEY (id),
+  CONSTRAINT tareo_tarea_periodo_tarea_id_fkey FOREIGN KEY (tarea_id) REFERENCES public.tareo_tarea(id),
+  CONSTRAINT tareo_tarea_periodo_periodo_id_fkey FOREIGN KEY (periodo_id) REFERENCES public.tareo_periodo(id)
+);
+CREATE TABLE public.tareo_team (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  nombre character varying NOT NULL UNIQUE,
+  activo boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT tareo_team_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.tareo_trabajador (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  nombre character varying NOT NULL UNIQUE,
+  activo boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  correo character varying,
+  telefono character varying,
+  CONSTRAINT tareo_trabajador_pkey PRIMARY KEY (id)
+);
 CREATE TABLE public.ticket_gestion (
   ticket_id integer NOT NULL,
   producto_id integer,

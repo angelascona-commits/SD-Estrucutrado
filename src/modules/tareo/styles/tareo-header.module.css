@@ -54,6 +54,48 @@
   font-weight: 600;
 }
 
+.excelButton {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid #10b981;
+  background: #ecfdf5;
+  color: #065f46;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.excelButton:hover {
+  background: #d1fae5;
+}
+
+.excelButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.linkButton {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid #8b5cf6;
+  background: #f5f3ff;
+  color: #5b21b6;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.linkButton:hover {
+  background: #ede9fe;
+}
+
+.linkButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .filtersRow {
   display: flex;
   gap: 16px;

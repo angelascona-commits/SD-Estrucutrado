@@ -147,6 +147,8 @@ export default function TareoView() {
   })
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportCosto, setExportCosto] = useState('65')
+  const [generatedLinkData, setGeneratedLinkData] = useState<{isOpen: boolean, link: string}>({ isOpen: false, link: '' })
+  
   const loadCatalogs = async () => {
     setLoading(true)
     setError(null)
@@ -202,11 +204,10 @@ export default function TareoView() {
       // Intentar copiar al portapapeles automáticamente
       try {
         await navigator.clipboard.writeText(link)
-        alert(`¡Enlace mágico generado y copiado al portapapeles con éxito!\n\nYa puedes enviárselo al cliente:\n${link}`)
       } catch (err) {
-        // Fallback por si el navegador bloquea el portapapeles
-        window.prompt('El enlace ha sido generado. Cópielo manualmente:', link)
+        // Ignoramos el error, el modal permitirá copiarlo
       }
+      setGeneratedLinkData({ isOpen: true, link })
     } else {
       setError(response.error ?? 'Ocurrió un error al generar el enlace mágico.')
     }
@@ -440,6 +441,50 @@ export default function TareoView() {
           </div>
         </div>
       )}
+
+      {generatedLinkData.isOpen && (
+        <div className={styles.backdrop} style={{ zIndex: 1000, position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className={styles.modal} style={{ background: '#fff', borderRadius: '18px', width: '450px', padding: '32px', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
+            <div style={{ width: '64px', height: '64px', background: '#d1fae5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <h3 className={styles.title} style={{ margin: '0 0 12px 0', fontSize: '22px', color: '#111827' }}>¡Enlace Generado!</h3>
+            <p className={styles.subtitle} style={{ marginBottom: '24px', color: '#4b5563', fontSize: '15px', lineHeight: '1.5' }}>
+              El enlace mágico ha sido generado y copiado al portapapeles. Ya puedes compartirlo con el cliente.
+            </p>
+
+            <div style={{ background: '#f3f4f6', padding: '12px', borderRadius: '10px', marginBottom: '24px', wordBreak: 'break-all', fontSize: '14px', color: '#374151', border: '1px solid #e5e7eb', textAlign: 'left' }}>
+              {generatedLinkData.link}
+            </div>
+
+            <div className={styles.actions} style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
+              <button 
+                type="button" 
+                className={styles.secondaryButton} 
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(generatedLinkData.link);
+                    alert("Copiado nuevamente");
+                  } catch (e) {}
+                }}
+              >
+                Copiar Enlace
+              </button>
+              <button 
+                type="button" 
+                className={styles.primaryButton} 
+                style={{ padding: '0 24px' }}
+                onClick={() => setGeneratedLinkData({ isOpen: false, link: '' })}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <TareoHeader
         periodos={catalogs?.periodos ?? []}
         selectedPeriodoId={selectedPeriodoId}

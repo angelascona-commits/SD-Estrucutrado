@@ -42,24 +42,24 @@ export default function TareoHeader({
           <h1 className={styles.title}>Tareo diario</h1>
           <p className={styles.subtitle}>Registro operativo diario de horas por tarea</p>
         </div>
-        
+
 
         <div className={styles.actions}>
-          <button 
-            type="button" 
-            onClick={onGenerateLink} 
-            className={styles.secondaryButton} // Usa la misma clase gris/clara que el de exportar
+          <button
+            type="button"
+            onClick={onGenerateLink}
+            className={styles.linkButton}
             disabled={isGeneratingLink}
           >
             {isGeneratingLink ? 'Creando Link...' : '🔗 Compartir Link'}
           </button>
-          <button 
-            type="button" 
-            onClick={onExport} 
-            className={styles.secondaryButton}
+          <button
+            type="button"
+            onClick={onExport}
+            className={styles.excelButton}
             disabled={isExporting}
           >
-            {isExporting ? 'Generando Excel...' : 'Exportar Reporte'}
+            {isExporting ? 'Generando Excel...' : ' Exportar Reporte'}
           </button>
           <button type="button" onClick={onNuevaTarea} className={styles.secondaryButton}>
             Nueva tarea
