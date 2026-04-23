@@ -11,7 +11,8 @@ import {
   saveRegistroAction,
   saveTareaAction,
   deleteRegistroAction,
-  exportTareoAction
+  exportTareoAction,
+  generatePublicLinkAction
 } from '../actions/tareo.action'
 import type {
   RegistroDetalleItem,
@@ -166,7 +167,7 @@ export default function TareoView() {
 
     setLoading(false)
   }
-
+  const [generatingLink, setGeneratingLink] = useState(false)
   const loadTareasPeriodo = async (periodoId?: number | null) => {
     const response = await listTareasAction(
       periodoId
@@ -184,7 +185,34 @@ export default function TareoView() {
 
     setTareasPeriodo(response.data ?? [])
   }
+  const handleGenerateLink = async () => {
+    if (!selectedPeriodoId) {
+      setError('Por favor, selecciona un período antes de generar el enlace.')
+      return
+    }
 
+    setGeneratingLink(true)
+    setError(null)
+
+    const response = await generatePublicLinkAction(selectedPeriodoId)
+
+    if (response.success && response.data) {
+      const link = response.data
+      
+      // Intentar copiar al portapapeles automáticamente
+      try {
+        await navigator.clipboard.writeText(link)
+        alert(`¡Enlace mágico generado y copiado al portapapeles con éxito!\n\nYa puedes enviárselo al cliente:\n${link}`)
+      } catch (err) {
+        // Fallback por si el navegador bloquea el portapapeles
+        window.prompt('El enlace ha sido generado. Cópielo manualmente:', link)
+      }
+    } else {
+      setError(response.error ?? 'Ocurrió un error al generar el enlace mágico.')
+    }
+
+    setGeneratingLink(false)
+  }
   const loadData = async (fecha: string, periodoId?: number | null) => {
     setLoadingData(true)
     setError(null)
@@ -371,6 +399,7 @@ export default function TareoView() {
       setExporting(false)
     }
   }
+  
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
@@ -421,6 +450,8 @@ export default function TareoView() {
         onNuevaTarea={handleOpenNuevaTarea}
         onExport={handleExportExcel}
         isExporting={exporting}
+        onGenerateLink={handleGenerateLink}
+        isGeneratingLink={generatingLink}
       />
 
       {error && <div className={styles.errorBox}>{error}</div>}

@@ -41,7 +41,10 @@ import {
   validateTareaUpdatePayload,
   generateTareoExcel
 } from '../services/tareo.service'
-
+import{
+  supabase
+} from '../../shared/infra/supabase'
+import { createClient } from '@supabase/supabase-js'
 export async function fetchTareoCatalogsAction(): Promise<ActionResult<TareoCatalogs>> {
   try {
     const data = await getTareoCatalogs()
@@ -394,4 +397,119 @@ export async function exportTareoAction(
   } catch (error) {
     return { success: false, error: 'Error al generar el archivo Excel.' }
   }
+}
+export async function generatePublicLinkAction(periodoId: number): Promise<ActionResult<string>> {
+  try {
+    const expiration = new Date()
+    expiration.setDate(expiration.getDate() + 7) // Expira en 7 días
+
+    const { data, error } = await supabase
+      .from('tareo_reporte_link')
+      .insert({
+        periodo_id: periodoId,
+        fecha_expiracion: expiration.toISOString()
+      })
+      .select('token')
+      .single()
+
+    if (error) throw error
+
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    return { success: true, data: `${baseUrl}/reporte-externo/${data.token}` }
+  } catch (error) {
+    return { success: false, error: 'Error al generar el link' }
+  }
+} 
+export async function getPublicReportDataAction(token: string): Promise<ActionResult<any>> {
+  try {
+    const adminSupabase = getAdminSupabase();
+
+    // Validar token activo
+    const { data: link, error: linkErr } = await adminSupabase
+      .from('tareo_reporte_link')
+      .select('id, periodo_id')
+      .eq('token', token)
+      .eq('activo', true)
+      .gt('fecha_expiracion', new Date().toISOString())
+      .single();
+
+    if (linkErr || !link) throw new Error('Enlace inválido o expirado');
+
+    // Traer registros
+    const { data: registros, error: registrosErr } = await adminSupabase
+      .from('v_tareo_registro_detalle') 
+      .select('*')
+      .eq('periodo_id', link.periodo_id)
+      .order('fecha', { ascending: true });
+
+    if (registrosErr) throw new Error(registrosErr.message);
+
+    // NUEVO: Traer los comentarios bidireccionales
+    const { data: feedback } = await adminSupabase
+      .from('tareo_comentarios_externos')
+      .select('referencia_tipo, referencia_id, comentario_protecta, comentario_dev');
+
+    return { 
+      success: true, 
+      data: { registros: registros || [], feedback: feedback || [], linkId: link.id } 
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+export async function saveExternalCommentsAction(
+  drafts: { tipo: 'TAREA' | 'REGISTRO'; id: number; comentario_protecta: string }[]
+): Promise<ActionResult<void>> {
+  try {
+    const adminSupabase = getAdminSupabase();
+    
+    // Preparamos el payload. Nota: No tocamos comentario_dev para no borrar lo que escriba tu equipo.
+    const payload = drafts.map(d => ({
+      referencia_tipo: d.tipo,
+      referencia_id: d.id,
+      comentario_protecta: d.comentario_protecta,
+      updated_at: new Date().toISOString()
+    }));
+
+    // El upsert actualizará comentario_protecta y dejará intacto comentario_dev
+    const { error } = await adminSupabase
+      .from('tareo_comentarios_externos')
+      .upsert(payload, { onConflict: 'referencia_tipo,referencia_id' });
+
+    if (error) throw new Error(error.message);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+// 3. Guardar los borradores del cliente
+export async function saveDraftCommentsAction(
+  linkId: string,
+  drafts: { tarea_periodo_id: number; comentario_dm: string }[]
+): Promise<ActionResult<void>> {
+  try {
+    const adminSupabase = getAdminSupabase()
+    
+    const payload = drafts.map(d => ({
+      link_id: linkId,
+      tarea_periodo_id: d.tarea_periodo_id,
+      comentario_dm: d.comentario_dm
+    }))
+
+    const { error } = await adminSupabase
+      .from('tareo_comentario_draft')
+      .upsert(payload, { onConflict: 'link_id,tarea_periodo_id' })
+
+    if (error) throw new Error(`Error al guardar: ${error.message}`)
+    
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}
+const getAdminSupabase = () => {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 }

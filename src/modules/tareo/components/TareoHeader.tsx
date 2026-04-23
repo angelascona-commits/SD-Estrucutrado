@@ -12,6 +12,8 @@ interface TareoHeaderProps {
   onNuevoRegistro: () => void
   onNuevaTarea: () => void
   onExport: () => void;
+  onGenerateLink: () => void;
+  isGeneratingLink: boolean;
   isExporting: boolean;
 }
 
@@ -29,6 +31,8 @@ export default function TareoHeader({
   onNuevoRegistro,
   onNuevaTarea,
   onExport,
+  onGenerateLink,
+  isGeneratingLink,
   isExporting
 }: TareoHeaderProps) {
   return (
@@ -41,6 +45,14 @@ export default function TareoHeader({
         
 
         <div className={styles.actions}>
+          <button 
+            type="button" 
+            onClick={onGenerateLink} 
+            className={styles.secondaryButton} // Usa la misma clase gris/clara que el de exportar
+            disabled={isGeneratingLink}
+          >
+            {isGeneratingLink ? 'Creando Link...' : '🔗 Compartir Link'}
+          </button>
           <button 
             type="button" 
             onClick={onExport} 
