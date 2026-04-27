@@ -262,9 +262,10 @@ export async function toggleTareaActivo(tareaId: number, activo: boolean): Promi
 
 export async function upsertCatalogItem(tableName: string, payload: any): Promise<number> {
   if (payload.id) {
-    const { error } = await supabase.from(tableName).update(payload).eq('id', payload.id)
+    const { id, ...updatePayload } = payload
+    const { error } = await supabase.from(tableName).update(updatePayload).eq('id', id)
     if (error) throw new Error(error.message)
-    return payload.id
+    return id
   } else {
     const { data, error } = await supabase.from(tableName).insert(payload).select('id').single()
     if (error) throw new Error(error.message)
