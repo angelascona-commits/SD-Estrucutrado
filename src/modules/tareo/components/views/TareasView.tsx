@@ -5,7 +5,8 @@ import {
   fetchTareoCatalogsAction,
   listTareasAction,
   getTareaByIdAction,
-  saveTareaAction
+  saveTareaAction,
+  toggleTareaActivoAction
 } from '../../actions/tareo.action'
 import type {
   TareaPeriodoListItem,
@@ -13,6 +14,7 @@ import type {
   TareaFormData
 } from '../../interfaces/tareo.interfaces'
 import TareaModal from '../TareaModal'
+import { AlertModal, ConfirmModal } from '../FeedbackModals'
 import styles from './CatalogosView.module.css'
 
 export default function TareasView() {
@@ -25,6 +27,26 @@ export default function TareasView() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TareaFormData | null>(null)
   const [selectedPeriodoId, setSelectedPeriodoId] = useState<number | null>(null)
+
+  // Feedback Modals State
+  const [alertOpen, setAlertOpen] = useState(false)
+  const [alertMessage, setAlertMessage] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmConfig, setConfirmConfig] = useState<{message: string, action: () => void} | null>(null)
+
+  const showAlert = (msg: string) => {
+    setAlertMessage(msg)
+    setAlertOpen(true)
+  }
+
+  const showConfirm = (msg: string, action: () => void) => {
+    setConfirmConfig({ message: msg, action })
+    setConfirmOpen(true)
+  }
+
+  const [showArchived, setShowArchived] = useState(false)
+  const [estadoFilter, setEstadoFilter] = useState<string>('')
+  const [horasFilter, setHorasFilter] = useState<string>('Todas')
 
   const loadData = async (periodoId?: number | null) => {
     setLoading(true)
@@ -71,7 +93,7 @@ export default function TareasView() {
 
   const handleCreate = () => {
     if (!selectedPeriodoId) {
-      alert("Por favor selecciona un período primero.")
+      showAlert("Por favor selecciona un período primero.")
       return
     }
     setSelectedTask(null)
@@ -81,7 +103,7 @@ export default function TareasView() {
   const handleEdit = async (tareaPeriodo: TareaPeriodoListItem) => {
     const res = await getTareaByIdAction(tareaPeriodo.tarea_periodo_id)
     if (!res.success || !res.data) {
-      alert(res.error ?? 'Error cargando tarea')
+      showAlert(res.error ?? 'Error cargando tarea')
       return
     }
 
@@ -110,6 +132,34 @@ export default function TareasView() {
     }
     await loadData(selectedPeriodoId)
   }
+
+  const handleToggleActivo = async (t: TareaPeriodoListItem) => {
+    showConfirm(`¿Deseas ${t.activo ? 'desactivar/archivar' : 'activar'} esta tarea?`, async () => {
+      setConfirmOpen(false)
+      setLoading(true)
+      const res = await toggleTareaActivoAction(t.tarea_id, !t.activo)
+      if (!res.success) {
+        showAlert(res.error ?? 'Error cambiando estado de la tarea')
+        setLoading(false)
+        return
+      }
+      await loadData(selectedPeriodoId)
+    })
+  }
+
+  const filteredTasks = tasks.filter(t => {
+    if (showArchived ? t.activo : !t.activo) return false;
+    
+    if (estadoFilter && t.estado_nombre !== estadoFilter) return false;
+
+    if (horasFilter === 'ConHoras' && t.horas_disponibles_periodo <= 0) return false;
+    if (horasFilter === 'SinHoras' && t.horas_disponibles_periodo > 0) return false;
+
+    return true;
+  })
+
+  // get unique states for filter
+  const uniqueStates = Array.from(new Set(tasks.map(t => t.estado_nombre))).filter(Boolean)
 
   const buildPeriodoLabel = (periodo: any) => {
     const month = `${periodo.mes}`.padStart(2, '0')
@@ -156,6 +206,56 @@ export default function TareasView() {
         </div>
       </div>
 
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', background: '#fff', padding: '16px', borderRadius: '16px', border: '1px solid #e5e7eb' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: 1 }}>
+          <button 
+            type="button"
+            onClick={() => setShowArchived(false)}
+            style={{ 
+              background: !showArchived ? '#e0f2fe' : '#f3f4f6', 
+              color: !showArchived ? '#0369a1' : '#4b5563',
+              border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: '0.2s'
+            }}
+          >
+            Tareas Activas
+          </button>
+          <button 
+            type="button"
+            onClick={() => setShowArchived(true)}
+            style={{ 
+              background: showArchived ? '#fee2e2' : '#f3f4f6', 
+              color: showArchived ? '#b91c1c' : '#4b5563',
+              border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: '0.2s'
+            }}
+          >
+            Archivo (Inactivas)
+          </button>
+        </div>
+        
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <select 
+            value={estadoFilter} 
+            onChange={e => setEstadoFilter(e.target.value)}
+            style={{ height: '36px', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '0 10px', outline: 'none', color: '#374151', fontSize: '13px' }}
+          >
+            <option value="">Todos los Estados</option>
+            {uniqueStates.map(st => (
+              <option key={st} value={st}>{st}</option>
+            ))}
+          </select>
+          
+          <select 
+            value={horasFilter} 
+            onChange={e => setHorasFilter(e.target.value)}
+            style={{ height: '36px', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '0 10px', outline: 'none', color: '#374151', fontSize: '13px' }}
+          >
+            <option value="Todas">Todas las Horas</option>
+            <option value="ConHoras">Disponibles {`>`} 0</option>
+            <option value="SinHoras">Agotadas {`<=`} 0</option>
+          </select>
+        </div>
+      </div>
+
       <div className={styles.content} style={{ minHeight: 'auto' }}>
         {loading ? (
           <div className={styles.loading}>Cargando tareas...</div>
@@ -177,9 +277,12 @@ export default function TareasView() {
                 </tr>
               </thead>
               <tbody>
-                {tasks.map(t => (
-                  <tr key={t.tarea_periodo_id}>
-                    <td style={{ fontWeight: 600 }}>{t.tarea_nombre}</td>
+                {filteredTasks.map(t => (
+                  <tr key={t.tarea_periodo_id} style={{ opacity: showArchived ? 0.7 : 1 }}>
+                    <td style={{ fontWeight: 600 }}>
+                      {t.tarea_nombre}
+                      {showArchived && <span style={{ fontSize: '10px', background: '#fee2e2', color: '#991b1b', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>Inactiva</span>}
+                    </td>
                     <td>
                       <div>{t.proyecto_nombre}</div>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>
@@ -205,29 +308,49 @@ export default function TareasView() {
                       </span>
                     </td>
                     <td>
-                      <button 
-                        onClick={() => handleEdit(t)}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#2563eb',
-                          cursor: 'pointer',
-                          fontWeight: 600,
-                          padding: '4px 8px',
-                          borderRadius: '4px'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                      >
-                        Editar
-                      </button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                          onClick={() => handleToggleActivo(t)}
+                          title={t.activo ? "Desactivar/Archivar Tarea" : "Reactivar Tarea"}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: t.activo ? '#ef4444' : '#10b981',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            fontWeight: 600,
+                            borderRadius: '4px',
+                            transition: '0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = t.activo ? '#fee2e2' : '#d1fae5'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          {t.activo ? 'Desactivar' : 'Activar'}
+                        </button>
+                        <button 
+                          onClick={() => handleEdit(t)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#2563eb',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            padding: '4px 8px',
+                            borderRadius: '4px'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          Editar
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
-                {tasks.length === 0 && (
+                {filteredTasks.length === 0 && (
                   <tr>
                     <td colSpan={8} className={styles.empty}>
-                      No hay tareas registradas para este período.
+                      No hay tareas {showArchived ? 'inactivas' : 'activas'} que coincidan con los filtros.
                     </td>
                   </tr>
                 )}
@@ -248,6 +371,21 @@ export default function TareasView() {
         solicitantes={catalogs?.solicitantes ?? []}
         teams={catalogs?.teams ?? []}
         estadosTarea={catalogs?.estadosTarea ?? []}
+      />
+
+      <AlertModal 
+        isOpen={alertOpen} 
+        message={alertMessage} 
+        onClose={() => setAlertOpen(false)} 
+      />
+      
+      <ConfirmModal 
+        isOpen={confirmOpen} 
+        message={confirmConfig?.message ?? ''} 
+        onConfirm={() => {
+          if (confirmConfig?.action) confirmConfig.action()
+        }} 
+        onCancel={() => setConfirmOpen(false)} 
       />
     </div>
   )

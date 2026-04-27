@@ -244,6 +244,40 @@ export async function updateTareaPeriodo(id: number, payload: TareaFormData): Pr
   }
 }
 
+export async function toggleTareaActivo(tareaId: number, activo: boolean): Promise<void> {
+  const { error: errorTarea } = await supabase
+    .from('tareo_tarea')
+    .update({ activo })
+    .eq('id', tareaId)
+
+  if (errorTarea) throw new Error(errorTarea.message)
+
+  const { error: errorPeriodo } = await supabase
+    .from('tareo_tarea_periodo')
+    .update({ activo })
+    .eq('tarea_id', tareaId)
+
+  if (errorPeriodo) throw new Error(errorPeriodo.message)
+}
+
+export async function upsertCatalogItem(tableName: string, payload: any): Promise<number> {
+  if (payload.id) {
+    const { error } = await supabase.from(tableName).update(payload).eq('id', payload.id)
+    if (error) throw new Error(error.message)
+    return payload.id
+  } else {
+    const { data, error } = await supabase.from(tableName).insert(payload).select('id').single()
+    if (error) throw new Error(error.message)
+    return data.id
+  }
+}
+
+export async function deleteCatalogItem(tableName: string, id: number): Promise<void> {
+  // Logical delete by default for catalogs
+  const { error } = await supabase.from(tableName).update({ activo: false }).eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 export async function getRegistrosByFecha(fecha: string): Promise<RegistroDetalleItem[]> {
   const { data, error } = await supabase
     .from('v_tareo_registro_detalle')

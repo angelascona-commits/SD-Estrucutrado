@@ -31,6 +31,9 @@ import {
   getHorasTrabajadorByFecha,
   getTareaPeriodoValidacion,
   closePeriodoAndCarryOverTasks,
+  toggleTareaActivo,
+  upsertCatalogItem,
+  deleteCatalogItem
 } from '../repository/tareo.repository'
 import {
   applyTareaFilters,
@@ -68,6 +71,45 @@ export async function listTareasAction(
     return {
       success: false,
       error: error instanceof Error ? error.message : 'No se pudieron cargar las tareas'
+    }
+  }
+}
+
+export async function toggleTareaActivoAction(tareaId: number, activo: boolean): Promise<ActionResult<void>> {
+  try {
+    await toggleTareaActivo(tareaId, activo)
+    revalidatePath('/tareo')
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'No se pudo cambiar el estado de la tarea'
+    }
+  }
+}
+
+export async function saveCatalogItemAction(tableName: string, payload: any): Promise<ActionResult<{ id: number }>> {
+  try {
+    const id = await upsertCatalogItem(tableName, payload)
+    revalidatePath('/tareo')
+    return { success: true, data: { id } }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'No se pudo guardar el catálogo'
+    }
+  }
+}
+
+export async function deleteCatalogItemAction(tableName: string, id: number): Promise<ActionResult<void>> {
+  try {
+    await deleteCatalogItem(tableName, id)
+    revalidatePath('/tareo')
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'No se pudo eliminar el catálogo'
     }
   }
 }
@@ -182,6 +224,15 @@ export async function saveRegistroAction(
       }
 
       await updateRegistro(payload.id, normalizedPayload)
+      
+      const tareaPeriodoInfo = await getTareaPeriodoValidacion(normalizedPayload.tarea_periodo_id)
+      if (tareaPeriodoInfo && tareaPeriodoInfo.horas_disponibles_periodo <= 0) {
+        const dbTaskInfo = await getTareaPeriodoById(normalizedPayload.tarea_periodo_id)
+        if (dbTaskInfo) {
+          await toggleTareaActivo(dbTaskInfo.tarea_id, false)
+        }
+      }
+
       revalidatePath('/tareo')
 
       return {
@@ -191,6 +242,15 @@ export async function saveRegistroAction(
     }
 
     const registroId = await createRegistro(normalizedPayload)
+    
+    const tareaPeriodoInfo = await getTareaPeriodoValidacion(normalizedPayload.tarea_periodo_id)
+    if (tareaPeriodoInfo && tareaPeriodoInfo.horas_disponibles_periodo <= 0) {
+      const dbTaskInfo = await getTareaPeriodoById(normalizedPayload.tarea_periodo_id)
+      if (dbTaskInfo) {
+        await toggleTareaActivo(dbTaskInfo.tarea_id, false)
+      }
+    }
+
     revalidatePath('/tareo')
 
     return {
