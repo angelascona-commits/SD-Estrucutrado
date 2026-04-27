@@ -203,12 +203,14 @@ export default function RegistroTareoModal({
                 required
               >
                 <option value="">Seleccionar tarea</option>
-                {tareasPeriodo.map((tarea) => (
-                  <option key={tarea.tarea_periodo_id} value={tarea.tarea_periodo_id}>
-                    {tarea.tarea_nombre} · {tarea.proyecto_nombre} · {tarea.periodo_anio}-
-                    {`${tarea.periodo_mes}`.padStart(2, '0')}
-                  </option>
-                ))}
+                {tareasPeriodo
+                  .filter((tarea) => tarea.activo || (isEditing && formData.tarea_periodo_id === tarea.tarea_periodo_id))
+                  .map((tarea) => (
+                    <option key={tarea.tarea_periodo_id} value={tarea.tarea_periodo_id}>
+                      {tarea.tarea_nombre} · {tarea.proyecto_nombre} · {tarea.periodo_anio}-
+                      {`${tarea.periodo_mes}`.padStart(2, '0')}
+                    </option>
+                  ))}
               </select>
             </div>
 
