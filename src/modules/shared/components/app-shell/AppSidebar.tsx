@@ -18,8 +18,12 @@ const DOMINIOS = [
     label: 'Tareo',
     href: '/tareo',
     icon: 'schedule',
+  },
+  {
+    label: 'Pareo',
+    href: '/pareo',
+    icon: 'join_inner',
   }
-
 ]
 
 export default function AppSidebar({ isCollapsed }: AppSidebarProps) {
