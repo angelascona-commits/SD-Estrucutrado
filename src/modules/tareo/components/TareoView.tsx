@@ -150,7 +150,7 @@ export default function TareoView() {
   const [exportFilters, setExportFilters] = useState({ periodo_id: '', solicitante_id: '', trabajador_id: '' })
 
   const [linkModalOpen, setLinkModalOpen] = useState(false)
-  const [linkFilters, setLinkFilters] = useState({ costo_hora: '65', solicitante_id: '', trabajador_id: '' })
+  const [linkFilters, setLinkFilters] = useState({ periodo_id: '', costo_hora: '65', solicitante_id: '', trabajador_id: '' })
   const [generatedLinkData, setGeneratedLinkData] = useState<{isOpen: boolean, link: string}>({ isOpen: false, link: '' })
   const loadCatalogs = async () => {
     setLoading(true)
@@ -195,7 +195,7 @@ export default function TareoView() {
       setError('Selecciona un período antes de generar el enlace.')
       return
     }
-    setLinkFilters(prev => ({ ...prev, costo_hora: '65' }))
+    setLinkFilters(prev => ({ ...prev, costo_hora: '65', periodo_id: selectedPeriodoId.toString() }))
     setLinkModalOpen(true)
   }
 
@@ -203,8 +203,9 @@ export default function TareoView() {
     setGeneratingLink(true)
     setError(null)
 
+    const targetPeriodoId = linkFilters.periodo_id ? Number(linkFilters.periodo_id) : selectedPeriodoId!
     const response = await generatePublicLinkAction(
-      selectedPeriodoId!, 
+      targetPeriodoId, 
       linkFilters.solicitante_id ? Number(linkFilters.solicitante_id) : undefined, 
       linkFilters.trabajador_id ? Number(linkFilters.trabajador_id) : undefined,
       linkFilters.costo_hora ? Number(linkFilters.costo_hora) : undefined
@@ -527,6 +528,24 @@ export default function TareoView() {
                 className={styles.input}
                 style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
               />
+            </div>
+
+            <div className={styles.field} style={{ marginBottom: '16px' }}>
+              <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Período</label>
+              <select
+                value={linkFilters.periodo_id}
+                onChange={(e) => setLinkFilters({ ...linkFilters, periodo_id: e.target.value })}
+                className={styles.select}
+                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+              >
+                {catalogs?.periodos?.map((p) => {
+                  const month = `${p.mes}`.padStart(2, '0')
+                  const label = `${p.anio}-${month}${p.cerrado ? ' · Cerrado' : ''}`
+                  return (
+                    <option key={p.id} value={p.id}>{label}</option>
+                  )
+                })}
+              </select>
             </div>
 
             <div className={styles.field} style={{ marginBottom: '16px' }}>
