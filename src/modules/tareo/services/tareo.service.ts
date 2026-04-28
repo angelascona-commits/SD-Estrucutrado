@@ -260,25 +260,75 @@ export async function generateTareoExcel(
   tareasPeriodo: TareaPeriodoListItem[],
   registros: RegistroDetalleItem[],
   periodoLabel: string,
-  costoHora: number
+  costoHora: number,
+  isFiltered: boolean = false
 ): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
   
-  // Separación de datos para detalle y resumen
-  const agilRegs = registros.filter(r => (r.agrupador_nombre || '').toLowerCase().includes('squad') || (r.agrupador_nombre || '').toLowerCase().includes('agil'));
-  const proyRegs = registros.filter(r => !agilRegs.includes(r));
+  if (isFiltered) {
+    createDetailSheet(workbook, 'Detalle Registros', registros, periodoLabel);
+    createFilteredSummarySheet(workbook, tareasPeriodo, costoHora);
+  } else {
+    // Separación de datos para detalle y resumen
+    const agilRegs = registros.filter(r => (r.agrupador_nombre || '').toLowerCase().includes('squad') || (r.agrupador_nombre || '').toLowerCase().includes('agil'));
+    const proyRegs = registros.filter(r => !agilRegs.includes(r));
 
-  const agilTareas = tareasPeriodo.filter(t => (t.agrupador_nombre || '').toLowerCase().includes('squad') || (t.agrupador_nombre || '').toLowerCase().includes('agil'));
-  const proyTareas = tareasPeriodo.filter(t => !agilTareas.includes(t));
+    const agilTareas = tareasPeriodo.filter(t => (t.agrupador_nombre || '').toLowerCase().includes('squad') || (t.agrupador_nombre || '').toLowerCase().includes('agil'));
+    const proyTareas = tareasPeriodo.filter(t => !agilTareas.includes(t));
 
-  // Hojas de detalle
-  createDetailSheet(workbook, 'Agil', agilRegs, periodoLabel);
-  createDetailSheet(workbook, 'Proyectos', proyRegs, periodoLabel);
-  
-  // Hoja de resumen con el nuevo formato
-  createSummarySheet(workbook, agilTareas, proyTareas, costoHora);
+    // Hojas de detalle
+    createDetailSheet(workbook, 'Agil', agilRegs, periodoLabel);
+    createDetailSheet(workbook, 'Proyectos', proyRegs, periodoLabel);
+    
+    // Hoja de resumen con el nuevo formato
+    createSummarySheet(workbook, agilTareas, proyTareas, costoHora);
+  }
 
   return workbook;
+}
+
+function createFilteredSummarySheet(
+  workbook: ExcelJS.Workbook,
+  tareas: TareaPeriodoListItem[],
+  costoHora: number
+) {
+  const sheet = workbook.addWorksheet('Resumen Filtrado');
+  
+  // Configuración de anchos de columna
+  sheet.getColumn(1).width = 60; // Tarea
+  sheet.getColumn(2).width = 15; // Horas
+  sheet.getColumn(3).width = 20; // Monto S/
+
+  // Título de la tabla
+  const titleCell = sheet.getCell('A1');
+  titleCell.value = 'RESUMEN TOTAL FILTRADO';
+  titleCell.font = { bold: true, size: 14 };
+
+  // Cabecera
+  const header = sheet.getRow(2);
+  header.values = ['Nombre de la Tarea', 'Horas Totales', 'Monto a pagar'];
+  styleRow(header, true);
+
+  let currentRow = 3;
+  let totalH = 0;
+
+  tareas.forEach((t) => {
+    const horas = Number(t.horas_consumidas_periodo || 0);
+    if (horas > 0) {
+      const row = sheet.addRow([t.tarea_nombre, horas, horas * costoHora]);
+      row.getCell(2).numFmt = '#,##0.00';
+      row.getCell(3).numFmt = '"S/ "#,##0.00';
+      styleRow(row);
+      totalH += horas;
+      currentRow++;
+    }
+  });
+
+  // Fila de Subtotal
+  const subtotal = sheet.addRow(['TOTAL GENERAL', totalH, totalH * costoHora]);
+  subtotal.font = { bold: true, size: 12 };
+  subtotal.getCell(3).numFmt = '"S/ "#,##0.00';
+  styleRow(subtotal);
 }
 function createSummarySheet(
   workbook: ExcelJS.Workbook,

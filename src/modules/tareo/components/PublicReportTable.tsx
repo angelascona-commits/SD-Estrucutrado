@@ -8,9 +8,10 @@ interface Props {
   registros: any[]
   feedback: any[]
   linkId: string
+  costoHora?: number
 }
 
-export default function PublicReportTable({ registros, feedback, linkId }: Props) {
+export default function PublicReportTable({ registros, feedback, linkId, costoHora }: Props) {
   const [saving, setSaving] = useState(false)
   
   // 1. ESTADOS DE FILTROS AMPLIADOS
@@ -51,7 +52,7 @@ export default function PublicReportTable({ registros, feedback, linkId }: Props
   }, [registros])
 
   // Lógica de filas con FILTRADO MULTIPLE
-  const filasExcel = useMemo(() => {
+  const filasExcelYResumen = useMemo(() => {
     const grupos: Record<number, any> = {}
     registros.forEach(reg => {
       const tId = reg.tarea_periodo_id
@@ -76,8 +77,10 @@ export default function PublicReportTable({ registros, feedback, linkId }: Props
       listaPlana.push(g) // Fila de Resumen (Tarea)
       g.detalle.forEach((det: any) => listaPlana.push(det)) // Filas de Registro Diario
     })
-    return listaPlana
+    return { listaPlana, gruposFiltrados }
   }, [registros, searchTerm, selectedPry, selectedSolicitante, selectedTeam])
+
+  const { listaPlana: filasExcel, gruposFiltrados: tareasResumen } = filasExcelYResumen
 
   const handleChange = (tipo: 'tareas' | 'registros', id: number, valor: string) => {
     setComentariosPS(prev => ({
@@ -154,6 +157,42 @@ export default function PublicReportTable({ registros, feedback, linkId }: Props
           {saving ? 'Guardando...' : 'Guardar Observaciones'}
         </button>
       </div>
+
+      {/* NUEVO: RESUMEN DE COSTOS */}
+      {costoHora !== undefined && costoHora > 0 && (
+        <div style={{ marginBottom: '24px', background: '#fff', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#111827' }}>Resumen de Horas y Costos</h2>
+          <div className={styles.tableWrapper}>
+            <table className={styles.excelTable} style={{ width: '100%', tableLayout: 'auto' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', background: '#f8fafc' }}>Nombre de la Tarea</th>
+                  <th style={{ width: '150px', textAlign: 'right', background: '#f8fafc' }}>Horas Totales</th>
+                  <th style={{ width: '180px', textAlign: 'right', background: '#f8fafc' }}>Monto a Pagar (S/.)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tareasResumen.map((t: any) => (
+                  <tr key={`resumen-${t.tarea_periodo_id}`}>
+                    <td style={{ fontWeight: 'normal' }}>{t.tarea_nombre}</td>
+                    <td style={{ textAlign: 'right' }}>{t.totalHoras.toFixed(2)}</td>
+                    <td style={{ textAlign: 'right' }}>{(t.totalHoras * costoHora).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  </tr>
+                ))}
+                <tr style={{ background: '#f1f5f9', fontWeight: 'bold' }}>
+                  <td style={{ textAlign: 'left' }}>TOTAL GENERAL</td>
+                  <td style={{ textAlign: 'right' }}>
+                    {tareasResumen.reduce((acc: number, t: any) => acc + t.totalHoras, 0).toFixed(2)}
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    {(tareasResumen.reduce((acc: number, t: any) => acc + t.totalHoras, 0) * costoHora).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ESTRUCTURA EXACTA ANTERIOR */}
       <div className={styles.tableWrapper}>

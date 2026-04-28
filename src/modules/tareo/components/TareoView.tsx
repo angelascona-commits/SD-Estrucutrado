@@ -147,8 +147,11 @@ export default function TareoView() {
   })
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportCosto, setExportCosto] = useState('65')
+  const [exportFilters, setExportFilters] = useState({ periodo_id: '', solicitante_id: '', trabajador_id: '' })
+
+  const [linkModalOpen, setLinkModalOpen] = useState(false)
+  const [linkFilters, setLinkFilters] = useState({ costo_hora: '65', solicitante_id: '', trabajador_id: '' })
   const [generatedLinkData, setGeneratedLinkData] = useState<{isOpen: boolean, link: string}>({ isOpen: false, link: '' })
-  
   const loadCatalogs = async () => {
     setLoading(true)
     setError(null)
@@ -187,16 +190,25 @@ export default function TareoView() {
 
     setTareasPeriodo(response.data ?? [])
   }
-  const handleGenerateLink = async () => {
+  const handleGenerateLink = () => {
     if (!selectedPeriodoId) {
-      setError('Por favor, selecciona un período antes de generar el enlace.')
+      setError('Selecciona un período antes de generar el enlace.')
       return
     }
+    setLinkFilters(prev => ({ ...prev, costo_hora: '65' }))
+    setLinkModalOpen(true)
+  }
 
+  const confirmGenerateLink = async () => {
     setGeneratingLink(true)
     setError(null)
 
-    const response = await generatePublicLinkAction(selectedPeriodoId)
+    const response = await generatePublicLinkAction(
+      selectedPeriodoId!, 
+      linkFilters.solicitante_id ? Number(linkFilters.solicitante_id) : undefined, 
+      linkFilters.trabajador_id ? Number(linkFilters.trabajador_id) : undefined,
+      linkFilters.costo_hora ? Number(linkFilters.costo_hora) : undefined
+    )
 
     if (response.success && response.data) {
       const link = response.data
@@ -213,6 +225,7 @@ export default function TareoView() {
     }
 
     setGeneratingLink(false)
+    setLinkModalOpen(false)
   }
   const loadData = async (fecha: string, periodoId?: number | null) => {
     setLoadingData(true)
@@ -369,6 +382,7 @@ export default function TareoView() {
       setError('Selecciona un período para exportar')
       return
     }
+    setExportFilters(prev => ({ ...prev, periodo_id: selectedPeriodoId.toString() }))
     setExportModalOpen(true)
   }
   const confirmExport = async () => {
@@ -382,7 +396,13 @@ export default function TareoView() {
     setError(null)
 
     try {
-      const response = await exportTareoAction(selectedPeriodoId!, costoHora)
+      const targetPeriodoId = exportFilters.periodo_id ? Number(exportFilters.periodo_id) : selectedPeriodoId!
+      const response = await exportTareoAction(
+        targetPeriodoId, 
+        costoHora,
+        exportFilters.solicitante_id ? Number(exportFilters.solicitante_id) : undefined,
+        exportFilters.trabajador_id ? Number(exportFilters.trabajador_id) : undefined
+      )
 
       if (response.success && response.data) {
         const { base64, fileName } = response.data
@@ -430,12 +450,121 @@ export default function TareoView() {
               />
             </div>
 
+            <div className={styles.field} style={{ marginBottom: '16px' }}>
+              <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Período</label>
+              <select
+                value={exportFilters.periodo_id}
+                onChange={(e) => setExportFilters({ ...exportFilters, periodo_id: e.target.value })}
+                className={styles.select}
+                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+              >
+                {catalogs?.periodos?.map((p) => {
+                  const month = `${p.mes}`.padStart(2, '0')
+                  const label = `${p.anio}-${month}${p.cerrado ? ' · Cerrado' : ''}`
+                  return (
+                    <option key={p.id} value={p.id}>{label}</option>
+                  )
+                })}
+              </select>
+            </div>
+
+            <div className={styles.field} style={{ marginBottom: '16px' }}>
+              <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Solicitante (Opcional)</label>
+              <select
+                value={exportFilters.solicitante_id}
+                onChange={(e) => setExportFilters({ ...exportFilters, solicitante_id: e.target.value })}
+                className={styles.select}
+                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+              >
+                <option value="">Todos los solicitantes</option>
+                {catalogs?.solicitantes?.map((s) => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.field} style={{ marginBottom: '24px' }}>
+              <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Trabajador (Opcional)</label>
+              <select
+                value={exportFilters.trabajador_id}
+                onChange={(e) => setExportFilters({ ...exportFilters, trabajador_id: e.target.value })}
+                className={styles.select}
+                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+              >
+                <option value="">Todos los trabajadores</option>
+                {catalogs?.trabajadores?.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nombre}</option>
+                ))}
+              </select>
+            </div>
+
             <div className={styles.actions} style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button type="button" className={styles.secondaryButton} onClick={() => setExportModalOpen(false)}>
                 Cancelar
               </button>
               <button type="button" className={styles.primaryButton} onClick={confirmExport} disabled={exporting}>
                 {exporting ? 'Generando...' : 'Descargar Excel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {linkModalOpen && (
+        <div className={styles.backdrop} style={{ zIndex: 1000, position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className={styles.modal} style={{ background: '#fff', borderRadius: '18px', width: '400px', padding: '24px' }}>
+            <h3 className={styles.title} style={{ margin: '0 0 16px 0', fontSize: '20px' }}>Generar Link de Reporte</h3>
+            <p className={styles.subtitle} style={{ marginBottom: '16px', color: '#6b7280' }}>
+              Seleccione filtros para el reporte externo si lo desea.
+            </p>
+
+            <div className={styles.field} style={{ marginBottom: '16px' }}>
+              <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Costo por Hora (S/.)</label>
+              <input
+                type="number"
+                value={linkFilters.costo_hora}
+                onChange={(e) => setLinkFilters({ ...linkFilters, costo_hora: e.target.value })}
+                className={styles.input}
+                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+              />
+            </div>
+
+            <div className={styles.field} style={{ marginBottom: '16px' }}>
+              <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Solicitante (Opcional)</label>
+              <select
+                value={linkFilters.solicitante_id}
+                onChange={(e) => setLinkFilters({ ...linkFilters, solicitante_id: e.target.value })}
+                className={styles.select}
+                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+              >
+                <option value="">Todos los solicitantes</option>
+                {catalogs?.solicitantes?.map((s) => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.field} style={{ marginBottom: '24px' }}>
+              <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Trabajador (Opcional)</label>
+              <select
+                value={linkFilters.trabajador_id}
+                onChange={(e) => setLinkFilters({ ...linkFilters, trabajador_id: e.target.value })}
+                className={styles.select}
+                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+              >
+                <option value="">Todos los trabajadores</option>
+                {catalogs?.trabajadores?.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.actions} style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button type="button" className={styles.secondaryButton} onClick={() => setLinkModalOpen(false)}>
+                Cancelar
+              </button>
+              <button type="button" className={styles.primaryButton} onClick={confirmGenerateLink} disabled={generatingLink}>
+                {generatingLink ? 'Generando...' : 'Crear Link'}
               </button>
             </div>
           </div>

@@ -425,16 +425,47 @@ export async function closePeriodoAndCarryOverTasksAction(
 }
 export async function exportTareoAction(
   periodoId: number,
-  costoHora: number
+  costoHora: number,
+  solicitanteId?: number,
+  trabajadorId?: number
 ): Promise<ActionResult<{ base64: string; fileName: string }>> {
   try {
     // Traemos todo en paralelo: Registros diarios (detalle) y Tareas del mes (resumen)
-    const [allTareas, registros] = await Promise.all([
+    const [allTareas, allRegistros] = await Promise.all([
       getAllTareasPeriodo(),
       getRegistrosByPeriodo(periodoId)
     ])
 
-    const tareasPeriodo = allTareas.filter((t) => t.periodo_id === periodoId)
+    let tareasPeriodo = allTareas.filter((t) => t.periodo_id === periodoId)
+    let registros = allRegistros
+
+    // Filtros
+    let isFiltered = false
+    if (solicitanteId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.solicitante_id === solicitanteId)
+      registros = registros.filter(r => r.solicitante_id === solicitanteId)
+      isFiltered = true
+    }
+    
+    if (trabajadorId) {
+      // Para las tareas, el trabajador puede no estar directamente mapeado, pero los registros sí.
+      // Así que filtramos registros. Y luego filtramos tareas para que sólo queden las que tienen registros.
+      registros = registros.filter(r => r.trabajador_id === trabajadorId)
+      const tareasConRegistros = new Set(registros.map(r => r.tarea_periodo_id))
+      tareasPeriodo = tareasPeriodo.filter(t => tareasConRegistros.has(t.tarea_periodo_id))
+      isFiltered = true
+    }
+
+    // Recalcular horas_consumidas_periodo basado en los registros filtrados para el Resumen
+    const horasPorTarea = registros.reduce((acc, r) => {
+      acc[r.tarea_periodo_id] = (acc[r.tarea_periodo_id] || 0) + Number(r.horas)
+      return acc
+    }, {} as Record<number, number>)
+
+    tareasPeriodo = tareasPeriodo.map(t => ({
+      ...t,
+      horas_consumidas_periodo: horasPorTarea[t.tarea_periodo_id] || 0
+    }))
 
     if (registros.length === 0) {
       return { success: false, error: 'No existen registros operativos para este período.' }
@@ -443,22 +474,39 @@ export async function exportTareoAction(
     const first = registros[0]
     const periodoLabel = `${first.anio}-${String(first.mes).padStart(2, '0')}`
 
+    let fileNameBase = 'REPORTE_TAREO'
+    if (isFiltered) {
+      const parts = ['REPORTE']
+      if (solicitanteId) {
+        parts.push(first.solicitante_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
+      }
+      if (trabajadorId) {
+        parts.push(first.trabajador_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
+      }
+      fileNameBase = parts.join('_')
+    }
+
     // Pasamos ambas listas al generador
-    const workbook = await generateTareoExcel(tareasPeriodo, registros, periodoLabel, costoHora)
+    const workbook = await generateTareoExcel(tareasPeriodo, registros, periodoLabel, costoHora, isFiltered)
     const buffer = await workbook.xlsx.writeBuffer()
     
     return {
       success: true,
       data: {
         base64: Buffer.from(buffer).toString('base64'),
-        fileName: `REPORTE_TAREO_${periodoLabel}.xlsx`
+        fileName: `${fileNameBase}_${periodoLabel}.xlsx`
       }
     }
   } catch (error) {
     return { success: false, error: 'Error al generar el archivo Excel.' }
   }
 }
-export async function generatePublicLinkAction(periodoId: number): Promise<ActionResult<string>> {
+export async function generatePublicLinkAction(
+  periodoId: number,
+  solicitanteId?: number,
+  trabajadorId?: number,
+  costoHora?: number
+): Promise<ActionResult<string>> {
   try {
     const expiration = new Date()
     expiration.setDate(expiration.getDate() + 7) // Expira en 7 días
@@ -475,7 +523,17 @@ export async function generatePublicLinkAction(periodoId: number): Promise<Actio
     if (error) throw error
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-    return { success: true, data: `${baseUrl}/reporte-externo/${data.token}` }
+    let url = `${baseUrl}/reporte-externo/${data.token}`
+    
+    const params = new URLSearchParams()
+    if (solicitanteId) params.append('solicitante', String(solicitanteId))
+    if (trabajadorId) params.append('trabajador', String(trabajadorId))
+    if (costoHora) params.append('costo', String(costoHora))
+    
+    const query = params.toString()
+    if (query) url += `?${query}`
+    
+    return { success: true, data: url }
   } catch (error) {
     return { success: false, error: 'Error al generar el link' }
   }
