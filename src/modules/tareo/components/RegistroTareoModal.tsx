@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { validateRegistroRealtimeAction } from '../actions/tareo.action'
+import Swal from 'sweetalert2'
+import { validateRegistroRealtimeAction, saveCatalogItemAction, saveTareaAction } from '../actions/tareo.action'
 import type {
   RegistroFormData,
   RegistroRealtimeValidationResult,
@@ -128,7 +129,138 @@ export default function RegistroTareoModal({
     setSaving(true)
 
     try {
-      if (validation && !validation.can_save) {
+      if (validation && validation.excede_maximo_dia) {
+        const result = await Swal.fire({
+          title: 'Aumentar Límite Diario',
+          text: `El trabajador superará su límite de horas. (Total resultante: ${validation.total_horas_resultante}H). ¿Deseas aumentar sus horas máximas diarias para poder guardar?`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, aumentar',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: 'var(--primary, #ec5b13)'
+        })
+
+        if (!result.isConfirmed) {
+          setSaving(false)
+          return
+        }
+        
+        const inputResult = await Swal.fire({
+          title: 'Nuevo límite de horas',
+          input: 'number',
+          inputLabel: 'Ingrese el nuevo límite de horas diarias para el trabajador',
+          inputValue: validation.total_horas_resultante,
+          showCancelButton: true,
+          confirmButtonText: 'Actualizar',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: 'var(--primary, #ec5b13)',
+          inputValidator: (value) => {
+            if (!value || isNaN(Number(value)) || Number(value) < validation.total_horas_resultante) {
+              return 'Ingrese un número válido mayor o igual al total resultante'
+            }
+          }
+        })
+
+        if (!inputResult.isConfirmed) {
+          setSaving(false)
+          return
+        }
+        
+        const newValue = Number(inputResult.value)
+        try {
+          await saveCatalogItemAction('tareo_trabajador', {
+            id: formData.trabajador_id,
+            horas_maximas: newValue
+          })
+        } catch (e) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'No se pudo actualizar el trabajador.',
+            confirmButtonColor: 'var(--primary, #ec5b13)'
+          })
+          setSaving(false)
+          return
+        }
+      }
+
+      if (validation && validation.excede_horas_disponibles) {
+        const result = await Swal.fire({
+          title: 'Aumentar Bolsa de Horas',
+          text: `Las horas superan las disponibles del período. ¿Deseas aumentar las horas asignadas a la tarea para continuar?`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, aumentar',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: 'var(--primary, #ec5b13)'
+        })
+
+        if (!result.isConfirmed) {
+           setSaving(false)
+           return
+        }
+        
+        if (tareaSeleccionada) {
+          const diff = Number(formData.horas) - validation.horas_disponibles_periodo
+          const nuevaBolsa = tareaSeleccionada.horas_asignadas_periodo + diff
+
+          const inputResult = await Swal.fire({
+            title: 'Nueva bolsa de horas',
+            input: 'number',
+            inputLabel: 'Ingrese la nueva bolsa de horas asignadas para la tarea',
+            inputValue: nuevaBolsa,
+            showCancelButton: true,
+            confirmButtonText: 'Actualizar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: 'var(--primary, #ec5b13)',
+            inputValidator: (value) => {
+              if (!value || isNaN(Number(value)) || Number(value) < nuevaBolsa) {
+                return 'El valor debe ser numérico y válido'
+              }
+            }
+          })
+
+          if (!inputResult.isConfirmed) {
+             setSaving(false)
+             return
+          }
+
+          const newValue = Number(inputResult.value)
+          try {
+            await saveTareaAction({
+              id: tareaSeleccionada.tarea_periodo_id,
+              periodo_id: tareaSeleccionada.periodo_id,
+              nombre: tareaSeleccionada.tarea_nombre,
+              proyecto_id: tareaSeleccionada.proyecto_id,
+              team_id: tareaSeleccionada.team_id,
+              solicitante_id: tareaSeleccionada.solicitante_id,
+              estado_id: tareaSeleccionada.estado_id,
+              horas_historicas_arrastre: tareaSeleccionada.horas_historicas_arrastre,
+              horas_asignadas_periodo: newValue,
+              comentario_periodo: tareaSeleccionada.comentario_periodo,
+              comentario_dm: tareaSeleccionada.comentario_dm,
+              activo: tareaSeleccionada.activo
+            }, true)
+          } catch(e) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: 'Error al actualizar la tarea.',
+              confirmButtonColor: 'var(--primary, #ec5b13)'
+            })
+            setSaving(false)
+            return
+          }
+        }
+      }
+
+      if (validation && validation.periodo_cerrado) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Período Cerrado',
+          text: 'El período está cerrado.',
+          confirmButtonColor: 'var(--primary, #ec5b13)'
+        })
         setSaving(false)
         return
       }
@@ -340,7 +472,7 @@ export default function RegistroTareoModal({
             <button
               type="submit"
               className={styles.primaryButton}
-              disabled={saving || validating || (validation ? !validation.can_save : false)}
+              disabled={saving || validating || (validation ? validation.periodo_cerrado : false)}
             >
               {saving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar registro'}
             </button>

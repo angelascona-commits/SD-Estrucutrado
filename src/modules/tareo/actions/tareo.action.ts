@@ -33,7 +33,8 @@ import {
   closePeriodoAndCarryOverTasks,
   toggleTareaActivo,
   upsertCatalogItem,
-  deleteCatalogItem
+  deleteCatalogItem,
+  getTrabajadorValidacion
 } from '../repository/tareo.repository'
 import {
   applyTareaFilters,
@@ -237,17 +238,20 @@ export async function saveRegistroAction(
         return { success: false, error: 'El id del registro es obligatorio para editar' }
       }
 
-      const [horasTrabajadorDia, tareaPeriodoInfo, currentRegistro] = await Promise.all([
+      const [horasTrabajadorDia, tareaPeriodoInfo, currentRegistro, trabajadorInfo] = await Promise.all([
         getHorasTrabajadorByFecha(normalizedPayload.trabajador_id, normalizedPayload.fecha, payload.id),
         getTareaPeriodoValidacion(normalizedPayload.tarea_periodo_id),
-        getRegistroById(payload.id)
+        getRegistroById(payload.id),
+        getTrabajadorValidacion(normalizedPayload.trabajador_id)
       ])
 
       const oldHoras = currentRegistro ? Number(currentRegistro.horas || 0) : 0
       const horasDisponiblesReales = (tareaPeriodoInfo?.horas_disponibles_periodo ?? 0) + oldHoras
 
-      if (horasTrabajadorDia + normalizedPayload.horas > 12) {
-         return { success: false, error: 'El trabajador supera el máximo de 12 horas para el día seleccionado.' }
+      const maxHorasDia = trabajadorInfo?.horas_maximas ?? 12
+
+      if (horasTrabajadorDia + normalizedPayload.horas > maxHorasDia) {
+         return { success: false, error: `El trabajador supera el límite de ${maxHorasDia} horas para el día seleccionado.` }
       }
       if (normalizedPayload.horas > horasDisponiblesReales) {
          return { success: false, error: 'Las horas ingresadas superan las horas disponibles del período.' }
@@ -273,13 +277,16 @@ export async function saveRegistroAction(
       }
     }
 
-    const [horasTrabajadorDia, tareaPeriodoInfo] = await Promise.all([
+    const [horasTrabajadorDia, tareaPeriodoInfo, trabajadorInfo] = await Promise.all([
       getHorasTrabajadorByFecha(normalizedPayload.trabajador_id, normalizedPayload.fecha),
-      getTareaPeriodoValidacion(normalizedPayload.tarea_periodo_id)
+      getTareaPeriodoValidacion(normalizedPayload.tarea_periodo_id),
+      getTrabajadorValidacion(normalizedPayload.trabajador_id)
     ])
 
-    if (horasTrabajadorDia + normalizedPayload.horas > 12) {
-      return { success: false, error: 'El trabajador supera el máximo de 12 horas para el día seleccionado.' }
+    const maxHorasDia = trabajadorInfo?.horas_maximas ?? 12
+
+    if (horasTrabajadorDia + normalizedPayload.horas > maxHorasDia) {
+      return { success: false, error: `El trabajador supera el límite de ${maxHorasDia} horas para el día seleccionado.` }
     }
     if ((tareaPeriodoInfo?.horas_disponibles_periodo ?? 0) < normalizedPayload.horas) {
       return { success: false, error: 'Las horas ingresadas superan las horas disponibles del período.' }
@@ -394,10 +401,11 @@ export async function validateRegistroRealtimeAction(
       }
     }
 
-    const [horasTrabajadorDia, tareaPeriodoInfo, currentRegistro] = await Promise.all([
+    const [horasTrabajadorDia, tareaPeriodoInfo, currentRegistro, trabajadorInfo] = await Promise.all([
       getHorasTrabajadorByFecha(payload.trabajador_id, payload.fecha, payload.id),
       getTareaPeriodoValidacion(payload.tarea_periodo_id),
-      payload.id ? getRegistroById(payload.id) : Promise.resolve(null)
+      payload.id ? getRegistroById(payload.id) : Promise.resolve(null),
+      getTrabajadorValidacion(payload.trabajador_id)
     ])
 
     if (!tareaPeriodoInfo) {
@@ -407,8 +415,9 @@ export async function validateRegistroRealtimeAction(
       }
     }
 
+    const maxHorasDia = trabajadorInfo?.horas_maximas ?? 12
     const totalHorasResultante = horasTrabajadorDia + horasIngresadas
-    const excedeMaximoDia = totalHorasResultante > 12
+    const excedeMaximoDia = totalHorasResultante > maxHorasDia
     const oldHoras = currentRegistro ? Number(currentRegistro.horas || 0) : 0
     const horasDisponiblesReales = tareaPeriodoInfo.horas_disponibles_periodo + oldHoras
     const excedeHorasDisponibles = horasIngresadas > horasDisponiblesReales
@@ -417,7 +426,7 @@ export async function validateRegistroRealtimeAction(
     const messages: string[] = []
 
     if (excedeMaximoDia) {
-      messages.push('El trabajador supera el máximo de 12 horas para el día seleccionado.')
+      messages.push(`El trabajador supera el límite configurado de ${maxHorasDia} horas para el día. (Tiene ${horasTrabajadorDia}H asignadas)`)
     }
 
     if (excedeHorasDisponibles) {
@@ -438,7 +447,8 @@ export async function validateRegistroRealtimeAction(
         excede_maximo_dia: excedeMaximoDia,
         excede_horas_disponibles: excedeHorasDisponibles,
         periodo_cerrado: periodoCerrado,
-        can_save: !excedeMaximoDia && !excedeHorasDisponibles && !periodoCerrado,
+        // Eliminamos el bloqueo para permitir que el modal proponga la solución en el frontend
+        can_save: !excedeHorasDisponibles && !periodoCerrado,
         messages
       }
     }
@@ -478,7 +488,8 @@ export async function exportTareoAction(
   solicitanteId?: number,
   trabajadorId?: number,
   agrupadorId?: number,
-  proyectoId?: number
+  proyectoId?: number,
+  teamId?: number
 ): Promise<ActionResult<{ base64: string; fileName: string }>> {
   try {
     // Traemos todo en paralelo: Registros diarios (detalle) y Tareas del mes (resumen)
@@ -519,6 +530,12 @@ export async function exportTareoAction(
       isFiltered = true
     }
 
+    if (teamId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.team_id === teamId)
+      registros = registros.filter(r => r.team_id === teamId)
+      isFiltered = true
+    }
+
     // Recalcular horas_consumidas_periodo basado en los registros filtrados para el Resumen
     const horasPorTarea = registros.reduce((acc, r) => {
       acc[r.tarea_periodo_id] = (acc[r.tarea_periodo_id] || 0) + Number(r.horas)
@@ -552,6 +569,9 @@ export async function exportTareoAction(
       if (proyectoId) {
         parts.push(first.proyecto_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
       }
+      if (teamId) {
+        parts.push(first.team_nombre?.replace(/[^a-zA-Z0-9]/g, '_') ?? 'TEAM')
+      }
       fileNameBase = parts.join('_')
     }
 
@@ -576,7 +596,8 @@ export async function generatePublicLinkAction(
   trabajadorId?: number,
   costoHora?: number,
   agrupadorId?: number,
-  proyectoId?: number
+  proyectoId?: number,
+  teamId?: number
 ): Promise<ActionResult<string>> {
   try {
     const expiration = new Date()
@@ -601,6 +622,7 @@ export async function generatePublicLinkAction(
     if (trabajadorId) params.append('trabajador', String(trabajadorId))
     if (agrupadorId) params.append('agrupador', String(agrupadorId))
     if (proyectoId) params.append('proyecto', String(proyectoId))
+    if (teamId) params.append('team', String(teamId))
     if (costoHora) params.append('costo', String(costoHora))
     
     const query = params.toString()

@@ -553,6 +553,25 @@ export async function getTareaPeriodoValidacion(tareaPeriodoId: number): Promise
     periodo_cerrado: Boolean(data.cerrado)
   }
 }
+
+export async function getTrabajadorValidacion(trabajadorId: number): Promise<{ horas_maximas: number | null } | null> {
+  const { data, error } = await supabase
+    .from('tareo_trabajador')
+    .select('horas_maximas')
+    .eq('id', trabajadorId)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null
+    }
+    throw new Error(error.message)
+  }
+
+  return {
+    horas_maximas: data.horas_maximas !== null ? Number(data.horas_maximas) : null
+  }
+}
 export async function closePeriodoAndCarryOverTasks(
   periodoActualId: number,
   periodoSiguienteId: number
