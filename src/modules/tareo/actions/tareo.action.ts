@@ -223,10 +223,28 @@ export async function saveRegistroAction(
         return { success: false, error: 'El id del registro es obligatorio para editar' }
       }
 
+      const [horasTrabajadorDia, tareaPeriodoInfo, currentRegistro] = await Promise.all([
+        getHorasTrabajadorByFecha(normalizedPayload.trabajador_id, normalizedPayload.fecha, payload.id),
+        getTareaPeriodoValidacion(normalizedPayload.tarea_periodo_id),
+        getRegistroById(payload.id)
+      ])
+
+      const oldHoras = currentRegistro ? Number(currentRegistro.horas || 0) : 0
+      const horasDisponiblesReales = (tareaPeriodoInfo?.horas_disponibles_periodo ?? 0) + oldHoras
+
+      if (horasTrabajadorDia + normalizedPayload.horas > 12) {
+         return { success: false, error: 'El trabajador supera el máximo de 12 horas para el día seleccionado.' }
+      }
+      if (normalizedPayload.horas > horasDisponiblesReales) {
+         return { success: false, error: 'Las horas ingresadas superan las horas disponibles del período.' }
+      }
+      if (tareaPeriodoInfo?.periodo_cerrado) {
+         return { success: false, error: 'El período está cerrado y no admite nuevos registros.' }
+      }
+
       await updateRegistro(payload.id, normalizedPayload)
       
-      const tareaPeriodoInfo = await getTareaPeriodoValidacion(normalizedPayload.tarea_periodo_id)
-      if (tareaPeriodoInfo && tareaPeriodoInfo.horas_disponibles_periodo <= 0) {
+      if (tareaPeriodoInfo && (horasDisponiblesReales - normalizedPayload.horas) <= 0) {
         const dbTaskInfo = await getTareaPeriodoById(normalizedPayload.tarea_periodo_id)
         if (dbTaskInfo) {
           await toggleTareaActivo(dbTaskInfo.tarea_id, false)
@@ -241,10 +259,24 @@ export async function saveRegistroAction(
       }
     }
 
+    const [horasTrabajadorDia, tareaPeriodoInfo] = await Promise.all([
+      getHorasTrabajadorByFecha(normalizedPayload.trabajador_id, normalizedPayload.fecha),
+      getTareaPeriodoValidacion(normalizedPayload.tarea_periodo_id)
+    ])
+
+    if (horasTrabajadorDia + normalizedPayload.horas > 12) {
+      return { success: false, error: 'El trabajador supera el máximo de 12 horas para el día seleccionado.' }
+    }
+    if ((tareaPeriodoInfo?.horas_disponibles_periodo ?? 0) < normalizedPayload.horas) {
+      return { success: false, error: 'Las horas ingresadas superan las horas disponibles del período.' }
+    }
+    if (tareaPeriodoInfo?.periodo_cerrado) {
+      return { success: false, error: 'El período está cerrado y no admite nuevos registros.' }
+    }
+
     const registroId = await createRegistro(normalizedPayload)
     
-    const tareaPeriodoInfo = await getTareaPeriodoValidacion(normalizedPayload.tarea_periodo_id)
-    if (tareaPeriodoInfo && tareaPeriodoInfo.horas_disponibles_periodo <= 0) {
+    if (tareaPeriodoInfo && (tareaPeriodoInfo.horas_disponibles_periodo - normalizedPayload.horas) <= 0) {
       const dbTaskInfo = await getTareaPeriodoById(normalizedPayload.tarea_periodo_id)
       if (dbTaskInfo) {
         await toggleTareaActivo(dbTaskInfo.tarea_id, false)
@@ -348,9 +380,10 @@ export async function validateRegistroRealtimeAction(
       }
     }
 
-    const [horasTrabajadorDia, tareaPeriodoInfo] = await Promise.all([
+    const [horasTrabajadorDia, tareaPeriodoInfo, currentRegistro] = await Promise.all([
       getHorasTrabajadorByFecha(payload.trabajador_id, payload.fecha, payload.id),
-      getTareaPeriodoValidacion(payload.tarea_periodo_id)
+      getTareaPeriodoValidacion(payload.tarea_periodo_id),
+      payload.id ? getRegistroById(payload.id) : Promise.resolve(null)
     ])
 
     if (!tareaPeriodoInfo) {
@@ -362,7 +395,9 @@ export async function validateRegistroRealtimeAction(
 
     const totalHorasResultante = horasTrabajadorDia + horasIngresadas
     const excedeMaximoDia = totalHorasResultante > 12
-    const excedeHorasDisponibles = horasIngresadas > tareaPeriodoInfo.horas_disponibles_periodo
+    const oldHoras = currentRegistro ? Number(currentRegistro.horas || 0) : 0
+    const horasDisponiblesReales = tareaPeriodoInfo.horas_disponibles_periodo + oldHoras
+    const excedeHorasDisponibles = horasIngresadas > horasDisponiblesReales
     const periodoCerrado = tareaPeriodoInfo.periodo_cerrado
 
     const messages: string[] = []
@@ -385,7 +420,7 @@ export async function validateRegistroRealtimeAction(
         horas_trabajador_dia: horasTrabajadorDia,
         horas_ingresadas: horasIngresadas,
         total_horas_resultante: totalHorasResultante,
-        horas_disponibles_periodo: tareaPeriodoInfo.horas_disponibles_periodo,
+        horas_disponibles_periodo: horasDisponiblesReales,
         excede_maximo_dia: excedeMaximoDia,
         excede_horas_disponibles: excedeHorasDisponibles,
         periodo_cerrado: periodoCerrado,

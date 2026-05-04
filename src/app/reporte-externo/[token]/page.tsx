@@ -47,10 +47,24 @@ export default async function PublicReportPage({
     registros = registros.filter((r: any) => r.proyecto_id === filterProyecto);
   }
 
+  let titleText = "Revisión de Tareo Detallado";
+  if (registros.length > 0) {
+    const filtersInfo = [];
+    const r = registros[0];
+    if (filterAgrupador) filtersInfo.push(`Agrupador: ${r.agrupador_nombre}`);
+    if (filterProyecto) filtersInfo.push(`Proyecto: ${r.proyecto_nombre}`);
+    if (filterSolicitante) filtersInfo.push(`Solicitante: ${r.solicitante_nombre}`);
+    if (filterTrabajador) filtersInfo.push(`Trabajador: ${r.trabajador_nombre}`);
+
+    if (filtersInfo.length > 0) {
+      titleText += ` - ${filtersInfo.join(' | ')}`;
+    }
+  }
+
   return (
     <main style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       <header style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>Revisión de Tareo Detallado</h1>
+        <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>{titleText}</h1>
         <p style={{ color: '#6B7280' }}>
           Por favor, revise el log de actividades y añada sus observaciones en la columna "Observaciones Protecta". 
           Recuerde guardar sus cambios al finalizar la revisión.
