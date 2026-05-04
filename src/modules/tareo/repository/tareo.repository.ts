@@ -274,6 +274,11 @@ export async function upsertCatalogItem(tableName: string, payload: any): Promis
 }
 
 export async function deleteCatalogItem(tableName: string, id: number): Promise<void> {
+  if (tableName === 'tareo_periodo') {
+    const { error } = await supabase.from(tableName).delete().eq('id', id)
+    if (error) throw new Error(error.message)
+    return
+  }
   // Logical delete by default for catalogs
   const { error } = await supabase.from(tableName).update({ activo: false }).eq('id', id)
   if (error) throw new Error(error.message)

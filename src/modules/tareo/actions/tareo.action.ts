@@ -427,7 +427,9 @@ export async function exportTareoAction(
   periodoId: number,
   costoHora: number,
   solicitanteId?: number,
-  trabajadorId?: number
+  trabajadorId?: number,
+  agrupadorId?: number,
+  proyectoId?: number
 ): Promise<ActionResult<{ base64: string; fileName: string }>> {
   try {
     // Traemos todo en paralelo: Registros diarios (detalle) y Tareas del mes (resumen)
@@ -453,6 +455,18 @@ export async function exportTareoAction(
       registros = registros.filter(r => r.trabajador_id === trabajadorId)
       const tareasConRegistros = new Set(registros.map(r => r.tarea_periodo_id))
       tareasPeriodo = tareasPeriodo.filter(t => tareasConRegistros.has(t.tarea_periodo_id))
+      isFiltered = true
+    }
+
+    if (agrupadorId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.agrupador_id === agrupadorId)
+      registros = registros.filter(r => r.agrupador_id === agrupadorId)
+      isFiltered = true
+    }
+
+    if (proyectoId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.proyecto_id === proyectoId)
+      registros = registros.filter(r => r.proyecto_id === proyectoId)
       isFiltered = true
     }
 
@@ -483,6 +497,12 @@ export async function exportTareoAction(
       if (trabajadorId) {
         parts.push(first.trabajador_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
       }
+      if (agrupadorId) {
+        parts.push(first.agrupador_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
+      }
+      if (proyectoId) {
+        parts.push(first.proyecto_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
+      }
       fileNameBase = parts.join('_')
     }
 
@@ -505,7 +525,9 @@ export async function generatePublicLinkAction(
   periodoId: number,
   solicitanteId?: number,
   trabajadorId?: number,
-  costoHora?: number
+  costoHora?: number,
+  agrupadorId?: number,
+  proyectoId?: number
 ): Promise<ActionResult<string>> {
   try {
     const expiration = new Date()
@@ -528,6 +550,8 @@ export async function generatePublicLinkAction(
     const params = new URLSearchParams()
     if (solicitanteId) params.append('solicitante', String(solicitanteId))
     if (trabajadorId) params.append('trabajador', String(trabajadorId))
+    if (agrupadorId) params.append('agrupador', String(agrupadorId))
+    if (proyectoId) params.append('proyecto', String(proyectoId))
     if (costoHora) params.append('costo', String(costoHora))
     
     const query = params.toString()

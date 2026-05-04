@@ -118,7 +118,9 @@ export default function CatalogosView() {
       }
     }
 
-    payload.activo = true 
+    if (activeTab !== 'periodos') {
+      payload.activo = true
+    }
 
     const res = await saveCatalogItemAction(tableMapping[activeTab], payload)
     if (!res.success) {

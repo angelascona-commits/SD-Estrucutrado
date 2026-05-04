@@ -147,10 +147,10 @@ export default function TareoView() {
   })
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportCosto, setExportCosto] = useState('65')
-  const [exportFilters, setExportFilters] = useState({ periodo_id: '', solicitante_id: '', trabajador_id: '' })
+  const [exportFilters, setExportFilters] = useState({ periodo_id: '', solicitante_id: '', trabajador_id: '', agrupador_id: '', proyecto_id: '' })
 
   const [linkModalOpen, setLinkModalOpen] = useState(false)
-  const [linkFilters, setLinkFilters] = useState({ periodo_id: '', costo_hora: '65', solicitante_id: '', trabajador_id: '' })
+  const [linkFilters, setLinkFilters] = useState({ periodo_id: '', costo_hora: '65', solicitante_id: '', trabajador_id: '', agrupador_id: '', proyecto_id: '' })
   const [generatedLinkData, setGeneratedLinkData] = useState<{isOpen: boolean, link: string}>({ isOpen: false, link: '' })
   const loadCatalogs = async () => {
     setLoading(true)
@@ -208,7 +208,9 @@ export default function TareoView() {
       targetPeriodoId, 
       linkFilters.solicitante_id ? Number(linkFilters.solicitante_id) : undefined, 
       linkFilters.trabajador_id ? Number(linkFilters.trabajador_id) : undefined,
-      linkFilters.costo_hora ? Number(linkFilters.costo_hora) : undefined
+      linkFilters.costo_hora ? Number(linkFilters.costo_hora) : undefined,
+      linkFilters.agrupador_id ? Number(linkFilters.agrupador_id) : undefined,
+      linkFilters.proyecto_id ? Number(linkFilters.proyecto_id) : undefined
     )
 
     if (response.success && response.data) {
@@ -402,7 +404,9 @@ export default function TareoView() {
         targetPeriodoId, 
         costoHora,
         exportFilters.solicitante_id ? Number(exportFilters.solicitante_id) : undefined,
-        exportFilters.trabajador_id ? Number(exportFilters.trabajador_id) : undefined
+        exportFilters.trabajador_id ? Number(exportFilters.trabajador_id) : undefined,
+        exportFilters.agrupador_id ? Number(exportFilters.agrupador_id) : undefined,
+        exportFilters.proyecto_id ? Number(exportFilters.proyecto_id) : undefined
       )
 
       if (response.success && response.data) {
@@ -484,7 +488,7 @@ export default function TareoView() {
               </select>
             </div>
 
-            <div className={styles.field} style={{ marginBottom: '24px' }}>
+            <div className={styles.field} style={{ marginBottom: '16px' }}>
               <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Trabajador (Opcional)</label>
               <select
                 value={exportFilters.trabajador_id}
@@ -495,6 +499,36 @@ export default function TareoView() {
                 <option value="">Todos los trabajadores</option>
                 {catalogs?.trabajadores?.map((t) => (
                   <option key={t.id} value={t.id}>{t.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.field} style={{ marginBottom: '16px' }}>
+              <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Agrupador (Opcional)</label>
+              <select
+                value={exportFilters.agrupador_id}
+                onChange={(e) => setExportFilters({ ...exportFilters, agrupador_id: e.target.value })}
+                className={styles.select}
+                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+              >
+                <option value="">Todos los agrupadores</option>
+                {catalogs?.agrupadores?.map((a) => (
+                  <option key={a.id} value={a.id}>{a.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.field} style={{ marginBottom: '24px' }}>
+              <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Proyecto (Opcional)</label>
+              <select
+                value={exportFilters.proyecto_id}
+                onChange={(e) => setExportFilters({ ...exportFilters, proyecto_id: e.target.value })}
+                className={styles.select}
+                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+              >
+                <option value="">Todos los proyectos</option>
+                {catalogs?.proyectos?.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
                 ))}
               </select>
             </div>
@@ -563,7 +597,7 @@ export default function TareoView() {
               </select>
             </div>
 
-            <div className={styles.field} style={{ marginBottom: '24px' }}>
+            <div className={styles.field} style={{ marginBottom: '16px' }}>
               <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Trabajador (Opcional)</label>
               <select
                 value={linkFilters.trabajador_id}
@@ -574,6 +608,36 @@ export default function TareoView() {
                 <option value="">Todos los trabajadores</option>
                 {catalogs?.trabajadores?.map((t) => (
                   <option key={t.id} value={t.id}>{t.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.field} style={{ marginBottom: '16px' }}>
+              <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Agrupador (Opcional)</label>
+              <select
+                value={linkFilters.agrupador_id}
+                onChange={(e) => setLinkFilters({ ...linkFilters, agrupador_id: e.target.value })}
+                className={styles.select}
+                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+              >
+                <option value="">Todos los agrupadores</option>
+                {catalogs?.agrupadores?.map((a) => (
+                  <option key={a.id} value={a.id}>{a.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.field} style={{ marginBottom: '24px' }}>
+              <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Proyecto (Opcional)</label>
+              <select
+                value={linkFilters.proyecto_id}
+                onChange={(e) => setLinkFilters({ ...linkFilters, proyecto_id: e.target.value })}
+                className={styles.select}
+                style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+              >
+                <option value="">Todos los proyectos</option>
+                {catalogs?.proyectos?.map((p) => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
                 ))}
               </select>
             </div>

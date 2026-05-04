@@ -14,6 +14,8 @@ export default async function PublicReportPage({
   const sp = await searchParams;
   const filterSolicitante = sp.solicitante ? Number(sp.solicitante) : undefined;
   const filterTrabajador = sp.trabajador ? Number(sp.trabajador) : undefined;
+  const filterAgrupador = sp.agrupador ? Number(sp.agrupador) : undefined;
+  const filterProyecto = sp.proyecto ? Number(sp.proyecto) : undefined;
   const filterCosto = sp.costo ? Number(sp.costo) : undefined;
 
   // 2. Llamar a la acción del servidor con el token
@@ -37,6 +39,12 @@ export default async function PublicReportPage({
   }
   if (filterTrabajador) {
     registros = registros.filter((r: any) => r.trabajador_id === filterTrabajador);
+  }
+  if (filterAgrupador) {
+    registros = registros.filter((r: any) => r.agrupador_id === filterAgrupador);
+  }
+  if (filterProyecto) {
+    registros = registros.filter((r: any) => r.proyecto_id === filterProyecto);
   }
 
   return (
