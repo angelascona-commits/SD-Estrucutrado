@@ -25,7 +25,7 @@ export async function getTareoCatalogs(): Promise<TareoCatalogs> {
   ] = await Promise.all([
     supabase
       .from('tareo_trabajador')
-      .select('id, nombre, correo, telefono')
+      .select('id, nombre, correo, telefono, horas_maximas')
       .eq('activo', true)
       .order('nombre'),
     supabase
@@ -45,7 +45,7 @@ export async function getTareoCatalogs(): Promise<TareoCatalogs> {
       .order('nombre'),
     supabase
       .from('tareo_proyecto')
-      .select('id, nombre, agrupador_id')
+      .select('id, nombre, agrupador_id, solicitante_id, team_id')
       .eq('activo', true)
       .order('nombre'),
     supabase
@@ -79,7 +79,7 @@ export async function getTareoCatalogs(): Promise<TareoCatalogs> {
     teams: (teamsRes.data ?? []) as Array<{ id: number; nombre: string }>,
     solicitantes: (solicitantesRes.data ?? []) as SolicitanteItem[],
     agrupadores: (agrupadoresRes.data ?? []) as Array<{ id: number; nombre: string }>,
-    proyectos: (proyectosRes.data ?? []) as Array<{ id: number; nombre: string; agrupador_id: number }>,
+    proyectos: (proyectosRes.data ?? []) as Array<{ id: number; nombre: string; agrupador_id: number; solicitante_id: number | null; team_id: number | null }>,
     estadosTarea: (estadosTareaRes.data ?? []) as Array<{ id: number; nombre: string }>,
     periodos: (periodosRes.data ?? []) as PeriodoItem[]
   }

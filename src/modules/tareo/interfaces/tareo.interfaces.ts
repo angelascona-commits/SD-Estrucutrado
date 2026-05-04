@@ -6,6 +6,7 @@ export interface CatalogItem {
 export interface TrabajadorItem extends CatalogItem {
   correo: string | null
   telefono: string | null
+  horas_maximas: number | null
 }
 
 export interface SolicitanteItem extends CatalogItem {
@@ -23,6 +24,8 @@ export interface PeriodoItem {
 
 export interface ProyectoItem extends CatalogItem {
   agrupador_id: number
+  solicitante_id: number | null
+  team_id: number | null
 }
 
 export interface TareoCatalogs {

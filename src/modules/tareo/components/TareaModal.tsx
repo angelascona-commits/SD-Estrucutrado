@@ -198,10 +198,29 @@ export default function TareaModal({
               </div>
 
               <div className={styles.field}>
+                <label className={styles.label}>Agrupador</label>
+                <input
+                  type="text"
+                  value={agrupadorSeleccionado?.nombre ?? ''}
+                  className={styles.inputReadOnly}
+                  readOnly
+                />
+              </div>
+
+              <div className={styles.field}>
                 <label className={styles.label}>Proyecto</label>
                 <select
                   value={formData.proyecto_id || ''}
-                  onChange={(event) => handleChange('proyecto_id', Number(event.target.value))}
+                  onChange={(event) => {
+                    const pid = Number(event.target.value)
+                    const proj = proyectos.find((p) => p.id === pid)
+                    setFormData((prev) => ({
+                      ...prev,
+                      proyecto_id: pid,
+                      solicitante_id: proj?.solicitante_id ?? prev.solicitante_id,
+                      team_id: proj?.team_id !== undefined ? proj.team_id : prev.team_id
+                    }))
+                  }}
                   className={styles.select}
                   required
                 >
@@ -212,16 +231,6 @@ export default function TareaModal({
                     </option>
                   ))}
                 </select>
-              </div>
-
-              <div className={styles.field}>
-                <label className={styles.label}>Agrupador</label>
-                <input
-                  type="text"
-                  value={agrupadorSeleccionado?.nombre ?? ''}
-                  className={styles.inputReadOnly}
-                  readOnly
-                />
               </div>
 
               <div className={styles.field}>

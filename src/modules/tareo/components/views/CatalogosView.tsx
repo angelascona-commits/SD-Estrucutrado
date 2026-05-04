@@ -101,10 +101,13 @@ export default function CatalogosView() {
     if (activeTab === 'trabajadores') {
       payload.correo = formData.get('correo')
       payload.telefono = formData.get('telefono')
+      payload.horas_maximas = Number(formData.get('horas_maximas')) || null
     } else if (activeTab === 'solicitantes') {
       payload.horas_maximas_estimadas = Number(formData.get('horas_maximas_estimadas')) || null
     } else if (activeTab === 'proyectos') {
       payload.agrupador_id = Number(formData.get('agrupador_id'))
+      payload.solicitante_id = formData.get('solicitante_id') ? Number(formData.get('solicitante_id')) : null
+      payload.team_id = formData.get('team_id') ? Number(formData.get('team_id')) : null
     } else if (activeTab === 'periodos') {
       payload.anio = Number(formData.get('anio'))
       payload.mes = Number(formData.get('mes'))
@@ -164,6 +167,7 @@ export default function CatalogosView() {
                 <th>Nombre</th>
                 <th>Correo</th>
                 <th>Teléfono</th>
+                <th>Horas Máx.</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -173,6 +177,7 @@ export default function CatalogosView() {
                   <td>{item.nombre}</td>
                   <td>{item.correo ?? '-'}</td>
                   <td>{item.telefono ?? '-'}</td>
+                  <td>{item.horas_maximas ?? '-'}</td>
                   <td>
                     <button style={actionStyle} onClick={() => handleEdit(item)}>Editar</button>
                     <button style={{...actionStyle, color: '#ef4444'}} onClick={() => handleDelete(item.id)}>Eliminar</button>
@@ -180,7 +185,7 @@ export default function CatalogosView() {
                 </tr>
               ))}
               {catalogs.trabajadores.length === 0 && (
-                <tr><td colSpan={4} className={styles.empty}>No hay registros</td></tr>
+                <tr><td colSpan={5} className={styles.empty}>No hay registros</td></tr>
               )}
             </tbody>
           </table>
@@ -252,16 +257,22 @@ export default function CatalogosView() {
               <tr>
                 <th>Nombre</th>
                 <th>Agrupador</th>
+                <th>Solicitante</th>
+                <th>Team</th>
                 <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {catalogs.proyectos.map(item => {
                 const agrupador = catalogs.agrupadores.find(a => a.id === item.agrupador_id)
+                const solicitante = catalogs.solicitantes.find(s => s.id === item.solicitante_id)
+                const team = catalogs.teams.find(t => t.id === item.team_id)
                 return (
                   <tr key={item.id}>
                     <td>{item.nombre}</td>
                     <td>{agrupador?.nombre ?? 'Desconocido'}</td>
+                    <td>{solicitante?.nombre ?? '-'}</td>
+                    <td>{team?.nombre ?? '-'}</td>
                     <td>
                       <button style={actionStyle} onClick={() => handleEdit(item)}>Editar</button>
                       <button style={{...actionStyle, color: '#ef4444'}} onClick={() => handleDelete(item.id)}>Eliminar</button>
@@ -270,7 +281,7 @@ export default function CatalogosView() {
                 )
               })}
               {catalogs.proyectos.length === 0 && (
-                <tr><td colSpan={3} className={styles.empty}>No hay registros</td></tr>
+                <tr><td colSpan={5} className={styles.empty}>No hay registros</td></tr>
               )}
             </tbody>
           </table>
@@ -356,6 +367,10 @@ export default function CatalogosView() {
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Teléfono</label>
                     <input name="telefono" defaultValue={editItem?.telefono} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
                   </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Horas Máximas / Día</label>
+                    <input type="number" step="0.5" name="horas_maximas" defaultValue={editItem?.horas_maximas} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                  </div>
                 </>
               )}
 
@@ -367,15 +382,35 @@ export default function CatalogosView() {
               )}
 
               {activeTab === 'proyectos' && (
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Agrupador</label>
-                  <select name="agrupador_id" required defaultValue={editItem?.agrupador_id} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box', background: '#fff' }}>
-                    <option value="">Seleccionar agrupador</option>
-                    {catalogs?.agrupadores.map(a => (
-                      <option key={a.id} value={a.id}>{a.nombre}</option>
-                    ))}
-                  </select>
-                </div>
+                <>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Agrupador</label>
+                    <select name="agrupador_id" required defaultValue={editItem?.agrupador_id} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box', background: '#fff' }}>
+                      <option value="">Seleccionar agrupador</option>
+                      {catalogs?.agrupadores.map(a => (
+                        <option key={a.id} value={a.id}>{a.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Solicitante</label>
+                    <select name="solicitante_id" defaultValue={editItem?.solicitante_id || ''} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box', background: '#fff' }}>
+                      <option value="">Seleccionar solicitante</option>
+                      {catalogs?.solicitantes.map(s => (
+                        <option key={s.id} value={s.id}>{s.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Team</label>
+                    <select name="team_id" defaultValue={editItem?.team_id || ''} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box', background: '#fff' }}>
+                      <option value="">Seleccionar team</option>
+                      {catalogs?.teams.map(t => (
+                        <option key={t.id} value={t.id}>{t.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
               )}
 
               {activeTab === 'periodos' && (
