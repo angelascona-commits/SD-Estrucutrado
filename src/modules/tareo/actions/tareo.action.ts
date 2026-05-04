@@ -191,6 +191,20 @@ export async function listRegistrosByFechaAction(
   }
 }
 
+export async function getRegistrosByPeriodoAction(
+  periodoId: number
+): Promise<ActionResult<RegistroDetalleItem[]>> {
+  try {
+    const data = await getRegistrosByPeriodo(periodoId)
+    return { success: true, data }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'No se pudieron cargar los registros del período'
+    }
+  }
+}
+
 export async function getRegistroByIdAction(
   id: number
 ): Promise<ActionResult<RegistroDetalleItem>> {

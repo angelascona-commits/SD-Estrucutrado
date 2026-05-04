@@ -12,7 +12,8 @@ import {
   saveTareaAction,
   deleteRegistroAction,
   exportTareoAction,
-  generatePublicLinkAction
+  generatePublicLinkAction,
+  getRegistrosByPeriodoAction
 } from '../actions/tareo.action'
 import type {
   RegistroDetalleItem,
@@ -152,6 +153,54 @@ export default function TareoView() {
   const [linkModalOpen, setLinkModalOpen] = useState(false)
   const [linkFilters, setLinkFilters] = useState({ periodo_id: '', costo_hora: '65', solicitante_id: '', trabajador_id: '', agrupador_id: '', proyecto_id: '' })
   const [generatedLinkData, setGeneratedLinkData] = useState<{isOpen: boolean, link: string}>({ isOpen: false, link: '' })
+  const [registrosExport, setRegistrosExport] = useState<RegistroDetalleItem[]>([])
+  const [loadingExportData, setLoadingExportData] = useState(false)
+
+  useEffect(() => {
+    const fetchRegistros = async (pId: number) => {
+      setLoadingExportData(true)
+      const res = await getRegistrosByPeriodoAction(pId)
+      if (res.success && res.data) {
+        setRegistrosExport(res.data)
+      } else {
+        setRegistrosExport([])
+      }
+      setLoadingExportData(false)
+    }
+
+    if ((exportModalOpen && exportFilters.periodo_id) || (linkModalOpen && linkFilters.periodo_id)) {
+      const activePeriodoId = exportModalOpen ? exportFilters.periodo_id : linkFilters.periodo_id;
+      if (activePeriodoId) fetchRegistros(Number(activePeriodoId));
+    }
+  }, [exportModalOpen, linkModalOpen, exportFilters.periodo_id, linkFilters.periodo_id])
+
+  const getDynamicOptions = (currentFilters: any) => {
+    const filterBy = (excludeKey: string) => {
+      return registrosExport.filter(r => {
+        if (excludeKey !== 'agrupador_id' && currentFilters.agrupador_id && r.agrupador_id !== Number(currentFilters.agrupador_id)) return false;
+        if (excludeKey !== 'proyecto_id' && currentFilters.proyecto_id && r.proyecto_id !== Number(currentFilters.proyecto_id)) return false;
+        if (excludeKey !== 'solicitante_id' && currentFilters.solicitante_id && r.solicitante_id !== Number(currentFilters.solicitante_id)) return false;
+        if (excludeKey !== 'trabajador_id' && currentFilters.trabajador_id && r.trabajador_id !== Number(currentFilters.trabajador_id)) return false;
+        return true;
+      })
+    }
+
+    const availableAgrupadoresIds = new Set(filterBy('agrupador_id').map(r => r.agrupador_id))
+    const availableProyectosIds = new Set(filterBy('proyecto_id').map(r => r.proyecto_id))
+    const availableSolicitantesIds = new Set(filterBy('solicitante_id').map(r => r.solicitante_id))
+    const availableTrabajadoresIds = new Set(filterBy('trabajador_id').map(r => r.trabajador_id))
+
+    return {
+      agrupadores: catalogs?.agrupadores?.filter(a => availableAgrupadoresIds.has(a.id)) || [],
+      proyectos: catalogs?.proyectos?.filter(p => availableProyectosIds.has(p.id)) || [],
+      solicitantes: catalogs?.solicitantes?.filter(s => availableSolicitantesIds.has(s.id)) || [],
+      trabajadores: catalogs?.trabajadores?.filter(t => availableTrabajadoresIds.has(t.id)) || [],
+    }
+  }
+
+  const exportOptions = getDynamicOptions(exportFilters)
+  const linkOptions = getDynamicOptions(linkFilters)
+
   const loadCatalogs = async () => {
     setLoading(true)
     setError(null)
@@ -480,9 +529,10 @@ export default function TareoView() {
                 onChange={(e) => setExportFilters({ ...exportFilters, solicitante_id: e.target.value })}
                 className={styles.select}
                 style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+                disabled={loadingExportData}
               >
                 <option value="">Todos los solicitantes</option>
-                {catalogs?.solicitantes?.map((s) => (
+                {exportOptions.solicitantes.map((s) => (
                   <option key={s.id} value={s.id}>{s.nombre}</option>
                 ))}
               </select>
@@ -495,9 +545,10 @@ export default function TareoView() {
                 onChange={(e) => setExportFilters({ ...exportFilters, trabajador_id: e.target.value })}
                 className={styles.select}
                 style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+                disabled={loadingExportData}
               >
                 <option value="">Todos los trabajadores</option>
-                {catalogs?.trabajadores?.map((t) => (
+                {exportOptions.trabajadores.map((t) => (
                   <option key={t.id} value={t.id}>{t.nombre}</option>
                 ))}
               </select>
@@ -510,9 +561,10 @@ export default function TareoView() {
                 onChange={(e) => setExportFilters({ ...exportFilters, agrupador_id: e.target.value })}
                 className={styles.select}
                 style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+                disabled={loadingExportData}
               >
                 <option value="">Todos los agrupadores</option>
-                {catalogs?.agrupadores?.map((a) => (
+                {exportOptions.agrupadores.map((a) => (
                   <option key={a.id} value={a.id}>{a.nombre}</option>
                 ))}
               </select>
@@ -525,9 +577,10 @@ export default function TareoView() {
                 onChange={(e) => setExportFilters({ ...exportFilters, proyecto_id: e.target.value })}
                 className={styles.select}
                 style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+                disabled={loadingExportData}
               >
                 <option value="">Todos los proyectos</option>
-                {catalogs?.proyectos?.map((p) => (
+                {exportOptions.proyectos.map((p) => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
                 ))}
               </select>
@@ -589,9 +642,10 @@ export default function TareoView() {
                 onChange={(e) => setLinkFilters({ ...linkFilters, solicitante_id: e.target.value })}
                 className={styles.select}
                 style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+                disabled={loadingExportData}
               >
                 <option value="">Todos los solicitantes</option>
-                {catalogs?.solicitantes?.map((s) => (
+                {linkOptions.solicitantes.map((s) => (
                   <option key={s.id} value={s.id}>{s.nombre}</option>
                 ))}
               </select>
@@ -604,9 +658,10 @@ export default function TareoView() {
                 onChange={(e) => setLinkFilters({ ...linkFilters, trabajador_id: e.target.value })}
                 className={styles.select}
                 style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+                disabled={loadingExportData}
               >
                 <option value="">Todos los trabajadores</option>
-                {catalogs?.trabajadores?.map((t) => (
+                {linkOptions.trabajadores.map((t) => (
                   <option key={t.id} value={t.id}>{t.nombre}</option>
                 ))}
               </select>
@@ -619,9 +674,10 @@ export default function TareoView() {
                 onChange={(e) => setLinkFilters({ ...linkFilters, agrupador_id: e.target.value })}
                 className={styles.select}
                 style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+                disabled={loadingExportData}
               >
                 <option value="">Todos los agrupadores</option>
-                {catalogs?.agrupadores?.map((a) => (
+                {linkOptions.agrupadores.map((a) => (
                   <option key={a.id} value={a.id}>{a.nombre}</option>
                 ))}
               </select>
@@ -634,9 +690,10 @@ export default function TareoView() {
                 onChange={(e) => setLinkFilters({ ...linkFilters, proyecto_id: e.target.value })}
                 className={styles.select}
                 style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
+                disabled={loadingExportData}
               >
                 <option value="">Todos los proyectos</option>
-                {catalogs?.proyectos?.map((p) => (
+                {linkOptions.proyectos.map((p) => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
                 ))}
               </select>
