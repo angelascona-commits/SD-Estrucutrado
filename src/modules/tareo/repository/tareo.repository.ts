@@ -601,3 +601,29 @@ export async function getRegistrosByPeriodo(periodoId: number): Promise<Registro
     horas: Number(item.horas ?? 0)
   })) as RegistroDetalleItem[]
 }
+
+export async function getTareaHistorial(tareaId: number): Promise<RegistroDetalleItem[]> {
+  const { data, error } = await supabase
+    .from('v_tareo_registro_detalle')
+    .select('*')
+    .eq('tarea_id', tareaId)
+    .order('fecha', { ascending: false })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data ?? []).map((item: any) => ({
+    ...item,
+    horas: Number(item.horas ?? 0),
+    horas_historicas_arrastre: Number(item.horas_historicas_arrastre ?? 0),
+    horas_asignadas_periodo: Number(item.horas_asignadas_periodo ?? 0),
+    horas_consumidas_periodo: Number(item.horas_consumidas_periodo ?? 0),
+    horas_disponibles_periodo: Number(item.horas_disponibles_periodo ?? 0),
+    horas_totales_acumuladas: Number(item.horas_totales_acumuladas ?? 0),
+    solicitante_horas_maximas_estimadas:
+      item.solicitante_horas_maximas_estimadas !== null
+        ? Number(item.solicitante_horas_maximas_estimadas)
+        : null
+  })) as RegistroDetalleItem[]
+}

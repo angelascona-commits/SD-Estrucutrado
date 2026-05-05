@@ -14,16 +14,17 @@ import type {
   TareaFormData
 } from '../../interfaces/tareo.interfaces'
 import TareaModal from '../TareaModal'
+import TareaHistorialModal from '../TareaHistorialModal'
 import { AlertModal, ConfirmModal } from '../FeedbackModals'
 import styles from './CatalogosView.module.css'
 
 export default function TareasView() {
   const [tasks, setTasks] = useState<TareaPeriodoListItem[]>([])
   const [catalogs, setCatalogs] = useState<TareoCatalogs | null>(null)
-  
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TareaFormData | null>(null)
   const [selectedPeriodoId, setSelectedPeriodoId] = useState<number | null>(null)
@@ -32,7 +33,11 @@ export default function TareasView() {
   const [alertOpen, setAlertOpen] = useState(false)
   const [alertMessage, setAlertMessage] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [confirmConfig, setConfirmConfig] = useState<{message: string, action: () => void} | null>(null)
+  const [confirmConfig, setConfirmConfig] = useState<{ message: string, action: () => void } | null>(null)
+
+  // Historial Modal
+  const [historialOpen, setHistorialOpen] = useState(false)
+  const [historialTarea, setHistorialTarea] = useState<{ id: number; nombre: string } | null>(null)
 
   const showAlert = (msg: string) => {
     setAlertMessage(msg)
@@ -149,7 +154,7 @@ export default function TareasView() {
 
   const filteredTasks = tasks.filter(t => {
     if (showArchived ? t.activo : !t.activo) return false;
-    
+
     if (estadoFilter && t.estado_nombre !== estadoFilter) return false;
 
     if (horasFilter === 'ConHoras' && t.horas_disponibles_periodo <= 0) return false;
@@ -175,7 +180,7 @@ export default function TareasView() {
             Administración completa de tareas, definición de horas y control de seguimiento por período.
           </p>
         </div>
-        
+
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           {catalogs && (
             <select
@@ -208,22 +213,22 @@ export default function TareasView() {
 
       <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', background: '#fff', padding: '16px', borderRadius: '16px', border: '1px solid #e5e7eb' }}>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: 1 }}>
-          <button 
+          <button
             type="button"
             onClick={() => setShowArchived(false)}
-            style={{ 
-              background: !showArchived ? '#e0f2fe' : '#f3f4f6', 
+            style={{
+              background: !showArchived ? '#e0f2fe' : '#f3f4f6',
               color: !showArchived ? '#0369a1' : '#4b5563',
               border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: '0.2s'
             }}
           >
             Tareas Activas
           </button>
-          <button 
+          <button
             type="button"
             onClick={() => setShowArchived(true)}
-            style={{ 
-              background: showArchived ? '#fee2e2' : '#f3f4f6', 
+            style={{
+              background: showArchived ? '#fee2e2' : '#f3f4f6',
               color: showArchived ? '#b91c1c' : '#4b5563',
               border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: '0.2s'
             }}
@@ -231,10 +236,10 @@ export default function TareasView() {
             Archivo (Inactivas)
           </button>
         </div>
-        
+
         <div style={{ display: 'flex', gap: '12px' }}>
-          <select 
-            value={estadoFilter} 
+          <select
+            value={estadoFilter}
             onChange={e => setEstadoFilter(e.target.value)}
             style={{ height: '36px', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '0 10px', outline: 'none', color: '#374151', fontSize: '13px' }}
           >
@@ -243,9 +248,9 @@ export default function TareasView() {
               <option key={st} value={st}>{st}</option>
             ))}
           </select>
-          
-          <select 
-            value={horasFilter} 
+
+          <select
+            value={horasFilter}
             onChange={e => setHorasFilter(e.target.value)}
             style={{ height: '36px', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '0 10px', outline: 'none', color: '#374151', fontSize: '13px' }}
           >
@@ -309,7 +314,26 @@ export default function TareasView() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button 
+                        <button
+                          onClick={() => { setHistorialTarea({ id: t.tarea_id, nombre: t.tarea_nombre }); setHistorialOpen(true) }}
+                          title="Ver historial de días trabajados"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#7c3aed',
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            fontWeight: 600,
+                            borderRadius: '4px',
+                            transition: '0.2s',
+                            fontSize: '13px'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f5f3ff'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          Historial
+                        </button>
+                        <button
                           onClick={() => handleToggleActivo(t)}
                           title={t.activo ? "Desactivar/Archivar Tarea" : "Reactivar Tarea"}
                           style={{
@@ -327,7 +351,7 @@ export default function TareasView() {
                         >
                           {t.activo ? 'Desactivar' : 'Activar'}
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleEdit(t)}
                           style={{
                             background: 'transparent',
@@ -360,6 +384,13 @@ export default function TareasView() {
         )}
       </div>
 
+      <TareaHistorialModal
+        isOpen={historialOpen}
+        onClose={() => { setHistorialOpen(false); setHistorialTarea(null) }}
+        tareaId={historialTarea?.id ?? null}
+        tareaNombre={historialTarea?.nombre ?? ''}
+      />
+
       <TareaModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -373,19 +404,19 @@ export default function TareasView() {
         estadosTarea={catalogs?.estadosTarea ?? []}
       />
 
-      <AlertModal 
-        isOpen={alertOpen} 
-        message={alertMessage} 
-        onClose={() => setAlertOpen(false)} 
+      <AlertModal
+        isOpen={alertOpen}
+        message={alertMessage}
+        onClose={() => setAlertOpen(false)}
       />
-      
-      <ConfirmModal 
-        isOpen={confirmOpen} 
-        message={confirmConfig?.message ?? ''} 
+
+      <ConfirmModal
+        isOpen={confirmOpen}
+        message={confirmConfig?.message ?? ''}
         onConfirm={() => {
           if (confirmConfig?.action) confirmConfig.action()
-        }} 
-        onCancel={() => setConfirmOpen(false)} 
+        }}
+        onCancel={() => setConfirmOpen(false)}
       />
     </div>
   )

@@ -34,7 +34,8 @@ import {
   toggleTareaActivo,
   upsertCatalogItem,
   deleteCatalogItem,
-  getTrabajadorValidacion
+  getTrabajadorValidacion,
+  getTareaHistorial
 } from '../repository/tareo.repository'
 import {
   applyTareaFilters,
@@ -482,6 +483,20 @@ export async function closePeriodoAndCarryOverTasksAction(
     }
   }
 }
+export async function getTareaHistorialAction(
+  tareaId: number
+): Promise<ActionResult<RegistroDetalleItem[]>> {
+  try {
+    const data = await getTareaHistorial(tareaId)
+    return { success: true, data }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'No se pudo cargar el historial de la tarea'
+    }
+  }
+}
+
 export async function exportTareoAction(
   periodoId: number,
   costoHora: number,
