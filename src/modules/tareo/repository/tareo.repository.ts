@@ -627,3 +627,28 @@ export async function getTareaHistorial(tareaId: number): Promise<RegistroDetall
         : null
   })) as RegistroDetalleItem[]
 }
+
+/**
+ * Ejecuta la función SQL de arrastre mensual automático.
+ * Retorna un resumen de la operación: cuántas tareas fueron arrastradas
+ * y los IDs de período de origen y destino.
+ */
+export async function ejecutarArrastreMensual(): Promise<{
+  tareas_arrastradas: number
+  periodo_origen_id: number | null
+  periodo_destino_id: number | null
+  mensaje: string
+}> {
+  const { data, error } = await supabase.rpc('tareo_arrastre_mensual_automatico')
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data as {
+    tareas_arrastradas: number
+    periodo_origen_id: number | null
+    periodo_destino_id: number | null
+    mensaje: string
+  }
+}

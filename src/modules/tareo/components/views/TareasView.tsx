@@ -6,7 +6,8 @@ import {
   listTareasAction,
   getTareaByIdAction,
   saveTareaAction,
-  toggleTareaActivoAction
+  toggleTareaActivoAction,
+  ejecutarArrastreMensualAction
 } from '../../actions/tareo.action'
 import type {
   TareaPeriodoListItem,
@@ -38,6 +39,16 @@ export default function TareasView() {
   // Historial Modal
   const [historialOpen, setHistorialOpen] = useState(false)
   const [historialTarea, setHistorialTarea] = useState<{ id: number; nombre: string } | null>(null)
+
+  // Arrastre mensual manual
+  const [rolloverLoading, setRolloverLoading] = useState(false)
+  const [rolloverResult, setRolloverResult] = useState<{
+    tareas_arrastradas: number
+    periodo_origen_id: number | null
+    periodo_destino_id: number | null
+    mensaje: string
+  } | null>(null)
+  const [rolloverConfirmOpen, setRolloverConfirmOpen] = useState(false)
 
   const showAlert = (msg: string) => {
     setAlertMessage(msg)
@@ -152,6 +163,25 @@ export default function TareasView() {
     })
   }
 
+  const handleArrastreMensual = async () => {
+    setRolloverConfirmOpen(false)
+    setRolloverLoading(true)
+    setRolloverResult(null)
+    try {
+      const res = await ejecutarArrastreMensualAction()
+      if (!res.success) {
+        showAlert(res.error ?? 'Error al ejecutar el arrastre mensual')
+      } else {
+        setRolloverResult(res.data ?? null)
+        await loadData(selectedPeriodoId)
+      }
+    } catch (err: any) {
+      showAlert(err?.message ?? 'Error inesperado')
+    } finally {
+      setRolloverLoading(false)
+    }
+  }
+
   const filteredTasks = tasks.filter(t => {
     if (showArchived ? t.activo : !t.activo) return false;
 
@@ -208,6 +238,38 @@ export default function TareasView() {
           <button className={styles.btnNuevo} onClick={handleCreate}>
             + Nueva Tarea
           </button>
+
+          {/* Botón de Arrastre Mensual Manual */}
+          <button
+            onClick={() => setRolloverConfirmOpen(true)}
+            disabled={rolloverLoading}
+            title="Arrastra automáticamente las tareas con horas disponibles al período actual"
+            style={{
+              height: '40px',
+              padding: '0 18px',
+              borderRadius: '10px',
+              border: '1.5px solid #7c3aed',
+              background: rolloverLoading ? '#ede9fe' : 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+              color: rolloverLoading ? '#7c3aed' : '#fff',
+              fontWeight: 700,
+              fontSize: '13px',
+              cursor: rolloverLoading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: '0.2s',
+              boxShadow: rolloverLoading ? 'none' : '0 2px 8px rgba(124,58,237,0.25)'
+            }}
+          >
+            {rolloverLoading ? (
+              <>
+                <span style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid #7c3aed', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                Procesando...
+              </>
+            ) : (
+              <>Arrastre Mensual</>
+            )}
+          </button>
         </div>
       </div>
 
@@ -260,6 +322,42 @@ export default function TareasView() {
           </select>
         </div>
       </div>
+
+      {/* Resultado del arrastre mensual */}
+      {rolloverResult && (
+        <div style={{
+          background: 'linear-gradient(135deg, #f5f3ff, #ede9fe)',
+          border: '1.5px solid #7c3aed',
+          borderRadius: '14px',
+          padding: '18px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px'
+        }}>
+          <div>
+            <p style={{ margin: 0, fontWeight: 700, color: '#5b21b6', fontSize: '15px' }}>
+              ✅ Arrastre Mensual Completado
+            </p>
+            <p style={{ margin: '4px 0 0', color: '#6d28d9', fontSize: '13px' }}>
+              {rolloverResult.mensaje}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '20px', flexShrink: 0 }}>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#7c3aed' }}>
+                {rolloverResult.tareas_arrastradas}
+              </p>
+              <p style={{ margin: 0, fontSize: '11px', color: '#8b5cf6', fontWeight: 600 }}>TAREAS ARRASTRADAS</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setRolloverResult(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7c3aed', fontSize: '18px', fontWeight: 700, lineHeight: 1 }}
+            title="Cerrar"
+          >×</button>
+        </div>
+      )}
 
       <div className={styles.content} style={{ minHeight: 'auto' }}>
         {loading ? (
@@ -418,6 +516,59 @@ export default function TareasView() {
         }}
         onCancel={() => setConfirmOpen(false)}
       />
+
+      {/* Modal de confirmación para el arrastre mensual */}
+      {rolloverConfirmOpen && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '20px', padding: '32px 36px',
+            maxWidth: '480px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}></div>
+            <h3 style={{ margin: '0 0 12px', color: '#1f2937', fontSize: '20px' }}>
+              Ejecutar Arrastre Mensual
+            </h3>
+            <p style={{ margin: '0 0 24px', color: '#6b7280', fontSize: '14px', lineHeight: 1.6 }}>
+              Esta acción tomará todas las tareas con <strong>horas disponibles &gt; 0</strong> del período
+              anterior y las arrastrará al período actual con sus horas de arrastre correspondientes.
+              El período anterior quedará <strong>cerrado</strong> automáticamente.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setRolloverConfirmOpen(false)}
+                style={{
+                  padding: '10px 24px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
+                  background: '#fff', color: '#374151', fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleArrastreMensual}
+                style={{
+                  padding: '10px 24px', borderRadius: '10px', border: 'none',
+                  background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                  color: '#fff', fontWeight: 700, cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(124,58,237,0.35)'
+                }}
+              >
+                ✓ Confirmar Arrastre
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Animación de spinner */}
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }

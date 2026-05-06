@@ -35,7 +35,8 @@ import {
   upsertCatalogItem,
   deleteCatalogItem,
   getTrabajadorValidacion,
-  getTareaHistorial
+  getTareaHistorial,
+  ejecutarArrastreMensual
 } from '../repository/tareo.repository'
 import {
   applyTareaFilters,
@@ -740,4 +741,42 @@ const getAdminSupabase = () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+/**
+ * Ejecuta el arrastre mensual automático de tareas con horas disponibles
+ * al período siguiente. Llama directamente a la función SQL.
+ */
+export async function ejecutarArrastreMensualAction(): Promise<ActionResult<{
+  tareas_arrastradas: number
+  periodo_origen_id: number | null
+  periodo_destino_id: number | null
+  mensaje: string
+}>> {
+  try {
+    const adminSupabase = getAdminSupabase()
+
+    const { data, error } = await adminSupabase.rpc('tareo_arrastre_mensual_automatico')
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/tareo')
+
+    return {
+      success: true,
+      data: data as {
+        tareas_arrastradas: number
+        periodo_origen_id: number | null
+        periodo_destino_id: number | null
+        mensaje: string
+      }
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Error al ejecutar el arrastre mensual'
+    }
+  }
 }
