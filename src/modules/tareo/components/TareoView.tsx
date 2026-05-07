@@ -327,6 +327,13 @@ export default function TareoView() {
     return resumenGeneral.find((item) => item.fecha === selectedFecha) ?? null
   }, [resumenGeneral, selectedFecha])
 
+  // El acumulado real del mes: suma directa de todas las horas_dia del período.
+  // No usamos horas_acumuladas_mes de la BD porque su cálculo acumulativo puede
+  // ser incorrecto cuando hay días sin registros o cambios de período.
+  const totalAcumuladoMes = useMemo(() => {
+    return resumenGeneral.reduce((acc, item) => acc + Number(item.horas_dia ?? 0), 0)
+  }, [resumenGeneral])
+
   const totalHorasDia = useMemo(() => {
     return registros.reduce((acc, item) => acc + Number(item.horas ?? 0), 0)
   }, [registros])
@@ -813,7 +820,7 @@ export default function TareoView() {
 
       <TareoDailyWidgets
         totalHorasDia={totalHorasDia}
-        totalAcumuladoMes={Number(resumenDia?.horas_acumuladas_mes ?? 0)}
+        totalAcumuladoMes={totalAcumuladoMes}
         totalRegistrosDia={totalRegistrosDia}
         totalTrabajadoresDia={totalTrabajadoresDia}
       />
