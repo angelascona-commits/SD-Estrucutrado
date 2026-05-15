@@ -99,6 +99,8 @@ export default function TareaModal({
   const [formData, setFormData] = useState<TareaFormData & { agrupador_id: number }>(
     getInitialState(tarea, estadoPendiente?.id, proyectos)
   )
+  const [horasAsignadasInput, setHorasAsignadasInput] = useState<string>('')
+  const [horasArrastreInput, setHorasArrastreInput] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [usaArrastre, setUsaArrastre] = useState(false)
   const isEditing = Boolean(tarea?.id)
@@ -108,6 +110,8 @@ export default function TareaModal({
       const initialState = getInitialState(tarea, estadoPendiente?.id, proyectos)
       setFormData(initialState)
       setUsaArrastre(Number(initialState.horas_historicas_arrastre || 0) > 0)
+      setHorasAsignadasInput(Number(initialState.horas_asignadas_periodo) > 0 ? String(initialState.horas_asignadas_periodo) : '')
+      setHorasArrastreInput(Number(initialState.horas_historicas_arrastre) > 0 ? String(initialState.horas_historicas_arrastre) : '')
     }
   }, [isOpen, tarea, estadoPendiente?.id, proyectos])
 
@@ -527,14 +531,19 @@ export default function TareaModal({
               <div className={styles.field}>
                 <label className={styles.label}>Horas asignadas del período</label>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.5"
-                  value={formData.horas_asignadas_periodo || ''}
-                  onChange={(event) =>
-                    handleChange('horas_asignadas_periodo', Number(event.target.value))
-                  }
+                  type="text"
+                  inputMode="decimal"
+                  value={horasAsignadasInput}
+                  onChange={(event) => {
+                    const raw = event.target.value
+                    if (/^[\d]*[.,]?[\d]*$/.test(raw)) {
+                      setHorasAsignadasInput(raw)
+                      const parsed = parseFloat(raw.replace(',', '.'))
+                      handleChange('horas_asignadas_periodo', isNaN(parsed) ? 0 : parsed)
+                    }
+                  }}
                   className={styles.input}
+                  placeholder="ej: 0.50"
                   required
                 />
               </div>
@@ -554,14 +563,19 @@ export default function TareaModal({
                 <div className={styles.field}>
                   <label className={styles.label}>Horas históricas de arrastre</label>
                   <input
-                    type="number"
-                    min="0"
-                    step="0.5"
-                    value={formData.horas_historicas_arrastre || ''}
-                    onChange={(event) =>
-                      handleChange('horas_historicas_arrastre', Number(event.target.value))
-                    }
+                    type="text"
+                    inputMode="decimal"
+                    value={horasArrastreInput}
+                    onChange={(event) => {
+                      const raw = event.target.value
+                      if (/^[\d]*[.,]?[\d]*$/.test(raw)) {
+                        setHorasArrastreInput(raw)
+                        const parsed = parseFloat(raw.replace(',', '.'))
+                        handleChange('horas_historicas_arrastre', isNaN(parsed) ? 0 : parsed)
+                      }
+                    }}
                     className={styles.input}
+                    placeholder="ej: 0.50"
                   />
                 </div>
               )}

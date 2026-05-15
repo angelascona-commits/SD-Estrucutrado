@@ -83,11 +83,11 @@ export function validateRegistroPayload(payload: RegistroFormData): void {
   }
 
   if (Number(payload.horas) <= 0) {
-    throw new Error('Las horas deben ser mayores a 0')
+    throw new Error('Las horas deben ser mayores a 0 (se permiten decimales, ej: 0.25, 0.50, 0.75)')
   }
 
   if (Number(payload.horas) > 12) {
-    throw new Error('Las horas no pueden superar 12 en un solo registro')
+    throw new Error('Las horas no pueden superar 12 en un solo registro (se permiten decimales, ej: 0.25, 0.50, 0.75)')
   }
 }
 

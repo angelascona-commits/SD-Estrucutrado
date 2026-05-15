@@ -369,7 +369,7 @@ export default function CatalogosView() {
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Horas Máximas / Día</label>
-                    <input type="number" step="0.5" name="horas_maximas" defaultValue={editItem?.horas_maximas} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                    <input type="number" step="any" min="0" name="horas_maximas" defaultValue={editItem?.horas_maximas} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
                   </div>
                 </>
               )}
@@ -377,7 +377,7 @@ export default function CatalogosView() {
               {activeTab === 'solicitantes' && (
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Horas Max. Estimadas</label>
-                  <input type="number" step="0.5" name="horas_maximas_estimadas" defaultValue={editItem?.horas_maximas_estimadas} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                  <input type="number" step="any" min="0" name="horas_maximas_estimadas" defaultValue={editItem?.horas_maximas_estimadas} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
                 </div>
               )}
 

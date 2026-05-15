@@ -55,6 +55,7 @@ export default function RegistroTareoModal({
   fechaInicial
 }: RegistroTareoModalProps) {
   const [formData, setFormData] = useState<RegistroFormData>(getInitialState(registro, fechaInicial))
+  const [horasInput, setHorasInput] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [validation, setValidation] = useState<RegistroRealtimeValidationResult | null>(null)
   const [validating, setValidating] = useState(false)
@@ -62,7 +63,9 @@ export default function RegistroTareoModal({
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(getInitialState(registro, fechaInicial))
+      const initial = getInitialState(registro, fechaInicial)
+      setFormData(initial)
+      setHorasInput(initial.horas > 0 ? String(initial.horas) : '')
       setValidation(null)
     }
   }, [isOpen, registro, fechaInicial])
@@ -347,14 +350,27 @@ export default function RegistroTareoModal({
             </div>
 
             <div className={styles.field}>
-              <label className={styles.label}>Horas</label>
+              <label className={styles.label}>Horas (decimales permitidos, ej: 0.50, 0.75)</label>
               <input
-                type="number"
-                min="0"
-                step="0.5"
-                value={formData.horas || ''}
-                onChange={(event) => handleChange('horas', Number(event.target.value))}
+                type="text"
+                inputMode="decimal"
+                value={horasInput}
+                onChange={(event) => {
+                  const raw = event.target.value
+                  // Permite escribir libremente: dígitos, punto y coma decimal
+                  if (/^[\d]*[.,]?[\d]*$/.test(raw)) {
+                    const normalized = raw.replace(',', '.')
+                    setHorasInput(raw)
+                    const parsed = parseFloat(normalized)
+                    if (!isNaN(parsed) && parsed > 0) {
+                      handleChange('horas', parsed)
+                    } else {
+                      handleChange('horas', 0)
+                    }
+                  }
+                }}
                 className={styles.input}
+                placeholder="ej: 0.50"
                 required
               />
             </div>
