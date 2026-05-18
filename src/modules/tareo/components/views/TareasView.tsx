@@ -147,6 +147,8 @@ export default function TareasView() {
       throw new Error(res.error ?? 'Error guardando tarea')
     }
     await loadData(selectedPeriodoId)
+    // Devuelve el ID para que TareaModal pueda guardar el registro rápido
+    return res.data ?? undefined
   }
 
   const handleToggleActivo = async (t: TareaPeriodoListItem) => {
@@ -500,6 +502,7 @@ export default function TareasView() {
         solicitantes={catalogs?.solicitantes ?? []}
         teams={catalogs?.teams ?? []}
         estadosTarea={catalogs?.estadosTarea ?? []}
+        trabajadores={catalogs?.trabajadores ?? []}
       />
 
       <AlertModal

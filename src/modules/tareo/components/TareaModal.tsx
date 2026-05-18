@@ -2,23 +2,29 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Swal from 'sweetalert2'
-import { saveCatalogItemAction } from '../actions/tareo.action'
+import { saveCatalogItemAction, saveRegistroAction, validateRegistroRealtimeAction } from '../actions/tareo.action'
 import type {
   CatalogItem,
   ProyectoItem,
-  TareaFormData
+  RegistroFormData,
+  RegistroRealtimeValidationResult,
+  TareaFormData,
+  TrabajadorItem
 } from '../interfaces/tareo.interfaces'
 import styles from '../styles/tarea-modal.module.css'
 
 interface TareaModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (payload: TareaFormData, isEditing: boolean) => Promise<void> | void
+  // Devuelve el tareaPeriodoId recién creado (solo al crear, no al editar)
+  onSave: (payload: TareaFormData, isEditing: boolean) => Promise<{ tareaPeriodoId: number } | void> | void
   tarea?: TareaFormData | null
   periodos: Array<{
     id: number
     anio: number
     mes: number
+    fecha_inicio?: string
+    fecha_fin?: string
     cerrado: boolean
   }>
   proyectos: ProyectoItem[]
@@ -30,6 +36,7 @@ interface TareaModalProps {
   }>
   teams: CatalogItem[]
   estadosTarea: CatalogItem[]
+  trabajadores?: TrabajadorItem[]
   onCatalogsChange?: () => void
 }
 
@@ -77,6 +84,14 @@ function buildPeriodoLabel(periodo: { anio: number; mes: number; cerrado: boolea
   return `${periodo.anio}-${month}${periodo.cerrado ? ' · Cerrado' : ''}`
 }
 
+function getTodayValue() {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = `${now.getMonth() + 1}`.padStart(2, '0')
+  const d = `${now.getDate()}`.padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export default function TareaModal({
   isOpen,
   onClose,
@@ -88,6 +103,7 @@ export default function TareaModal({
   solicitantes,
   teams,
   estadosTarea,
+  trabajadores = [],
   onCatalogsChange
 }: TareaModalProps) {
   const estadoPendiente = useMemo(() => {
@@ -105,6 +121,18 @@ export default function TareaModal({
   const [usaArrastre, setUsaArrastre] = useState(false)
   const isEditing = Boolean(tarea?.id)
 
+  // ── Estado Registro Rápido ──
+  const [quickRegOpen, setQuickRegOpen] = useState(false)
+  const [quickReg, setQuickReg] = useState<Omit<RegistroFormData, 'tarea_periodo_id'>>({
+    fecha: getTodayValue(),
+    trabajador_id: 0,
+    horas: 0,
+    comentario: ''
+  })
+  const [quickRegHorasInput, setQuickRegHorasInput] = useState('')
+  const [quickRegValidation, setQuickRegValidation] = useState<RegistroRealtimeValidationResult | null>(null)
+  const [quickRegValidating, setQuickRegValidating] = useState(false)
+
   useEffect(() => {
     if (isOpen) {
       const initialState = getInitialState(tarea, estadoPendiente?.id, proyectos)
@@ -112,8 +140,50 @@ export default function TareaModal({
       setUsaArrastre(Number(initialState.horas_historicas_arrastre || 0) > 0)
       setHorasAsignadasInput(Number(initialState.horas_asignadas_periodo) > 0 ? String(initialState.horas_asignadas_periodo) : '')
       setHorasArrastreInput(Number(initialState.horas_historicas_arrastre) > 0 ? String(initialState.horas_historicas_arrastre) : '')
+      // Reset quick reg on open
+      setQuickRegOpen(false)
+      setQuickReg({ fecha: getTodayValue(), trabajador_id: 0, horas: 0, comentario: '' })
+      setQuickRegHorasInput('')
+      setQuickRegValidation(null)
     }
   }, [isOpen, tarea, estadoPendiente?.id, proyectos])
+
+  // Sincronizar horas del registro rápido con horas_asignadas_periodo
+  useEffect(() => {
+    if (!isOpen || isEditing) return
+    const horas = Number(formData.horas_asignadas_periodo || 0)
+    if (horas > 0) {
+      setQuickReg((prev) => ({ ...prev, horas }))
+      setQuickRegHorasInput(String(horas))
+    } else {
+      setQuickReg((prev) => ({ ...prev, horas: 0 }))
+      setQuickRegHorasInput('')
+    }
+  }, [formData.horas_asignadas_periodo, isOpen, isEditing])
+
+  // Validación realtime para registro rápido (solo cuando hay un tarea_periodo_id ficticio 0;
+  // la validación real se hace con el ID real al guardar; aquí validamos lo básico)
+  useEffect(() => {
+    if (!quickRegOpen || !isOpen || isEditing) return
+    // Solo validamos si hay trabajador, fecha y horas
+    if (!quickReg.fecha || !quickReg.trabajador_id || quickReg.horas <= 0) {
+      setQuickRegValidation(null)
+      return
+    }
+    // Usamos tarea_periodo_id=0 para hacer una validación parcial del trabajador/día
+    // La validación completa (bolsa) se hará al guardar con el ID real
+    const run = async () => {
+      setQuickRegValidating(true)
+      const res = await validateRegistroRealtimeAction({
+        tarea_periodo_id: 0, // placeholder, no valida bolsa de horas aquí
+        ...quickReg
+      })
+      if (res.success && res.data) setQuickRegValidation(res.data)
+      else setQuickRegValidation(null)
+      setQuickRegValidating(false)
+    }
+    void run()
+  }, [quickRegOpen, isOpen, isEditing, quickReg.fecha, quickReg.trabajador_id, quickReg.horas])
 
   const proyectoSeleccionado = useMemo(() => {
     return proyectos.find((item) => item.id === Number(formData.proyecto_id)) ?? null
@@ -133,7 +203,7 @@ export default function TareaModal({
     if (formData.proyecto_id) {
       const proj = proyectos.find(p => p.id === formData.proyecto_id)
       if (proj && proj.agrupador_id !== Number(formData.agrupador_id)) {
-         setFormData(prev => ({ ...prev, proyecto_id: 0, solicitante_id: 0, team_id: 0 }))
+        setFormData(prev => ({ ...prev, proyecto_id: 0, solicitante_id: 0, team_id: 0 }))
       }
     }
   }, [formData.agrupador_id, proyectos])
@@ -166,8 +236,8 @@ export default function TareaModal({
 
   const handleCreateProject = async () => {
     if (!formData.agrupador_id) {
-       Swal.fire('Atención', 'Debe seleccionar un Agrupador primero', 'warning')
-       return
+      Swal.fire('Atención', 'Debe seleccionar un Agrupador primero', 'warning')
+      return
     }
 
     const agrupadorName = agrupadores.find(a => a.id === Number(formData.agrupador_id))?.nombre
@@ -207,55 +277,55 @@ export default function TareaModal({
         const nombre = (document.getElementById('swal-input-nombre') as HTMLInputElement).value
         const solicitante_id = (document.getElementById('swal-input-solicitante') as HTMLSelectElement).value
         const team_id = (document.getElementById('swal-input-team') as HTMLSelectElement).value
-        
+
         if (!nombre) {
           Swal.showValidationMessage('El nombre es obligatorio')
           return false
         }
-        return { 
-          nombre, 
-          solicitante_id: solicitante_id ? Number(solicitante_id) : null, 
-          team_id: team_id ? Number(team_id) : null 
+        return {
+          nombre,
+          solicitante_id: solicitante_id ? Number(solicitante_id) : null,
+          team_id: team_id ? Number(team_id) : null
         }
       }
     })
 
     if (formValues) {
-       setSaving(true)
-       try {
-         const res = await saveCatalogItemAction('tareo_proyecto', {
-           nombre: formValues.nombre,
-           agrupador_id: formData.agrupador_id,
-           solicitante_id: formValues.solicitante_id,
-           team_id: formValues.team_id
-         })
-         
-         if (res.success && res.data) {
-            if (onCatalogsChange) {
-               onCatalogsChange() // Trigger reload
-            }
-            // Auto-select the newly created project
-            const newId = res.data.id
-            setFormData(prev => ({
-               ...prev,
-               proyecto_id: newId,
-               solicitante_id: formValues.solicitante_id || prev.solicitante_id,
-               team_id: formValues.team_id || prev.team_id
-            }))
-            Swal.fire({
-               icon: 'success',
-               title: 'Proyecto Creado',
-               text: 'El proyecto se ha creado correctamente y ha sido seleccionado.',
-               timer: 2000,
-               showConfirmButton: false
-            })
-         } else {
-            throw new Error(res.error ?? 'Error desconocido')
-         }
-       } catch (e: any) {
-          Swal.fire('Error', e.message || 'No se pudo crear el proyecto', 'error')
-       }
-       setSaving(false)
+      setSaving(true)
+      try {
+        const res = await saveCatalogItemAction('tareo_proyecto', {
+          nombre: formValues.nombre,
+          agrupador_id: formData.agrupador_id,
+          solicitante_id: formValues.solicitante_id,
+          team_id: formValues.team_id
+        })
+
+        if (res.success && res.data) {
+          if (onCatalogsChange) {
+            onCatalogsChange() // Trigger reload
+          }
+          // Auto-select the newly created project
+          const newId = res.data.id
+          setFormData(prev => ({
+            ...prev,
+            proyecto_id: newId,
+            solicitante_id: formValues.solicitante_id || prev.solicitante_id,
+            team_id: formValues.team_id || prev.team_id
+          }))
+          Swal.fire({
+            icon: 'success',
+            title: 'Proyecto Creado',
+            text: 'El proyecto se ha creado correctamente y ha sido seleccionado.',
+            timer: 2000,
+            showConfirmButton: false
+          })
+        } else {
+          throw new Error(res.error ?? 'Error desconocido')
+        }
+      } catch (e: any) {
+        Swal.fire('Error', e.message || 'No se pudo crear el proyecto', 'error')
+      }
+      setSaving(false)
     }
   }
 
@@ -280,7 +350,7 @@ export default function TareaModal({
             setSaving(false)
             return
           }
-          
+
           const inputResult = await Swal.fire({
             title: 'Nuevo estimado de horas',
             input: 'number',
@@ -301,7 +371,7 @@ export default function TareaModal({
             setSaving(false)
             return
           }
-          
+
           const newValue = Number(inputResult.value)
           try {
             await saveCatalogItemAction('tareo_solicitante', {
@@ -321,7 +391,7 @@ export default function TareaModal({
         }
       }
 
-      await onSave(
+      const saveResult = await onSave(
         {
           ...formData,
           estado_id: isEditing ? formData.estado_id : (estadoPendiente?.id ?? formData.estado_id),
@@ -333,6 +403,38 @@ export default function TareaModal({
         },
         isEditing
       )
+
+      // ── Registro Rápido: guardar si está activo y es creación ──
+      if (!isEditing && quickRegOpen && quickReg.trabajador_id > 0 && quickReg.horas > 0 && quickReg.fecha) {
+        const tareaPeriodoId = (saveResult as { tareaPeriodoId: number } | undefined)?.tareaPeriodoId
+        if (tareaPeriodoId) {
+          const registroPayload: RegistroFormData = {
+            tarea_periodo_id: tareaPeriodoId,
+            fecha: quickReg.fecha,
+            trabajador_id: quickReg.trabajador_id,
+            horas: quickReg.horas,
+            comentario: quickReg.comentario ?? null
+          }
+          const regRes = await saveRegistroAction(registroPayload, false)
+          if (!regRes.success) {
+            await Swal.fire({
+              icon: 'warning',
+              title: 'Tarea creada, pero el registro falló',
+              text: regRes.error ?? 'No se pudo guardar el registro rápido. Puedes registrarlo manualmente.',
+              confirmButtonColor: 'var(--primary, #ec5b13)'
+            })
+          } else {
+            await Swal.fire({
+              icon: 'success',
+              title: '¡Listo!',
+              text: 'Tarea y registro rápido guardados correctamente.',
+              timer: 2000,
+              showConfirmButton: false
+            })
+          }
+        }
+      }
+
       onClose()
     } finally {
       setSaving(false)
@@ -415,8 +517,8 @@ export default function TareaModal({
                       </option>
                     ))}
                   </select>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={handleCreateProject}
                     disabled={!formData.agrupador_id}
                     title="Crear nuevo proyecto en este agrupador"
@@ -624,12 +726,146 @@ export default function TareaModal({
             </div>
           </div>
 
+          {/* ── Sección Registro Rápido (solo al crear) ── */}
+          {!isEditing && (
+            <div className={styles.quickRegSection}>
+              <button
+                type="button"
+                className={styles.quickRegToggle}
+                onClick={() => setQuickRegOpen((p) => !p)}
+              >
+                <span className={styles.quickRegToggleLeft}>
+                  <span className={styles.quickRegToggleText}>
+                    <span className={styles.quickRegToggleTitle}>Registro Rápido</span>
+                    <span className={styles.quickRegToggleSubtitle}>
+                      {quickRegOpen ? 'Registrar horas al crear la tarea' : 'Añadir un registro en el mismo paso (opcional)'}
+                    </span>
+                  </span>
+                </span>
+                <span className={`${styles.quickRegToggleArrow}${quickRegOpen ? ` ${styles.open}` : ''}`}>▼</span>
+              </button>
+
+              {quickRegOpen && (
+                <div className={styles.quickRegBody}>
+                  <div className={styles.grid}>
+                    <div className={styles.field}>
+                      <label className={styles.label}>Fecha del registro</label>
+                      <input
+                        type="date"
+                        value={quickReg.fecha}
+                        onChange={(e) => setQuickReg((p) => ({ ...p, fecha: e.target.value }))}
+                        className={styles.input}
+                      />
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.label}>Trabajador</label>
+                      <select
+                        value={quickReg.trabajador_id || ''}
+                        onChange={(e) => setQuickReg((p) => ({ ...p, trabajador_id: Number(e.target.value) }))}
+                        className={styles.select}
+                      >
+                        <option value="">Seleccionar trabajador</option>
+                        {trabajadores.map((t) => (
+                          <option key={t.id} value={t.id}>{t.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.label}>
+                        Horas
+                        {Number(formData.horas_asignadas_periodo) > 0 && (
+                          <span style={{ marginLeft: '8px', fontSize: '11px', fontWeight: 500, color: '#6366f1', background: '#eef2ff', padding: '2px 7px', borderRadius: '6px' }}>
+                            = horas asignadas al período
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={quickRegHorasInput}
+                        onChange={(e) => {
+                          const raw = e.target.value
+                          if (/^[\d]*[.,]?[\d]*$/.test(raw)) {
+                            setQuickRegHorasInput(raw)
+                            const parsed = parseFloat(raw.replace(',', '.'))
+                            setQuickReg((p) => ({ ...p, horas: isNaN(parsed) ? 0 : parsed }))
+                          }
+                        }}
+                        className={styles.input}
+                        placeholder="ej: 1.00"
+                      />
+                      {Number(formData.horas_asignadas_periodo) > 0 && (
+                        <span style={{ fontSize: '11px', color: '#6b7280' }}>
+                          Ajusta si el registro cubre solo parte de las horas.
+                        </span>
+                      )}
+                    </div>
+
+                    <div className={styles.field}>
+                      <label className={styles.label}>Comentario (opcional)</label>
+                      <input
+                        type="text"
+                        value={quickReg.comentario ?? ''}
+                        onChange={(e) => setQuickReg((p) => ({ ...p, comentario: e.target.value }))}
+                        className={styles.input}
+                        placeholder="Descripción del trabajo..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Validación realtime del trabajador en el día */}
+                  {(quickRegValidation || quickRegValidating) && (
+                    <div className={styles.quickRegValidBox}>
+                      <div className={styles.quickRegValidGrid}>
+                        <div className={styles.quickRegValidItem}>
+                          <span className={styles.quickRegValidLabel}>Horas trabajador en el día</span>
+                          <span className={styles.quickRegValidValue}>
+                            {quickRegValidating ? '...' : quickRegValidation?.horas_trabajador_dia ?? '-'}
+                          </span>
+                        </div>
+                        <div className={styles.quickRegValidItem}>
+                          <span className={styles.quickRegValidLabel}>Total resultante</span>
+                          <span className={styles.quickRegValidValue}>
+                            {quickRegValidating ? '...' : quickRegValidation?.total_horas_resultante ?? '-'}
+                          </span>
+                        </div>
+                      </div>
+                      {quickRegValidation && quickRegValidation.excede_maximo_dia && (
+                        <div className={styles.quickRegValidError}>
+                          El trabajador superará su límite de horas diarias ({quickRegValidation.total_horas_resultante}H). Se pedirá confirmación al guardar.
+                        </div>
+                      )}
+                      {quickRegValidation && !quickRegValidation.excede_maximo_dia && quickReg.horas > 0 && (
+                        <div className={styles.quickRegValidSuccess}>
+                          Horas del trabajador dentro del límite diario.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <p style={{ margin: 0, fontSize: '12px', fontStyle: 'italic' }}>
+                    La bolsa de horas de la tarea se validará al guardar. Si las horas superan la bolsa, se te pedirá confirmación.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className={styles.actions}>
             <button type="button" className={styles.secondaryButton} onClick={onClose}>
               Cancelar
             </button>
             <button type="submit" className={styles.primaryButton} disabled={saving}>
-              {saving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar tarea'}
+              {saving
+                ? 'Guardando...'
+                : isEditing
+                  ? 'Guardar cambios'
+                  : quickRegOpen && quickReg.trabajador_id > 0 && quickReg.horas > 0
+                    ? 'Guardar tarea + registro'
+                    : 'Guardar tarea'
+              }
             </button>
           </div>
         </form>

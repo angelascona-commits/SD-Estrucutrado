@@ -439,6 +439,9 @@ export default function TareoView() {
     }
 
     await loadTareasPeriodo(selectedPeriodoId)
+
+    // Devuelve el ID para que TareaModal pueda guardar el registro rápido
+    return response.data ?? undefined
   }
   const handleExportExcel = async () => {
     if (!selectedPeriodoId) {
@@ -867,6 +870,7 @@ export default function TareoView() {
         solicitantes={catalogs?.solicitantes ?? []}
         teams={catalogs?.teams ?? []}
         estadosTarea={catalogs?.estadosTarea ?? []}
+        trabajadores={catalogs?.trabajadores ?? []}
         onCatalogsChange={loadCatalogs}
       />
     </div>
