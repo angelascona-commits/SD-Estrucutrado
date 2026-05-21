@@ -9,6 +9,8 @@
   transition: width 0.3s ease;
   flex-shrink: 0;
   zoom: 80%;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .collapsed {
@@ -19,6 +21,12 @@
 .collapsed .navItem {
   padding: 10px;
   justify-content: center;
+  border-left: none;
+}
+
+.collapsed .navItem:hover {
+  transform: scale(1.05); /* zoom shift instead of translation in collapsed state */
+  border-left: none;
 }
 
 .menuTitle {
@@ -34,35 +42,47 @@
 .sidebarMenu {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .navItem {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 12px 16px;
   border-radius: 12px;
   color: var(--slate-600, #475569);
   text-decoration: none;
-  transition: 0.2s;
+  transition: all 0.2s ease-in-out;
   white-space: nowrap;
   overflow: hidden;
+  border-left: 4px solid transparent;
 }
 
 .navItem:hover {
-  background-color: var(--slate-100, #f1f5f9);
+  background-color: rgba(236, 91, 19, 0.08); /* Beautiful premium brand tint */
+  color: var(--primary, #ec5b13); /* Brand orange text */
+  transform: translateX(4px); /* Responsive micro-shift animation */
+  border-left: 4px solid var(--primary, #ec5b13); /* High-visibility vertical indicator */
 }
 
 .active {
   background-color: var(--primary, #ec5b13);
   color: var(--bg-white, #ffffff);
-  box-shadow: 0 4px 6px -1px rgba(236, 91, 19, 0.2);
+  box-shadow: 0 4px 12px -2px rgba(236, 91, 19, 0.35);
+  border-left: 4px solid var(--primary, #ec5b13);
+}
+
+.active:hover {
+  color: var(--bg-white, #ffffff);
+  background-color: var(--primary, #ec5b13);
+  transform: none; /* No shifts on active hover */
+  box-shadow: 0 4px 16px -1px rgba(236, 91, 19, 0.45);
 }
 
 .navText {
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {
@@ -75,6 +95,12 @@
   .navItem {
     padding: 10px;
     justify-content: center;
+    border-left: none;
+  }
+
+  .navItem:hover {
+    transform: scale(1.05);
+    border-left: none;
   }
 
   .navText,

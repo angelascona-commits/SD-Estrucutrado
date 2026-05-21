@@ -23,6 +23,11 @@ const DOMINIOS = [
     label: 'Pareo',
     href: '/pareo',
     icon: 'join_inner',
+  },
+  {
+    label: 'Solicitudes',
+    href: '/sgprc',
+    icon: 'cloud',
   }
 ]
 

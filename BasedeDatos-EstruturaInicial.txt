@@ -116,8 +116,12 @@ CREATE TABLE public.tareo_proyecto (
   nombre character varying NOT NULL,
   activo boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
+  solicitante_id integer,
+  team_id integer,
   CONSTRAINT tareo_proyecto_pkey PRIMARY KEY (id),
-  CONSTRAINT tareo_proyecto_agrupador_id_fkey FOREIGN KEY (agrupador_id) REFERENCES public.tareo_agrupador(id)
+  CONSTRAINT tareo_proyecto_agrupador_id_fkey FOREIGN KEY (agrupador_id) REFERENCES public.tareo_agrupador(id),
+  CONSTRAINT tareo_proyecto_solicitante_id_fkey FOREIGN KEY (solicitante_id) REFERENCES public.tareo_solicitante(id),
+  CONSTRAINT tareo_proyecto_team_id_fkey FOREIGN KEY (team_id) REFERENCES public.tareo_team(id)
 );
 CREATE TABLE public.tareo_registro (
   id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -204,6 +208,7 @@ CREATE TABLE public.tareo_trabajador (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   correo character varying,
   telefono character varying,
+  horas_maximas numeric,
   CONSTRAINT tareo_trabajador_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.ticket_gestion (
