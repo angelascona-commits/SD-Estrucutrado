@@ -16,6 +16,7 @@ export default async function PublicReportPage({
   const filterTrabajador = sp.trabajador ? Number(sp.trabajador) : undefined;
   const filterAgrupador = sp.agrupador ? Number(sp.agrupador) : undefined;
   const filterProyecto = sp.proyecto ? Number(sp.proyecto) : undefined;
+  const filterTeam = sp.team ? Number(sp.team) : undefined;
   const filterCosto = sp.costo ? Number(sp.costo) : undefined;
 
   // 2. Llamar a la acción del servidor con el token
@@ -46,6 +47,9 @@ export default async function PublicReportPage({
   if (filterProyecto) {
     registros = registros.filter((r: any) => r.proyecto_id === filterProyecto);
   }
+  if (filterTeam) {
+    registros = registros.filter((r: any) => r.team_id === filterTeam);
+  }
 
   let titleText = "Revisión de Tareo Detallado";
   if (registros.length > 0) {
@@ -54,7 +58,8 @@ export default async function PublicReportPage({
     if (filterAgrupador) filtersInfo.push(`Agrupador: ${r.agrupador_nombre}`);
     if (filterProyecto) filtersInfo.push(`Proyecto: ${r.proyecto_nombre}`);
     if (filterSolicitante) filtersInfo.push(`Solicitante: ${r.solicitante_nombre}`);
-    if (filterTrabajador) filtersInfo.push(`Trabajador: ${r.trabajador_nombre}`);
+    if (filterTrabajador) filtersInfo.push(`Recurso: ${r.trabajador_nombre}`);
+    if (filterTeam) filtersInfo.push(`Equipo: ${r.team_nombre}`);
 
     if (filtersInfo.length > 0) {
       titleText += ` - ${filtersInfo.join(' | ')}`;

@@ -133,58 +133,15 @@ export default function RegistroTareoModal({
 
     try {
       if (validation && validation.excede_maximo_dia) {
-        const result = await Swal.fire({
-          title: 'Aumentar Límite Diario',
-          text: `El trabajador superará su límite de horas. (Total resultante: ${validation.total_horas_resultante}H). ¿Deseas aumentar sus horas máximas diarias para poder guardar?`,
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonText: 'Sí, aumentar',
-          cancelButtonText: 'Cancelar',
+        await Swal.fire({
+          icon: 'error',
+          title: 'Límite Diario Superado',
+          text: `El trabajador ya tiene registradas ${validation.horas_trabajador_dia} horas en este día. Al intentar registrar ${validation.horas_ingresadas} horas más, se superará el límite diario de 12 horas.`,
+          confirmButtonText: 'Aceptar',
           confirmButtonColor: 'var(--primary, #ec5b13)'
         })
-
-        if (!result.isConfirmed) {
-          setSaving(false)
-          return
-        }
-        
-        const inputResult = await Swal.fire({
-          title: 'Nuevo límite de horas',
-          input: 'number',
-          inputLabel: 'Ingrese el nuevo límite de horas diarias para el trabajador',
-          inputValue: validation.total_horas_resultante,
-          showCancelButton: true,
-          confirmButtonText: 'Actualizar',
-          cancelButtonText: 'Cancelar',
-          confirmButtonColor: 'var(--primary, #ec5b13)',
-          inputValidator: (value) => {
-            if (!value || isNaN(Number(value)) || Number(value) < validation.total_horas_resultante) {
-              return 'Ingrese un número válido mayor o igual al total resultante'
-            }
-          }
-        })
-
-        if (!inputResult.isConfirmed) {
-          setSaving(false)
-          return
-        }
-        
-        const newValue = Number(inputResult.value)
-        try {
-          await saveCatalogItemAction('tareo_trabajador', {
-            id: formData.trabajador_id,
-            horas_maximas: newValue
-          })
-        } catch (e) {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: 'No se pudo actualizar el trabajador.',
-            confirmButtonColor: 'var(--primary, #ec5b13)'
-          })
-          setSaving(false)
-          return
-        }
+        setSaving(false)
+        return
       }
 
       if (validation && validation.excede_horas_disponibles) {

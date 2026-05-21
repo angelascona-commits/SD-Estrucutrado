@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import {
   fetchTareoCatalogsAction,
   getRegistroByIdAction,
@@ -12,6 +12,8 @@ import {
   saveTareaAction,
   deleteRegistroAction,
   exportTareoAction,
+  exportTareoConEquipoRecursoAction,
+  exportTareoMultiMesAction,
   generatePublicLinkAction,
   getRegistrosByPeriodoAction
 } from '../actions/tareo.action'
@@ -149,10 +151,14 @@ export default function TareoView() {
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportCosto, setExportCosto] = useState('65')
   const [exportFilters, setExportFilters] = useState({ periodo_id: '', solicitante_id: '', trabajador_id: '', agrupador_id: '', proyecto_id: '', team_id: '' })
+  // Tipo de reporte: 'standard' | 'equipo_recurso' | 'multi_mes'
+  const [exportTipoReporte, setExportTipoReporte] = useState<'standard' | 'equipo_recurso' | 'multi_mes'>('standard')
+  // Multi-mes: selección múltiple de períodos
+  const [multiMesPeriodoIds, setMultiMesPeriodoIds] = useState<number[]>([])
 
   const [linkModalOpen, setLinkModalOpen] = useState(false)
   const [linkFilters, setLinkFilters] = useState({ periodo_id: '', costo_hora: '65', solicitante_id: '', trabajador_id: '', agrupador_id: '', proyecto_id: '', team_id: '' })
-  const [generatedLinkData, setGeneratedLinkData] = useState<{isOpen: boolean, link: string}>({ isOpen: false, link: '' })
+  const [generatedLinkData, setGeneratedLinkData] = useState<{ isOpen: boolean, link: string }>({ isOpen: false, link: '' })
   const [registrosExport, setRegistrosExport] = useState<RegistroDetalleItem[]>([])
   const [loadingExportData, setLoadingExportData] = useState(false)
 
@@ -257,8 +263,8 @@ export default function TareoView() {
 
     const targetPeriodoId = linkFilters.periodo_id ? Number(linkFilters.periodo_id) : selectedPeriodoId!
     const response = await generatePublicLinkAction(
-      targetPeriodoId, 
-      linkFilters.solicitante_id ? Number(linkFilters.solicitante_id) : undefined, 
+      targetPeriodoId,
+      linkFilters.solicitante_id ? Number(linkFilters.solicitante_id) : undefined,
       linkFilters.trabajador_id ? Number(linkFilters.trabajador_id) : undefined,
       linkFilters.costo_hora ? Number(linkFilters.costo_hora) : undefined,
       linkFilters.agrupador_id ? Number(linkFilters.agrupador_id) : undefined,
@@ -268,7 +274,7 @@ export default function TareoView() {
 
     if (response.success && response.data) {
       const link = response.data
-      
+
       // Intentar copiar al portapapeles automáticamente
       try {
         await navigator.clipboard.writeText(link)
@@ -449,8 +455,20 @@ export default function TareoView() {
       return
     }
     setExportFilters(prev => ({ ...prev, periodo_id: selectedPeriodoId.toString() }))
+    setExportTipoReporte('standard')
+    setMultiMesPeriodoIds(selectedPeriodoId ? [selectedPeriodoId] : [])
     setExportModalOpen(true)
   }
+
+  const triggerDownload = (base64: string, fileName: string) => {
+    const link = document.createElement('a')
+    link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   const confirmExport = async () => {
     const costoHora = parseFloat(exportCosto)
     if (isNaN(costoHora) || costoHora <= 0) {
@@ -462,9 +480,48 @@ export default function TareoView() {
     setError(null)
 
     try {
+      // ── Reporte Multi-Mes ──────────────────────────────────────────────────
+      if (exportTipoReporte === 'multi_mes') {
+        if (multiMesPeriodoIds.length === 0) {
+          setError('Selecciona al menos un período para el reporte multi-mes.')
+          setExporting(false)
+          return
+        }
+        const response = await exportTareoMultiMesAction(multiMesPeriodoIds, costoHora)
+        if (response.success && response.data) {
+          triggerDownload(response.data.base64, response.data.fileName)
+          setExportModalOpen(false)
+        } else {
+          setError(response.error ?? 'Error al generar el reporte multi-mes')
+        }
+        return
+      }
+
+      // ── Reporte Equipo + Recurso ──────────────────────────────────────────
       const targetPeriodoId = exportFilters.periodo_id ? Number(exportFilters.periodo_id) : selectedPeriodoId!
+
+      if (exportTipoReporte === 'equipo_recurso') {
+        const response = await exportTareoConEquipoRecursoAction(
+          targetPeriodoId,
+          costoHora,
+          exportFilters.solicitante_id ? Number(exportFilters.solicitante_id) : undefined,
+          exportFilters.trabajador_id ? Number(exportFilters.trabajador_id) : undefined,
+          exportFilters.agrupador_id ? Number(exportFilters.agrupador_id) : undefined,
+          exportFilters.proyecto_id ? Number(exportFilters.proyecto_id) : undefined,
+          exportFilters.team_id ? Number(exportFilters.team_id) : undefined
+        )
+        if (response.success && response.data) {
+          triggerDownload(response.data.base64, response.data.fileName)
+          setExportModalOpen(false)
+        } else {
+          setError(response.error ?? 'Error al generar el reporte por equipo/recurso')
+        }
+        return
+      }
+
+      // ── Reporte Standard ──────────────────────────────────────────────────
       const response = await exportTareoAction(
-        targetPeriodoId, 
+        targetPeriodoId,
         costoHora,
         exportFilters.solicitante_id ? Number(exportFilters.solicitante_id) : undefined,
         exportFilters.trabajador_id ? Number(exportFilters.trabajador_id) : undefined,
@@ -474,14 +531,8 @@ export default function TareoView() {
       )
 
       if (response.success && response.data) {
-        const { base64, fileName } = response.data
-        const link = document.createElement('a')
-        link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64}`
-        link.download = fileName
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        setExportModalOpen(false) // Cerramos el modal al terminar
+        triggerDownload(response.data.base64, response.data.fileName)
+        setExportModalOpen(false)
       } else {
         setError(response.error ?? 'Error al generar el reporte')
       }
@@ -489,7 +540,7 @@ export default function TareoView() {
       setExporting(false)
     }
   }
-  
+
   if (loading) {
     return (
       <div className={styles.loadingContainer}>
@@ -500,136 +551,167 @@ export default function TareoView() {
 
   return (
     <div className={styles.container}>
-      {exportModalOpen && (
-        <div className={styles.backdrop} style={{ zIndex: 1000, position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className={styles.modal} style={{ background: '#fff', borderRadius: '18px', width: '700px', padding: '32px' }}>
-            <h3 className={styles.title} style={{ margin: '0 0 8px 0', fontSize: '22px' }}>Exportar Reporte</h3>
-            <p className={styles.subtitle} style={{ marginBottom: '24px', color: '#6b7280' }}>
-              Ingrese el costo unitario por hora y aplique los filtros necesarios para obtener su reporte.
-            </p>
+      {exportModalOpen && (() => {
+        const TIPO_TABS = [
+          { id: 'standard', label: 'Detalle', desc: 'Detalle de Tareas, Resumen, Equipo y Recurso' },
+          { id: 'multi_mes', label: 'Graficas', desc: 'Totales y tendencia histórica con gráficas' },
+        ] as const
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-              <div className={styles.field}>
-                <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Costo por Hora (S/.)</label>
-                <input
-                  type="number"
-                  value={exportCosto}
-                  onChange={(e) => setExportCosto(e.target.value)}
-                  className={styles.input}
-                  style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
-                />
+        const tabStyle = (active: boolean): React.CSSProperties => ({
+          flex: 1,
+          padding: '10px 8px',
+          borderRadius: '10px',
+          border: active ? '2px solid #2563eb' : '1.5px solid #e5e7eb',
+          background: active ? '#eff6ff' : '#f9fafb',
+          color: active ? '#1d4ed8' : '#6b7280',
+          fontWeight: active ? 700 : 500,
+          fontSize: '13px',
+          cursor: 'pointer',
+          textAlign: 'center',
+          transition: 'all 0.18s',
+        })
+
+        const fieldStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: '6px' }
+        const labelStyle: React.CSSProperties = { fontWeight: 600, fontSize: '13px', color: '#374151' }
+        const selectStyle: React.CSSProperties = { width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db', fontSize: '14px' }
+
+        const isMono = exportTipoReporte === 'standard' || exportTipoReporte === 'equipo_recurso'
+
+        return (
+          <div className={styles.backdrop} style={{ zIndex: 1000, position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className={styles.modal} style={{ background: '#fff', borderRadius: '20px', width: '760px', maxHeight: '90vh', overflowY: 'auto', padding: '32px', boxShadow: '0 24px 48px rgba(0,0,0,0.18)' }}>
+
+              {/* Título */}
+              <h3 style={{ margin: '0 0 4px', fontSize: '22px', fontWeight: 700, color: '#111827' }}>Exportar Reporte</h3>
+              <p style={{ margin: '0 0 20px', color: '#6b7280', fontSize: '14px' }}>Selecciona el tipo de reporte y configura los parámetros.</p>
+
+              {/* Tabs de tipo de reporte */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
+                {TIPO_TABS.map(tab => (
+                  <button key={tab.id} type="button" style={tabStyle(exportTipoReporte === tab.id)}
+                    onClick={() => setExportTipoReporte(tab.id)}>
+                    <div>{tab.label}</div>
+                    <div style={{ fontSize: '11px', fontWeight: 400, marginTop: '2px', opacity: 0.8 }}>{tab.desc}</div>
+                  </button>
+                ))}
               </div>
 
-              <div className={styles.field}>
-                <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Período</label>
-                <select
-                  value={exportFilters.periodo_id}
-                  onChange={(e) => setExportFilters({ ...exportFilters, periodo_id: e.target.value })}
-                  className={styles.select}
-                  style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
-                >
-                  {catalogs?.periodos?.map((p) => {
-                    const month = `${p.mes}`.padStart(2, '0')
-                    const label = `${p.anio}-${month}${p.cerrado ? ' · Cerrado' : ''}`
-                    return (
-                      <option key={p.id} value={p.id}>{label}</option>
-                    )
-                  })}
-                </select>
+              {/* Costo hora — siempre visible */}
+              <div style={{ marginBottom: '20px', ...fieldStyle }}>
+                <label style={labelStyle}>Costo por Hora (S/.)</label>
+                <input type="number" value={exportCosto} onChange={e => setExportCosto(e.target.value)}
+                  style={{ ...selectStyle, width: '200px' }} />
               </div>
 
-              <div className={styles.field}>
-                <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Proyecto (Opcional)</label>
-                <select
-                  value={exportFilters.proyecto_id}
-                  onChange={(e) => setExportFilters({ ...exportFilters, proyecto_id: e.target.value })}
-                  className={styles.select}
-                  style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
-                  disabled={loadingExportData}
-                >
-                  <option value="">Todos los proyectos</option>
-                  {exportOptions.proyectos.map((p) => (
-                    <option key={p.id} value={p.id}>{p.nombre}</option>
-                  ))}
-                </select>
+              {/* ── MULTI-MES ── */}
+              {exportTipoReporte === 'multi_mes' && (
+                <div>
+                  <label style={{ ...labelStyle, display: 'block', marginBottom: '10px' }}>
+                    Períodos a incluir <span style={{ color: '#9ca3af', fontWeight: 400 }}>(selecciona uno o más)</span>
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', maxHeight: '220px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '12px' }}>
+                    {catalogs?.periodos?.map(p => {
+                      const label = `${String(p.mes).padStart(2, '0')}/${p.anio}${p.cerrado ? ' ✓' : ''}`
+                      const checked = multiMesPeriodoIds.includes(p.id)
+                      return (
+                        <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', background: checked ? '#eff6ff' : 'transparent', border: checked ? '1.5px solid #93c5fd' : '1.5px solid transparent', fontSize: '13px', color: '#374151', transition: '0.15s' }}>
+                          <input type="checkbox" checked={checked}
+                            onChange={e => setMultiMesPeriodoIds(prev => e.target.checked ? [...prev, p.id] : prev.filter(id => id !== p.id))}
+                            style={{ accentColor: '#2563eb', width: '15px', height: '15px' }} />
+                          {label}
+                        </label>
+                      )
+                    })}
+                  </div>
+                  <div style={{ marginTop: '10px', fontSize: '13px', color: '#6b7280' }}>
+                    {multiMesPeriodoIds.length === 0
+                      ? '⚠️ Selecciona al menos un período'
+                      : `✅ ${multiMesPeriodoIds.length} período(s) seleccionado(s)`}
+                  </div>
+
+                </div>
+              )}
+
+              {isMono && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Período</label>
+                    <select value={exportFilters.periodo_id}
+                      onChange={e => setExportFilters({ ...exportFilters, periodo_id: e.target.value })}
+                      style={selectStyle}>
+                      {catalogs?.periodos?.map(p => (
+                        <option key={p.id} value={p.id}>{String(p.mes).padStart(2, '0')}/{p.anio}{p.cerrado ? ' · Cerrado' : ''}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Proyecto <span style={{ color: '#9ca3af', fontWeight: 400 }}>(Opcional)</span></label>
+                    <select value={exportFilters.proyecto_id} disabled={loadingExportData}
+                      onChange={e => setExportFilters({ ...exportFilters, proyecto_id: e.target.value })}
+                      style={selectStyle}>
+                      <option value="">Todos los proyectos</option>
+                      {exportOptions.proyectos.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+                    </select>
+                  </div>
+
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Agrupador <span style={{ color: '#9ca3af', fontWeight: 400 }}>(Opcional)</span></label>
+                    <select value={exportFilters.agrupador_id} disabled={loadingExportData}
+                      onChange={e => setExportFilters({ ...exportFilters, agrupador_id: e.target.value })}
+                      style={selectStyle}>
+                      <option value="">Todos los agrupadores</option>
+                      {exportOptions.agrupadores.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                    </select>
+                  </div>
+
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Solicitante <span style={{ color: '#9ca3af', fontWeight: 400 }}>(Opcional)</span></label>
+                    <select value={exportFilters.solicitante_id} disabled={loadingExportData}
+                      onChange={e => setExportFilters({ ...exportFilters, solicitante_id: e.target.value })}
+                      style={selectStyle}>
+                      <option value="">Todos los solicitantes</option>
+                      {exportOptions.solicitantes.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                    </select>
+                  </div>
+
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Equipo <span style={{ color: '#9ca3af', fontWeight: 400 }}>(Opcional)</span></label>
+                    <select value={exportFilters.team_id} disabled={loadingExportData}
+                      onChange={e => setExportFilters({ ...exportFilters, team_id: e.target.value })}
+                      style={selectStyle}>
+                      <option value="">Todos los equipos</option>
+                      {exportOptions.teams.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                    </select>
+                  </div>
+
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Recurso <span style={{ color: '#9ca3af', fontWeight: 400 }}>(Opcional)</span></label>
+                    <select value={exportFilters.trabajador_id} disabled={loadingExportData}
+                      onChange={e => setExportFilters({ ...exportFilters, trabajador_id: e.target.value })}
+                      style={selectStyle}>
+                      <option value="">Todos los recursos</option>
+                      {exportOptions.trabajadores.map(t => <option key={t.id} value={t.id}>{t.nombre}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '28px' }}>
+                <button type="button" className={styles.secondaryButton} onClick={() => setExportModalOpen(false)}>
+                  Cancelar
+                </button>
+                <button type="button" className={styles.primaryButton} onClick={confirmExport}
+                  disabled={exporting || (exportTipoReporte === 'multi_mes' && multiMesPeriodoIds.length === 0)}>
+                  {exporting ? 'Generando...' : ' Descargar Excel'}
+                </button>
               </div>
 
-              <div className={styles.field}>
-                <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Agrupador (Opcional)</label>
-                <select
-                  value={exportFilters.agrupador_id}
-                  onChange={(e) => setExportFilters({ ...exportFilters, agrupador_id: e.target.value })}
-                  className={styles.select}
-                  style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
-                  disabled={loadingExportData}
-                >
-                  <option value="">Todos los agrupadores</option>
-                  {exportOptions.agrupadores.map((a) => (
-                    <option key={a.id} value={a.id}>{a.nombre}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.field}>
-                <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Solicitante (Opcional)</label>
-                <select
-                  value={exportFilters.solicitante_id}
-                  onChange={(e) => setExportFilters({ ...exportFilters, solicitante_id: e.target.value })}
-                  className={styles.select}
-                  style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
-                  disabled={loadingExportData}
-                >
-                  <option value="">Todos los solicitantes</option>
-                  {exportOptions.solicitantes.map((s) => (
-                    <option key={s.id} value={s.id}>{s.nombre}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.field}>
-                <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Team (Opcional)</label>
-                <select
-                  value={exportFilters.team_id}
-                  onChange={(e) => setExportFilters({ ...exportFilters, team_id: e.target.value })}
-                  className={styles.select}
-                  style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
-                  disabled={loadingExportData}
-                >
-                  <option value="">Todos los teams</option>
-                  {exportOptions.teams.map((t) => (
-                    <option key={t.id} value={t.id}>{t.nombre}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
-                <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Trabajador (Opcional)</label>
-                <select
-                  value={exportFilters.trabajador_id}
-                  onChange={(e) => setExportFilters({ ...exportFilters, trabajador_id: e.target.value })}
-                  className={styles.select}
-                  style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
-                  disabled={loadingExportData}
-                >
-                  <option value="">Todos los trabajadores</option>
-                  {exportOptions.trabajadores.map((t) => (
-                    <option key={t.id} value={t.id}>{t.nombre}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className={styles.actions} style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button type="button" className={styles.secondaryButton} onClick={() => setExportModalOpen(false)}>
-                Cancelar
-              </button>
-              <button type="button" className={styles.primaryButton} onClick={confirmExport} disabled={exporting}>
-                {exporting ? 'Generando...' : 'Descargar Excel'}
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
+
 
       {linkModalOpen && (
         <div className={styles.backdrop} style={{ zIndex: 1000, position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -718,7 +800,7 @@ export default function TareoView() {
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Team (Opcional)</label>
+                <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Equipo (Opcional)</label>
                 <select
                   value={linkFilters.team_id}
                   onChange={(e) => setLinkFilters({ ...linkFilters, team_id: e.target.value })}
@@ -726,7 +808,7 @@ export default function TareoView() {
                   style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
                   disabled={loadingExportData}
                 >
-                  <option value="">Todos los teams</option>
+                  <option value="">Todos los equipos</option>
                   {linkOptions.teams.map((t) => (
                     <option key={t.id} value={t.id}>{t.nombre}</option>
                   ))}
@@ -734,7 +816,7 @@ export default function TareoView() {
               </div>
 
               <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
-                <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Trabajador (Opcional)</label>
+                <label className={styles.label} style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Recurso (Opcional)</label>
                 <select
                   value={linkFilters.trabajador_id}
                   onChange={(e) => setLinkFilters({ ...linkFilters, trabajador_id: e.target.value })}
@@ -742,7 +824,7 @@ export default function TareoView() {
                   style={{ width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
                   disabled={loadingExportData}
                 >
-                  <option value="">Todos los trabajadores</option>
+                  <option value="">Todos los recursos</option>
                   {linkOptions.trabajadores.map((t) => (
                     <option key={t.id} value={t.id}>{t.nombre}</option>
                   ))}
@@ -780,21 +862,21 @@ export default function TareoView() {
             </div>
 
             <div className={styles.actions} style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
-              <button 
-                type="button" 
-                className={styles.secondaryButton} 
+              <button
+                type="button"
+                className={styles.secondaryButton}
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(generatedLinkData.link);
                     alert("Copiado nuevamente");
-                  } catch (e) {}
+                  } catch (e) { }
                 }}
               >
                 Copiar Enlace
               </button>
-              <button 
-                type="button" 
-                className={styles.primaryButton} 
+              <button
+                type="button"
+                className={styles.primaryButton}
                 style={{ padding: '0 24px' }}
                 onClick={() => setGeneratedLinkData({ isOpen: false, link: '' })}
               >
@@ -861,6 +943,7 @@ export default function TareoView() {
         onClose={() => {
           setTareaModalOpen(false)
           setSelectedTarea(null)
+          void loadData(selectedFecha, selectedPeriodoId)
         }}
         onSave={handleSaveTarea}
         tarea={selectedTarea}

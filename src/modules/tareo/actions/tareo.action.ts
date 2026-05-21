@@ -45,7 +45,9 @@ import {
   validateRegistroPayload,
   validateTareaPayload,
   validateTareaUpdatePayload,
-  generateTareoExcel
+  generateTareoExcel,
+  generateTareoExcelConEquipoRecurso,
+  generateTareoMultiMesExcel
 } from '../services/tareo.service'
 import{
   supabase
@@ -449,8 +451,7 @@ export async function validateRegistroRealtimeAction(
         excede_maximo_dia: excedeMaximoDia,
         excede_horas_disponibles: excedeHorasDisponibles,
         periodo_cerrado: periodoCerrado,
-        // Eliminamos el bloqueo para permitir que el modal proponga la solución en el frontend
-        can_save: !excedeHorasDisponibles && !periodoCerrado,
+        can_save: !excedeMaximoDia && !excedeHorasDisponibles && !periodoCerrado,
         messages
       }
     }
@@ -604,6 +605,161 @@ export async function exportTareoAction(
     }
   } catch (error) {
     return { success: false, error: 'Error al generar el archivo Excel.' }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPORT CON HOJAS DE EQUIPO + RECURSO (reporte mensual enriquecido)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function exportTareoConEquipoRecursoAction(
+  periodoId: number,
+  costoHora: number,
+  solicitanteId?: number,
+  trabajadorId?: number,
+  agrupadorId?: number,
+  proyectoId?: number,
+  teamId?: number
+): Promise<ActionResult<{ base64: string; fileName: string }>> {
+  try {
+    const [allTareas, allRegistros] = await Promise.all([
+      getAllTareasPeriodo(),
+      getRegistrosByPeriodo(periodoId)
+    ])
+
+    let tareasPeriodo = allTareas.filter((t) => t.periodo_id === periodoId)
+    let registros = allRegistros
+    let isFiltered = false
+
+    if (solicitanteId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.solicitante_id === solicitanteId)
+      registros = registros.filter(r => r.solicitante_id === solicitanteId)
+      isFiltered = true
+    }
+    if (trabajadorId) {
+      registros = registros.filter(r => r.trabajador_id === trabajadorId)
+      const tareasConRegistros = new Set(registros.map(r => r.tarea_periodo_id))
+      tareasPeriodo = tareasPeriodo.filter(t => tareasConRegistros.has(t.tarea_periodo_id))
+      isFiltered = true
+    }
+    if (agrupadorId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.agrupador_id === agrupadorId)
+      registros = registros.filter(r => r.agrupador_id === agrupadorId)
+      isFiltered = true
+    }
+    if (proyectoId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.proyecto_id === proyectoId)
+      registros = registros.filter(r => r.proyecto_id === proyectoId)
+      isFiltered = true
+    }
+    if (teamId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.team_id === teamId)
+      registros = registros.filter(r => r.team_id === teamId)
+      isFiltered = true
+    }
+
+    const horasPorTarea = registros.reduce((acc, r) => {
+      acc[r.tarea_periodo_id] = (acc[r.tarea_periodo_id] || 0) + Number(r.horas)
+      return acc
+    }, {} as Record<number, number>)
+
+    tareasPeriodo = tareasPeriodo.map(t => ({
+      ...t,
+      horas_consumidas_periodo: horasPorTarea[t.tarea_periodo_id] || 0
+    }))
+
+    if (registros.length === 0) {
+      return { success: false, error: 'No existen registros operativos para este período.' }
+    }
+
+    const first = registros[0]
+    const periodoLabel = `${first.anio}-${String(first.mes).padStart(2, '0')}`
+
+    const workbook = await generateTareoExcelConEquipoRecurso(tareasPeriodo, registros, periodoLabel, costoHora, isFiltered)
+    const buffer = await workbook.xlsx.writeBuffer()
+
+    return {
+      success: true,
+      data: {
+        base64: Buffer.from(buffer).toString('base64'),
+        fileName: `REPORTE_EQUIPO_RECURSO_${periodoLabel}.xlsx`
+      }
+    }
+  } catch (error) {
+    return { success: false, error: 'Error al generar el reporte por equipo/recurso.' }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EXPORT MULTI-MES: TOTALES + TENDENCIA
+// ─────────────────────────────────────────────────────────────────────────────
+export async function exportTareoMultiMesAction(
+  periodoIds: number[],
+  costoHora: number
+): Promise<ActionResult<{ base64: string; fileName: string }>> {
+  try {
+    if (!periodoIds || periodoIds.length === 0) {
+      return { success: false, error: 'Debes seleccionar al menos un período.' }
+    }
+
+    // Traer registros de todos los períodos en paralelo
+    const resultados = await Promise.all(
+      periodoIds.map(async (id) => {
+        const registros = await getRegistrosByPeriodo(id)
+        return registros
+      })
+    )
+
+    // Necesitamos los metadatos de cada período para el label
+    const allRegistros = resultados.flat()
+
+    // Agrupar registros por período
+    const byPeriodo: Record<number, {
+      periodoId: number
+      label: string
+      anio: number
+      mes: number
+      registros: typeof allRegistros
+    }> = {}
+
+    for (let i = 0; i < periodoIds.length; i++) {
+      const id = periodoIds[i]
+      const regsDelPeriodo = resultados[i]
+      if (regsDelPeriodo.length > 0) {
+        const first = regsDelPeriodo[0]
+        const label = `${first.anio}-${String(first.mes).padStart(2, '0')}`
+        byPeriodo[id] = { periodoId: id, label, anio: first.anio, mes: first.mes, registros: regsDelPeriodo }
+      } else {
+        // Período sin registros: buscamos metadatos de allRegistros o usamos ID como fallback
+        // Intentamos resolver el período desde Supabase (sin registros no tenemos fechas)
+        byPeriodo[id] = { periodoId: id, label: `P-${id}`, anio: 0, mes: 0, registros: [] }
+      }
+    }
+
+    const periodoDataArr = Object.values(byPeriodo)
+
+    if (periodoDataArr.every(p => p.registros.length === 0)) {
+      return { success: false, error: 'Los períodos seleccionados no tienen registros operativos.' }
+    }
+
+    const workbook = await generateTareoMultiMesExcel(periodoDataArr, costoHora)
+    const buffer = await workbook.xlsx.writeBuffer()
+
+    const labels = periodoDataArr
+      .filter(p => p.anio > 0)
+      .sort((a, b) => a.anio !== b.anio ? a.anio - b.anio : a.mes - b.mes)
+
+    const desde = labels[0]?.label ?? 'inicio'
+    const hasta = labels[labels.length - 1]?.label ?? 'fin'
+
+    return {
+      success: true,
+      data: {
+        base64: Buffer.from(buffer).toString('base64'),
+        fileName: `REPORTE_MULTIMES_${desde}_a_${hasta}.xlsx`
+      }
+    }
+  } catch (error) {
+    return { success: false, error: 'Error al generar el reporte multi-mes.' }
   }
 }
 export async function generatePublicLinkAction(
