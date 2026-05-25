@@ -22,6 +22,10 @@ export interface PeriodoItem {
   cerrado: boolean
 }
 
+export interface AgrupadorItem extends CatalogItem {
+  area_id: number
+}
+
 export interface ProyectoItem extends CatalogItem {
   agrupador_id: number
   solicitante_id: number | null
@@ -32,10 +36,11 @@ export interface TareoCatalogs {
   trabajadores: TrabajadorItem[]
   teams: CatalogItem[]
   solicitantes: SolicitanteItem[]
-  agrupadores: CatalogItem[]
+  agrupadores: AgrupadorItem[]
   proyectos: ProyectoItem[]
   estadosTarea: CatalogItem[]
   periodos: PeriodoItem[]
+  areas: CatalogItem[]
 }
 
 export interface TareaFormData {

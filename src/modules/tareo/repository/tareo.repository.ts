@@ -10,7 +10,8 @@ import type {
   TareaFormData,
   TareaPeriodoListItem,
   TareoCatalogs,
-  TrabajadorItem
+  TrabajadorItem,
+  AgrupadorItem
 } from '../interfaces/tareo.interfaces'
 
 export async function getTareoCatalogs(): Promise<TareoCatalogs> {
@@ -21,7 +22,8 @@ export async function getTareoCatalogs(): Promise<TareoCatalogs> {
     agrupadoresRes,
     proyectosRes,
     estadosTareaRes,
-    periodosRes
+    periodosRes,
+    areasRes
   ] = await Promise.all([
     supabase
       .from('tareo_trabajador')
@@ -40,7 +42,7 @@ export async function getTareoCatalogs(): Promise<TareoCatalogs> {
       .order('nombre'),
     supabase
       .from('tareo_agrupador')
-      .select('id, nombre')
+      .select('id, nombre, area_id')
       .eq('activo', true)
       .order('nombre'),
     supabase
@@ -57,7 +59,12 @@ export async function getTareoCatalogs(): Promise<TareoCatalogs> {
       .from('tareo_periodo')
       .select('id, anio, mes, fecha_inicio, fecha_fin, cerrado')
       .order('anio', { ascending: false })
-      .order('mes', { ascending: false })
+      .order('mes', { ascending: false }),
+    supabase
+      .from('tareo_area')
+      .select('id, nombre')
+      .eq('activo', true)
+      .order('nombre')
   ])
 
   const errors = [
@@ -67,7 +74,8 @@ export async function getTareoCatalogs(): Promise<TareoCatalogs> {
     agrupadoresRes.error,
     proyectosRes.error,
     estadosTareaRes.error,
-    periodosRes.error
+    periodosRes.error,
+    areasRes.error
   ].filter(Boolean)
 
   if (errors.length > 0) {
@@ -78,10 +86,11 @@ export async function getTareoCatalogs(): Promise<TareoCatalogs> {
     trabajadores: (trabajadoresRes.data ?? []) as TrabajadorItem[],
     teams: (teamsRes.data ?? []) as Array<{ id: number; nombre: string }>,
     solicitantes: (solicitantesRes.data ?? []) as SolicitanteItem[],
-    agrupadores: (agrupadoresRes.data ?? []) as Array<{ id: number; nombre: string }>,
+    agrupadores: (agrupadoresRes.data ?? []) as AgrupadorItem[],
     proyectos: (proyectosRes.data ?? []) as Array<{ id: number; nombre: string; agrupador_id: number; solicitante_id: number | null; team_id: number | null }>,
     estadosTarea: (estadosTareaRes.data ?? []) as Array<{ id: number; nombre: string }>,
-    periodos: (periodosRes.data ?? []) as PeriodoItem[]
+    periodos: (periodosRes.data ?? []) as PeriodoItem[],
+    areas: (areasRes.data ?? []) as Array<{ id: number; nombre: string }>
   }
 }
 

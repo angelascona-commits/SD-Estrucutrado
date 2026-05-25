@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs'
+import { supabase } from '@/modules/shared/infra/supabase'
 import type {
   RegistroFormData,
   TareaFilters,
@@ -265,6 +266,27 @@ function createDetailSheet(
   })
 }
 
+// Helper to fetch agrupador area mapping dynamically from database
+async function getAgrupadorAreaMap(): Promise<Map<number, string>> {
+  try {
+    const { data } = await supabase
+      .from('tareo_agrupador')
+      .select('id, area:tareo_area(nombre)')
+      .eq('activo', true)
+
+    const map = new Map<number, string>()
+    if (data) {
+      data.forEach((item: any) => {
+        const areaName = item.area?.nombre || ''
+        map.set(Number(item.id), areaName)
+      })
+    }
+    return map
+  } catch {
+    return new Map<number, string>()
+  }
+}
+
 // Función principal de generación
 export async function generateTareoExcel(
   tareasPeriodo: TareaPeriodoListItem[],
@@ -279,12 +301,18 @@ export async function generateTareoExcel(
     createDetailSheet(workbook, 'Detalle Registros', registros, periodoLabel);
     createFilteredSummarySheet(workbook, tareasPeriodo, costoHora);
   } else {
-    // Separación de datos para detalle y resumen
-    const agilRegs = registros.filter(r => (r.agrupador_nombre || '').toLowerCase().includes('squad') || (r.agrupador_nombre || '').toLowerCase().includes('agil'));
-    const proyRegs = registros.filter(r => !agilRegs.includes(r));
+    // Separación de datos para detalle y resumen basada en catálogo dinámico de áreas
+    const areaMap = await getAgrupadorAreaMap();
+    const isAgil = (agrupadorId: number) => {
+      const areaName = areaMap.get(Number(agrupadorId)) || '';
+      return areaName.toLowerCase().trim() === 'agil';
+    };
 
-    const agilTareas = tareasPeriodo.filter(t => (t.agrupador_nombre || '').toLowerCase().includes('squad') || (t.agrupador_nombre || '').toLowerCase().includes('agil'));
-    const proyTareas = tareasPeriodo.filter(t => !agilTareas.includes(t));
+    const agilRegs = registros.filter(r => isAgil(r.agrupador_id));
+    const proyRegs = registros.filter(r => !isAgil(r.agrupador_id));
+
+    const agilTareas = tareasPeriodo.filter(t => isAgil(t.agrupador_id));
+    const proyTareas = tareasPeriodo.filter(t => !isAgil(t.agrupador_id));
 
     // Hojas de detalle
     createDetailSheet(workbook, 'Agil', agilRegs, periodoLabel);
@@ -295,6 +323,7 @@ export async function generateTareoExcel(
   }
 
   // Hojas adicionales siempre presentes en el reporte estándar
+  createAgrupadorSummarySheet(workbook, tareasPeriodo, costoHora, periodoLabel);
   createTeamSheet(workbook, registros, costoHora, periodoLabel);
   createResourceSheet(workbook, registros, costoHora, periodoLabel);
 
@@ -357,14 +386,27 @@ function createSummarySheet(
   sheet.getColumn(2).width = 15; // Horas
   sheet.getColumn(3).width = 20; // Monto S/
 
-  const addTable = (title: string, tareas: TareaPeriodoListItem[], groupByKey: 'proyecto_nombre' | 'agrupador_nombre', startRow: number) => {
-    // Usamos las horas que el sistema ya calculó (horas_consumidas_periodo)
+  const addNestedTable = (title: string, tareas: TareaPeriodoListItem[], startRow: number) => {
+    // 1. Agrupar por Agrupador -> Proyecto
+    type GroupedHierarchy = Record<string, {
+      proyectos: Record<string, number>;
+      totalH: number;
+    }>;
+
     const grouped = tareas.reduce((acc, t) => {
-      const name = t[groupByKey] || 'Sin asignar';
+      const agrupador = t.agrupador_nombre || 'Sin Agrupador';
+      const proyecto = t.proyecto_nombre || 'Sin Proyecto';
       const horas = Number(t.horas_consumidas_periodo || 0);
-      acc[name] = (acc[name] || 0) + horas;
+      
+      if (!acc[agrupador]) {
+        acc[agrupador] = { proyectos: {}, totalH: 0 };
+      }
+      
+      acc[agrupador].proyectos[proyecto] = (acc[agrupador].proyectos[proyecto] || 0) + horas;
+      acc[agrupador].totalH += horas;
+      
       return acc;
-    }, {} as Record<string, number>);
+    }, {} as GroupedHierarchy);
 
     // Título de la tabla
     const titleCell = sheet.getCell(`A${startRow}`);
@@ -373,35 +415,59 @@ function createSummarySheet(
 
     // Cabecera
     const header = sheet.getRow(startRow + 1);
-    header.values = [groupByKey === 'proyecto_nombre' ? 'Pry - Protecta' : 'Agrupador', 'Horas', 'Monto a pagar'];
+    header.values = ['Agrupador / Proyecto', 'Horas', 'Monto a pagar'];
     styleRow(header, true);
 
     let currentRow = startRow + 2;
     let totalH = 0;
 
-    Object.entries(grouped).forEach(([name, h]) => {
-      const row = sheet.addRow([name, h, h * costoHora]);
-      row.getCell(2).numFmt = '#,##0.00';
-      row.getCell(3).numFmt = '"S/ "#,##0.00'; // Cambio a Soles
-      styleRow(row);
-      totalH += h;
+    Object.entries(grouped).forEach(([agrupador, groupData]) => {
+      if (groupData.totalH === 0) return;
+
+      // Fila de Encabezado de Agrupador (Fondo celeste suave, texto azul)
+      const agrupRow = sheet.addRow([`AGRUPADOR: ${agrupador}`, '', '']);
+      agrupRow.getCell(1).font = { bold: true, color: { argb: 'FF1E3A8A' } }; // Azul oscuro
+      agrupRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F7FF' } }; // Fondo celeste
+      styleRow(agrupRow);
       currentRow++;
+
+      // Proyectos bajo este Agrupador
+      Object.entries(groupData.proyectos).forEach(([proyecto, h]) => {
+        if (h === 0) return;
+        const row = sheet.addRow([`   ${proyecto}`, h, h * costoHora]);
+        row.getCell(2).numFmt = '#,##0.00';
+        row.getCell(3).numFmt = '"S/ "#,##0.00';
+        styleRow(row);
+        currentRow++;
+      });
+
+      // Sub Total por Agrupador
+      const subRow = sheet.addRow([`   Sub Total ${agrupador}`, groupData.totalH, groupData.totalH * costoHora]);
+      subRow.font = { bold: true, italic: true };
+      subRow.getCell(2).numFmt = '#,##0.00';
+      subRow.getCell(3).numFmt = '"S/ "#,##0.00';
+      styleRow(subRow);
+      currentRow++;
+
+      totalH += groupData.totalH;
     });
 
-    // Fila de Subtotal
-    const subtotal = sheet.addRow(['Sub Total', totalH, totalH * costoHora]);
+    // Fila del subtotal general de este área
+    const subtotal = sheet.addRow([`TOTAL ${title}`, totalH, totalH * costoHora]);
     subtotal.font = { bold: true };
+    subtotal.getCell(2).numFmt = '#,##0.00';
     subtotal.getCell(3).numFmt = '"S/ "#,##0.00';
     styleRow(subtotal);
+    currentRow++;
 
     return { h: totalH, m: totalH * costoHora, next: currentRow + 3 };
   };
 
-  // 1. RESUMEN AGIL (Agrupado por Proyecto)
-  const resAgil = addTable('RESUMEN AGIL', agilTareas, 'proyecto_nombre', 1);
+  // 1. RESUMEN AGIL (Agrupado por Agrupador -> Proyecto)
+  const resAgil = addNestedTable('RESUMEN AGIL', agilTareas, 1);
 
-  // 2. RESUMEN PROYECTOS (Agrupado por Agrupador)
-  const resProy = addTable('RESUMEN PROYECTOS', proyectosTareas, 'agrupador_nombre', resAgil.next);
+  // 2. RESUMEN PROYECTOS (Agrupado por Agrupador -> Proyecto)
+  const resProy = addNestedTable('RESUMEN PROYECTOS', proyectosTareas, resAgil.next);
 
   // 3. CONSOLIDADO GENERAL
   const genStart = resProy.next;
@@ -425,6 +491,59 @@ function createSummarySheet(
   total.font = { bold: true, size: 11 };
   total.getCell(3).numFmt = '"S/ "#,##0.00';
   styleRow(total);
+}
+
+function createAgrupadorSummarySheet(
+  workbook: ExcelJS.Workbook,
+  tareasPeriodo: TareaPeriodoListItem[],
+  costoHora: number,
+  periodoLabel: string
+) {
+  const sheet = workbook.addWorksheet('Resumen por Agrupador');
+  sheet.getColumn(1).width = 40; // Agrupador
+  sheet.getColumn(2).width = 15; // Horas
+  sheet.getColumn(3).width = 20; // Monto S/
+
+  // Título
+  const title = sheet.getCell('A1');
+  title.value = `RESUMEN DE HORAS POR AGRUPADOR — PERÍODO ${periodoLabel}`;
+  title.font = { bold: true, size: 13 };
+  sheet.mergeCells('A1:C1');
+  sheet.getRow(1).alignment = { horizontal: 'center' };
+
+  // Cabecera
+  const header = sheet.getRow(2);
+  header.values = ['Agrupador', 'Horas Totales', 'Monto a pagar (S/.)'];
+  styleRow(header, true);
+
+  // Agrupar por Agrupador
+  const grouped = tareasPeriodo.reduce((acc, t) => {
+    const name = t.agrupador_nombre || 'Sin Agrupador';
+    const horas = Number(t.horas_consumidas_periodo || 0);
+    acc[name] = (acc[name] || 0) + horas;
+    return acc;
+  }, {} as Record<string, number>);
+
+  let grandTotal = 0;
+
+  // Insertar agrupadores ordenados por horas consumidas descendentemente
+  Object.entries(grouped)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([name, h]) => {
+      if (h === 0) return;
+      const row = sheet.addRow([name, h, h * costoHora]);
+      row.getCell(2).numFmt = '#,##0.00';
+      row.getCell(3).numFmt = '"S/ "#,##0.00';
+      styleRow(row);
+      grandTotal += h;
+    });
+
+  // Fila de Total General
+  const totalRow = sheet.addRow(['TOTAL GENERAL', grandTotal, grandTotal * costoHora]);
+  totalRow.font = { bold: true, size: 12 };
+  totalRow.getCell(2).numFmt = '#,##0.00';
+  totalRow.getCell(3).numFmt = '"S/ "#,##0.00';
+  styleRow(totalRow);
 }
 function styleRow(row: ExcelJS.Row, isHeader: boolean = false) {
   row.eachCell((cell) => {
@@ -607,10 +726,16 @@ export async function generateTareoExcelConEquipoRecurso(
     createDetailSheet(workbook, 'Detalle Registros', registros, periodoLabel);
     createFilteredSummarySheet(workbook, tareasPeriodo, costoHora);
   } else {
-    const agilRegs = registros.filter(r => (r.agrupador_nombre || '').toLowerCase().includes('squad') || (r.agrupador_nombre || '').toLowerCase().includes('agil'));
+    const areaMap = await getAgrupadorAreaMap();
+    const isAgil = (agrupadorId: number) => {
+      const areaName = areaMap.get(Number(agrupadorId)) || '';
+      return areaName.toLowerCase().trim() === 'agil';
+    };
+
+    const agilRegs = registros.filter(r => isAgil(r.agrupador_id));
     const proyRegs = registros.filter(r => !agilRegs.includes(r));
-    const agilTareas = tareasPeriodo.filter(t => (t.agrupador_nombre || '').toLowerCase().includes('squad') || (t.agrupador_nombre || '').toLowerCase().includes('agil'));
-    const proyTareas = tareasPeriodo.filter(t => !agilTareas.includes(t));
+    const agilTareas = tareasPeriodo.filter(t => isAgil(t.agrupador_id));
+    const proyTareas = tareasPeriodo.filter(t => !isAgil(t.agrupador_id));
 
     createDetailSheet(workbook, 'Agil', agilRegs, periodoLabel);
     createDetailSheet(workbook, 'Proyectos', proyRegs, periodoLabel);
@@ -618,6 +743,7 @@ export async function generateTareoExcelConEquipoRecurso(
   }
 
   // Hojas adicionales siempre presentes
+  createAgrupadorSummarySheet(workbook, tareasPeriodo, costoHora, periodoLabel);
   createTeamSheet(workbook, registros, costoHora, periodoLabel);
   createResourceSheet(workbook, registros, costoHora, periodoLabel);
 

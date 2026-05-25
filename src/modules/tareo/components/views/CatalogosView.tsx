@@ -14,6 +14,7 @@ type TabKey =
   | 'proyectos'
   | 'estadosTarea'
   | 'periodos'
+  | 'areas'
 
 export default function CatalogosView() {
   const [catalogs, setCatalogs] = useState<TareoCatalogs | null>(null)
@@ -50,7 +51,8 @@ export default function CatalogosView() {
     agrupadores: 'tareo_agrupador',
     proyectos: 'tareo_proyecto',
     estadosTarea: 'tareo_estado_tarea',
-    periodos: 'tareo_periodo'
+    periodos: 'tareo_periodo',
+    areas: 'tareo_area'
   }
 
   const loadData = async () => {
@@ -104,6 +106,8 @@ export default function CatalogosView() {
       payload.horas_maximas = Number(formData.get('horas_maximas')) || null
     } else if (activeTab === 'solicitantes') {
       payload.horas_maximas_estimadas = Number(formData.get('horas_maximas_estimadas')) || null
+    } else if (activeTab === 'agrupadores') {
+      payload.area_id = formData.get('area_id') ? Number(formData.get('area_id')) : null
     } else if (activeTab === 'proyectos') {
       payload.agrupador_id = Number(formData.get('agrupador_id'))
       payload.solicitante_id = formData.get('solicitante_id') ? Number(formData.get('solicitante_id')) : null
@@ -149,6 +153,7 @@ export default function CatalogosView() {
     { key: 'trabajadores', label: 'Trabajadores' },
     { key: 'teams', label: 'Teams' },
     { key: 'solicitantes', label: 'Solicitantes' },
+    { key: 'areas', label: 'Áreas' },
     { key: 'agrupadores', label: 'Agrupadores' },
     { key: 'proyectos', label: 'Proyectos' },
     { key: 'estadosTarea', label: 'Estados de Tarea' },
@@ -191,12 +196,12 @@ export default function CatalogosView() {
           </table>
         )
       case 'teams':
-      case 'agrupadores':
       case 'estadosTarea':
+      case 'areas':
         const collectionMap: Record<string, any[]> = {
           teams: catalogs.teams,
-          agrupadores: catalogs.agrupadores,
-          estadosTarea: catalogs.estadosTarea
+          estadosTarea: catalogs.estadosTarea,
+          areas: catalogs.areas
         }
         const collection = collectionMap[activeTab] || []
         return (
@@ -219,6 +224,61 @@ export default function CatalogosView() {
               ))}
               {collection.length === 0 && (
                 <tr><td colSpan={2} className={styles.empty}>No hay registros</td></tr>
+              )}
+            </tbody>
+          </table>
+        )
+      case 'agrupadores':
+        return (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Área</th>
+                <th>Proyectos Enlazados</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {catalogs.agrupadores.map(item => {
+                const associatedProys = catalogs.proyectos.filter(p => p.agrupador_id === item.id)
+                const area = catalogs.areas.find(a => a.id === item.area_id)
+                return (
+                  <tr key={item.id}>
+                    <td style={{ fontWeight: 600 }}>{item.nombre}</td>
+                    <td style={{ fontWeight: 500, color: '#4b5563' }}>{area?.nombre ?? '-'}</td>
+                    <td>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {associatedProys.map(p => (
+                          <span key={p.id} style={{
+                            display: 'inline-block',
+                            background: '#f0fdf4',
+                            color: '#15803d',
+                            padding: '4px 10px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            border: '1px solid #bbf7d0'
+                          }}>
+                            {p.nombre}
+                          </span>
+                        ))}
+                        {associatedProys.length === 0 && (
+                          <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '13px' }}>
+                            Ningún proyecto enlazado
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <button style={actionStyle} onClick={() => handleEdit(item)}>Editar</button>
+                      <button style={{...actionStyle, color: '#ef4444'}} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                    </td>
+                  </tr>
+                )
+              })}
+              {catalogs.agrupadores.length === 0 && (
+                <tr><td colSpan={4} className={styles.empty}>No hay registros</td></tr>
               )}
             </tbody>
           </table>
@@ -378,6 +438,18 @@ export default function CatalogosView() {
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Horas Max. Estimadas</label>
                   <input type="number" step="any" min="0" name="horas_maximas_estimadas" defaultValue={editItem?.horas_maximas_estimadas} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                </div>
+              )}
+
+              {activeTab === 'agrupadores' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Área</label>
+                  <select name="area_id" required defaultValue={editItem?.area_id} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box', background: '#fff' }}>
+                    <option value="">Seleccionar área</option>
+                    {catalogs?.areas.map(a => (
+                      <option key={a.id} value={a.id}>{a.nombre}</option>
+                    ))}
+                  </select>
                 </div>
               )}
 
