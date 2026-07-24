@@ -38,6 +38,7 @@ interface TareaModalProps {
   estadosTarea: CatalogItem[]
   trabajadores?: TrabajadorItem[]
   onCatalogsChange?: () => void
+  initialFecha?: string
 }
 
 function getInitialState(
@@ -104,7 +105,8 @@ export default function TareaModal({
   teams,
   estadosTarea,
   trabajadores = [],
-  onCatalogsChange
+  onCatalogsChange,
+  initialFecha
 }: TareaModalProps) {
   const estadoPendiente = useMemo(() => {
     return (
@@ -124,7 +126,7 @@ export default function TareaModal({
   // ── Estado Registro Rápido ──
   const [quickRegOpen, setQuickRegOpen] = useState(false)
   const [quickReg, setQuickReg] = useState<Omit<RegistroFormData, 'tarea_periodo_id'>>({
-    fecha: getTodayValue(),
+    fecha: initialFecha || getTodayValue(),
     trabajador_id: 0,
     horas: 0,
     comentario: ''
@@ -142,11 +144,11 @@ export default function TareaModal({
       setHorasArrastreInput(Number(initialState.horas_historicas_arrastre) > 0 ? String(initialState.horas_historicas_arrastre) : '')
       // Reset quick reg on open
       setQuickRegOpen(false)
-      setQuickReg({ fecha: getTodayValue(), trabajador_id: 0, horas: 0, comentario: '' })
+      setQuickReg({ fecha: initialFecha || getTodayValue(), trabajador_id: 0, horas: 0, comentario: '' })
       setQuickRegHorasInput('')
       setQuickRegValidation(null)
     }
-  }, [isOpen, tarea, estadoPendiente?.id, proyectos])
+  }, [isOpen, tarea, estadoPendiente?.id, proyectos, initialFecha])
 
   // Sincronizar horas del registro rápido con horas_asignadas_periodo
   useEffect(() => {

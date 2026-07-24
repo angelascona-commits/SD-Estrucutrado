@@ -955,6 +955,7 @@ export default function TareoView() {
         estadosTarea={catalogs?.estadosTarea ?? []}
         trabajadores={catalogs?.trabajadores ?? []}
         onCatalogsChange={loadCatalogs}
+        initialFecha={selectedFecha}
       />
     </div>
   )

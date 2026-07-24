@@ -80,7 +80,10 @@ export function normalizeTareaPayload(payload: TareaFormData): TareaFormData {
   }
 }
 
-export function validateRegistroPayload(payload: RegistroFormData): void {
+export function validateRegistroPayload(
+  payload: RegistroFormData,
+  maxHorasTrabajador?: number | null
+): void {
   if (!payload.tarea_periodo_id) {
     throw new Error('La tarea del período es obligatoria')
   }
@@ -97,8 +100,10 @@ export function validateRegistroPayload(payload: RegistroFormData): void {
     throw new Error('Las horas deben ser mayores a 0 (se permiten decimales, ej: 0.25, 0.50, 0.75)')
   }
 
-  if (Number(payload.horas) > 12) {
-    throw new Error('Las horas no pueden superar 12 en un solo registro (se permiten decimales, ej: 0.25, 0.50, 0.75)')
+  const limit = maxHorasTrabajador && maxHorasTrabajador > 0 ? maxHorasTrabajador : 24
+
+  if (Number(payload.horas) > limit) {
+    throw new Error(`Las horas no pueden superar ${limit} en un solo registro (se permiten decimales, ej: 0.25, 0.50, 0.75)`)
   }
 }
 

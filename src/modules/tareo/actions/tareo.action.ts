@@ -235,24 +235,25 @@ export async function saveRegistroAction(
 ): Promise<ActionResult<{ registroId: number }>> {
   try {
     const normalizedPayload = normalizeRegistroPayload(payload)
-    validateRegistroPayload(normalizedPayload)
+    const trabajadorInfo = await getTrabajadorValidacion(normalizedPayload.trabajador_id)
+    const maxHorasTrabajador = trabajadorInfo?.horas_maximas ?? null
+    validateRegistroPayload(normalizedPayload, maxHorasTrabajador)
 
     if (isEditing) {
       if (!payload.id) {
         return { success: false, error: 'El id del registro es obligatorio para editar' }
       }
 
-      const [horasTrabajadorDia, tareaPeriodoInfo, currentRegistro, trabajadorInfo] = await Promise.all([
+      const [horasTrabajadorDia, tareaPeriodoInfo, currentRegistro] = await Promise.all([
         getHorasTrabajadorByFecha(normalizedPayload.trabajador_id, normalizedPayload.fecha, payload.id),
         getTareaPeriodoValidacion(normalizedPayload.tarea_periodo_id),
-        getRegistroById(payload.id),
-        getTrabajadorValidacion(normalizedPayload.trabajador_id)
+        getRegistroById(payload.id)
       ])
 
       const oldHoras = currentRegistro ? Number(currentRegistro.horas || 0) : 0
       const horasDisponiblesReales = (tareaPeriodoInfo?.horas_disponibles_periodo ?? 0) + oldHoras
 
-      const maxHorasDia = trabajadorInfo?.horas_maximas ?? 12
+      const maxHorasDia = maxHorasTrabajador ?? 24
 
       if (horasTrabajadorDia + normalizedPayload.horas > maxHorasDia) {
          return { success: false, error: `El trabajador supera el límite de ${maxHorasDia} horas para el día seleccionado.` }
@@ -281,13 +282,12 @@ export async function saveRegistroAction(
       }
     }
 
-    const [horasTrabajadorDia, tareaPeriodoInfo, trabajadorInfo] = await Promise.all([
+    const [horasTrabajadorDia, tareaPeriodoInfo] = await Promise.all([
       getHorasTrabajadorByFecha(normalizedPayload.trabajador_id, normalizedPayload.fecha),
-      getTareaPeriodoValidacion(normalizedPayload.tarea_periodo_id),
-      getTrabajadorValidacion(normalizedPayload.trabajador_id)
+      getTareaPeriodoValidacion(normalizedPayload.tarea_periodo_id)
     ])
 
-    const maxHorasDia = trabajadorInfo?.horas_maximas ?? 12
+    const maxHorasDia = maxHorasTrabajador ?? 24
 
     if (horasTrabajadorDia + normalizedPayload.horas > maxHorasDia) {
       return { success: false, error: `El trabajador supera el límite de ${maxHorasDia} horas para el día seleccionado.` }
@@ -419,7 +419,7 @@ export async function validateRegistroRealtimeAction(
       }
     }
 
-    const maxHorasDia = trabajadorInfo?.horas_maximas ?? 12
+    const maxHorasDia = trabajadorInfo?.horas_maximas ?? 24
     const totalHorasResultante = horasTrabajadorDia + horasIngresadas
     const excedeMaximoDia = totalHorasResultante > maxHorasDia
     const oldHoras = currentRegistro ? Number(currentRegistro.horas || 0) : 0
