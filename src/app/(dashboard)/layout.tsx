@@ -11,8 +11,10 @@ export default async function DashboardLayout({ children }: Props) {
 
   const usuario = session
     ? {
+        userId: session.userId,
         nombre: session.nombre,
         rol: session.rol,
+        dominiosPermitidos: session.dominiosPermitidos,
       }
     : null
 

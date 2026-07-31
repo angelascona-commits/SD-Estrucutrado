@@ -66,23 +66,43 @@ function applyDailyFilters(
   const search = normalizeText(filters.search)
 
   return registros.filter((item) => {
-    if (filters.tarea && item.tarea_nombre !== filters.tarea) {
+    if (
+      Array.isArray(filters.tarea) &&
+      filters.tarea.length > 0 &&
+      !filters.tarea.includes(item.tarea_nombre)
+    ) {
       return false
     }
 
-    if (filters.proyecto && item.proyecto_nombre !== filters.proyecto) {
+    if (
+      Array.isArray(filters.proyecto) &&
+      filters.proyecto.length > 0 &&
+      !filters.proyecto.includes(item.proyecto_nombre)
+    ) {
       return false
     }
 
-    if (filters.agrupador && item.agrupador_nombre !== filters.agrupador) {
+    if (
+      Array.isArray(filters.agrupador) &&
+      filters.agrupador.length > 0 &&
+      !filters.agrupador.includes(item.agrupador_nombre)
+    ) {
       return false
     }
 
-    if (filters.trabajador && item.trabajador_nombre !== filters.trabajador) {
+    if (
+      Array.isArray(filters.trabajador) &&
+      filters.trabajador.length > 0 &&
+      !filters.trabajador.includes(item.trabajador_nombre)
+    ) {
       return false
     }
 
-    if (filters.solicitante && item.solicitante_nombre !== filters.solicitante) {
+    if (
+      Array.isArray(filters.solicitante) &&
+      filters.solicitante.length > 0 &&
+      !filters.solicitante.includes(item.solicitante_nombre)
+    ) {
       return false
     }
 
@@ -142,11 +162,11 @@ export default function TareoView() {
   const [selectedTarea, setSelectedTarea] = useState<TareaFormData | null>(null)
   const [dailyFilters, setDailyFilters] = useState<TareoDailyFilterState>({
     search: '',
-    tarea: '',
-    proyecto: '',
-    agrupador: '',
-    trabajador: '',
-    solicitante: ''
+    tarea: [],
+    proyecto: [],
+    agrupador: [],
+    trabajador: [],
+    solicitante: []
   })
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportCosto, setExportCosto] = useState('65')

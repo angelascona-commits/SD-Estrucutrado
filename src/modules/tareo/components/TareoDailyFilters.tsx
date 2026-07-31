@@ -1,16 +1,16 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import type { RegistroDetalleItem } from '../interfaces/tareo.interfaces'
 import styles from '../styles/tareo-daily-filters.module.css'
 
 export interface TareoDailyFilterState {
   search: string
-  tarea: string
-  proyecto: string
-  agrupador: string
-  trabajador: string
-  solicitante: string
+  tarea: string[]
+  proyecto: string[]
+  agrupador: string[]
+  trabajador: string[]
+  solicitante: string[]
 }
 
 interface TareoDailyFiltersProps {
@@ -19,6 +19,107 @@ interface TareoDailyFiltersProps {
   registros: RegistroDetalleItem[]
   totalVisible: number
   horasVisibles: number
+}
+
+interface MultiSelectFieldProps {
+  label: string
+  options: string[]
+  selected: string[]
+  onChange: (selected: string[]) => void
+  placeholderAll: string
+}
+
+function MultiSelectField({ label, options, selected, onChange, placeholderAll }: MultiSelectFieldProps) {
+  const [open, setOpen] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleToggleOption = (option: string) => {
+    const exists = selected.includes(option)
+    if (exists) {
+      onChange(selected.filter((item) => item !== option))
+    } else {
+      onChange([...selected, option])
+    }
+  }
+
+  const handleSelectAll = () => {
+    onChange([...options])
+  }
+
+  const handleClearAll = () => {
+    onChange([])
+  }
+
+  const labelText = useMemo(() => {
+    if (selected.length === 0) return placeholderAll
+    if (selected.length === 1) return selected[0]
+    return `${selected.length} seleccionados`
+  }, [selected, placeholderAll])
+
+  return (
+    <div className={styles.multiSelectWrapper} ref={wrapperRef}>
+      <button
+        type="button"
+        className={`${styles.multiSelectTrigger} ${open ? styles.multiSelectTriggerActive : ''}`}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span className={styles.triggerText}>{labelText}</span>
+        {selected.length > 1 && <span className={styles.chipCount}>{selected.length}</span>}
+        <span className="material-symbols-outlined" style={{ fontSize: '18px', color: '#6b7280', marginLeft: '6px' }}>
+          {open ? 'expand_less' : 'expand_more'}
+        </span>
+      </button>
+
+      {open && (
+        <div className={styles.multiSelectPopover}>
+          <div className={styles.popoverHeader}>
+            <button type="button" className={styles.popoverAction} onClick={handleSelectAll}>
+              Todos ({options.length})
+            </button>
+            {selected.length > 0 && (
+              <button type="button" className={styles.popoverAction} onClick={handleClearAll}>
+                Limpiar
+              </button>
+            )}
+          </div>
+
+          <div className={styles.popoverList}>
+            {options.length === 0 ? (
+              <div style={{ padding: '8px 12px', fontSize: '13px', color: '#9ca3af' }}>No hay opciones</div>
+            ) : (
+              options.map((opt) => {
+                const isSelected = selected.includes(opt)
+                return (
+                  <label
+                    key={opt}
+                    className={`${styles.popoverOption} ${isSelected ? styles.popoverOptionSelected : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleToggleOption(opt)}
+                      style={{ accentColor: '#ec5b13', cursor: 'pointer' }}
+                    />
+                    <span>{opt}</span>
+                  </label>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function normalizeText(value: string) {
@@ -42,11 +143,11 @@ function getUniqueValues(values: Array<string | null | undefined>) {
 function hasActiveFilters(filters: TareoDailyFilterState) {
   return Boolean(
     filters.search ||
-      filters.tarea ||
-      filters.proyecto ||
-      filters.agrupador ||
-      filters.trabajador ||
-      filters.solicitante
+      (Array.isArray(filters.tarea) && filters.tarea.length > 0) ||
+      (Array.isArray(filters.proyecto) && filters.proyecto.length > 0) ||
+      (Array.isArray(filters.agrupador) && filters.agrupador.length > 0) ||
+      (Array.isArray(filters.trabajador) && filters.trabajador.length > 0) ||
+      (Array.isArray(filters.solicitante) && filters.solicitante.length > 0)
   )
 }
 
@@ -58,38 +159,47 @@ function applyFilters(
   const search = excludeField === 'search' ? '' : normalizeText(filters.search)
 
   return registros.filter((item) => {
-    if (excludeField !== 'tarea' && filters.tarea && item.tarea_nombre !== filters.tarea) {
+    if (
+      excludeField !== 'tarea' &&
+      Array.isArray(filters.tarea) &&
+      filters.tarea.length > 0 &&
+      !filters.tarea.includes(item.tarea_nombre)
+    ) {
       return false
     }
 
     if (
       excludeField !== 'proyecto' &&
-      filters.proyecto &&
-      item.proyecto_nombre !== filters.proyecto
+      Array.isArray(filters.proyecto) &&
+      filters.proyecto.length > 0 &&
+      !filters.proyecto.includes(item.proyecto_nombre)
     ) {
       return false
     }
 
     if (
       excludeField !== 'agrupador' &&
-      filters.agrupador &&
-      item.agrupador_nombre !== filters.agrupador
+      Array.isArray(filters.agrupador) &&
+      filters.agrupador.length > 0 &&
+      !filters.agrupador.includes(item.agrupador_nombre)
     ) {
       return false
     }
 
     if (
       excludeField !== 'trabajador' &&
-      filters.trabajador &&
-      item.trabajador_nombre !== filters.trabajador
+      Array.isArray(filters.trabajador) &&
+      filters.trabajador.length > 0 &&
+      !filters.trabajador.includes(item.trabajador_nombre)
     ) {
       return false
     }
 
     if (
       excludeField !== 'solicitante' &&
-      filters.solicitante &&
-      item.solicitante_nombre !== filters.solicitante
+      Array.isArray(filters.solicitante) &&
+      filters.solicitante.length > 0 &&
+      !filters.solicitante.includes(item.solicitante_nombre)
     ) {
       return false
     }
@@ -172,11 +282,11 @@ export default function TareoDailyFilters({
   const handleClear = () => {
     onChange({
       search: '',
-      tarea: '',
-      proyecto: '',
-      agrupador: '',
-      trabajador: '',
-      solicitante: ''
+      tarea: [],
+      proyecto: [],
+      agrupador: [],
+      trabajador: [],
+      solicitante: []
     })
   }
 
@@ -210,18 +320,20 @@ export default function TareoDailyFilters({
       {activeFilters && !showFilters && (
         <div className={styles.activeFiltersRow}>
           {filters.search && <span className={styles.filterTag}>Búsqueda: {filters.search}</span>}
-          {filters.tarea && <span className={styles.filterTag}>Tarea: {filters.tarea}</span>}
-          {filters.proyecto && (
-            <span className={styles.filterTag}>Proyecto: {filters.proyecto}</span>
+          {filters.tarea.length > 0 && (
+            <span className={styles.filterTag}>Tareas: {filters.tarea.join(', ')}</span>
           )}
-          {filters.agrupador && (
-            <span className={styles.filterTag}>Agrupador: {filters.agrupador}</span>
+          {filters.proyecto.length > 0 && (
+            <span className={styles.filterTag}>Proyectos: {filters.proyecto.join(', ')}</span>
           )}
-          {filters.trabajador && (
-            <span className={styles.filterTag}>Trabajador: {filters.trabajador}</span>
+          {filters.agrupador.length > 0 && (
+            <span className={styles.filterTag}>Agrupadores: {filters.agrupador.join(', ')}</span>
           )}
-          {filters.solicitante && (
-            <span className={styles.filterTag}>Solicitante: {filters.solicitante}</span>
+          {filters.trabajador.length > 0 && (
+            <span className={styles.filterTag}>Trabajadores: {filters.trabajador.join(', ')}</span>
+          )}
+          {filters.solicitante.length > 0 && (
+            <span className={styles.filterTag}>Solicitantes: {filters.solicitante.join(', ')}</span>
           )}
         </div>
       )}
@@ -242,82 +354,57 @@ export default function TareoDailyFilters({
 
             <div className={styles.field}>
               <label className={styles.label}>Tarea</label>
-              <select
-                value={filters.tarea}
-                onChange={(event) => handleChange('tarea', event.target.value)}
-                className={styles.select}
-              >
-                <option value="">Todas</option>
-                {tareas.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+              <MultiSelectField
+                label="Tarea"
+                options={tareas}
+                selected={filters.tarea}
+                onChange={(val) => handleChange('tarea', val)}
+                placeholderAll="Todas"
+              />
             </div>
 
             <div className={styles.field}>
               <label className={styles.label}>Proyecto</label>
-              <select
-                value={filters.proyecto}
-                onChange={(event) => handleChange('proyecto', event.target.value)}
-                className={styles.select}
-              >
-                <option value="">Todos</option>
-                {proyectos.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+              <MultiSelectField
+                label="Proyecto"
+                options={proyectos}
+                selected={filters.proyecto}
+                onChange={(val) => handleChange('proyecto', val)}
+                placeholderAll="Todos"
+              />
             </div>
 
             <div className={styles.field}>
               <label className={styles.label}>Agrupador</label>
-              <select
-                value={filters.agrupador}
-                onChange={(event) => handleChange('agrupador', event.target.value)}
-                className={styles.select}
-              >
-                <option value="">Todos</option>
-                {agrupadores.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+              <MultiSelectField
+                label="Agrupador"
+                options={agrupadores}
+                selected={filters.agrupador}
+                onChange={(val) => handleChange('agrupador', val)}
+                placeholderAll="Todos"
+              />
             </div>
 
             <div className={styles.field}>
               <label className={styles.label}>Trabajador</label>
-              <select
-                value={filters.trabajador}
-                onChange={(event) => handleChange('trabajador', event.target.value)}
-                className={styles.select}
-              >
-                <option value="">Todos</option>
-                {trabajadores.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+              <MultiSelectField
+                label="Trabajador"
+                options={trabajadores}
+                selected={filters.trabajador}
+                onChange={(val) => handleChange('trabajador', val)}
+                placeholderAll="Todos"
+              />
             </div>
 
             <div className={styles.field}>
               <label className={styles.label}>Solicitante</label>
-              <select
-                value={filters.solicitante}
-                onChange={(event) => handleChange('solicitante', event.target.value)}
-                className={styles.select}
-              >
-                <option value="">Todos</option>
-                {solicitantes.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+              <MultiSelectField
+                label="Solicitante"
+                options={solicitantes}
+                selected={filters.solicitante}
+                onChange={(val) => handleChange('solicitante', val)}
+                placeholderAll="Todos"
+              />
             </div>
           </div>
         </div>

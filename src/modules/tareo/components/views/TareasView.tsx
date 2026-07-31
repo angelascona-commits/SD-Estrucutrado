@@ -374,103 +374,129 @@ export default function TareasView() {
                   <th>Nombre</th>
                   <th>Proyecto / Agrupador</th>
                   <th>Solicitante</th>
-                  <th>Horas Asignadas</th>
-                  <th>Horas Consumidas</th>
+                  <th>Horas Asignadas (Totales)</th>
+                  <th>Horas Consumidas (Totales)</th>
                   <th>Horas Disponibles</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredTasks.map(t => (
-                  <tr key={t.tarea_periodo_id} style={{ opacity: showArchived ? 0.7 : 1 }}>
-                    <td style={{ fontWeight: 600 }}>
-                      {t.tarea_nombre}
-                      {showArchived && <span style={{ fontSize: '10px', background: '#fee2e2', color: '#991b1b', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>Inactiva</span>}
-                    </td>
-                    <td>
-                      <div>{t.proyecto_nombre}</div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                        {t.agrupador_nombre}
-                      </div>
-                    </td>
-                    <td>{t.solicitante_nombre}</td>
-                    <td style={{ textAlign: 'center' }}>{t.horas_asignadas_periodo}</td>
-                    <td style={{ textAlign: 'center' }}>{t.horas_consumidas_periodo}</td>
-                    <td style={{ textAlign: 'center', fontWeight: 'bold', color: t.horas_disponibles_periodo < 0 ? '#ef4444' : '#10b981' }}>
-                      {t.horas_disponibles_periodo}
-                    </td>
-                    <td>
-                      <span style={{
-                        background: t.estado_nombre.toLowerCase() === 'completado' ? '#d1fae5' : '#f3f4f6',
-                        color: t.estado_nombre.toLowerCase() === 'completado' ? '#065f46' : '#374151',
-                        padding: '4px 10px',
-                        borderRadius: '999px',
-                        fontSize: '12px',
-                        fontWeight: 600
-                      }}>
-                        {t.estado_nombre}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={() => { setHistorialTarea({ id: t.tarea_id, nombre: t.tarea_nombre }); setHistorialOpen(true) }}
-                          title="Ver historial de días trabajados"
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#7c3aed',
-                            cursor: 'pointer',
-                            padding: '4px 8px',
-                            fontWeight: 600,
-                            borderRadius: '4px',
-                            transition: '0.2s',
-                            fontSize: '13px'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#f5f3ff'}
-                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                        >
-                          Historial
-                        </button>
-                        <button
-                          onClick={() => handleToggleActivo(t)}
-                          title={t.activo ? "Desactivar/Archivar Tarea" : "Reactivar Tarea"}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: t.activo ? '#ef4444' : '#10b981',
-                            cursor: 'pointer',
-                            padding: '4px 8px',
-                            fontWeight: 600,
-                            borderRadius: '4px',
-                            transition: '0.2s'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = t.activo ? '#fee2e2' : '#d1fae5'}
-                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                        >
-                          {t.activo ? 'Desactivar' : 'Activar'}
-                        </button>
-                        <button
-                          onClick={() => handleEdit(t)}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#2563eb',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            padding: '4px 8px',
-                            borderRadius: '4px'
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
-                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                        >
-                          Editar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {filteredTasks.map(t => {
+                  const totalAsignadas = (t.horas_historicas_arrastre || 0) + (t.horas_asignadas_periodo || 0)
+                  const hasArrastre = (t.horas_historicas_arrastre || 0) > 0
+
+                  return (
+                    <tr key={t.tarea_periodo_id} style={{ opacity: showArchived ? 0.7 : 1 }}>
+                      <td style={{ fontWeight: 600 }}>
+                        {t.tarea_nombre}
+                        {showArchived && <span style={{ fontSize: '10px', background: '#fee2e2', color: '#991b1b', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>Inactiva</span>}
+                      </td>
+                      <td>
+                        <div>{t.proyecto_nombre}</div>
+                        <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                          {t.agrupador_nombre}
+                        </div>
+                      </td>
+                      <td>{t.solicitante_nombre}</td>
+                      
+                      {/* Horas Asignadas Totales en General */}
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{totalAsignadas} h</div>
+                        {hasArrastre && (
+                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                            Período: {t.horas_asignadas_periodo}h
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Horas Consumidas Totales en General */}
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ fontWeight: 700, color: '#334155' }}>{t.horas_totales_acumuladas} h</div>
+                        {hasArrastre && (
+                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                            Período: {t.horas_consumidas_periodo}h
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Horas Disponibles */}
+                      <td style={{ textAlign: 'center', fontWeight: 'bold', color: t.horas_disponibles_periodo < 0 ? '#ef4444' : '#10b981' }}>
+                        {t.horas_disponibles_periodo} h
+                      </td>
+
+                      <td>
+                        <span style={{
+                          background: t.estado_nombre.toLowerCase() === 'completado' ? '#d1fae5' : '#f3f4f6',
+                          color: t.estado_nombre.toLowerCase() === 'completado' ? '#065f46' : '#374151',
+                          padding: '4px 10px',
+                          borderRadius: '999px',
+                          fontSize: '12px',
+                          fontWeight: 600
+                        }}>
+                          {t.estado_nombre}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => { setHistorialTarea({ id: t.tarea_id, nombre: t.tarea_nombre }); setHistorialOpen(true) }}
+                            title="Ver historial de días trabajados"
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#7c3aed',
+                              cursor: 'pointer',
+                              padding: '4px 8px',
+                              fontWeight: 600,
+                              borderRadius: '4px',
+                              transition: '0.2s',
+                              fontSize: '13px'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#f5f3ff'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            Historial
+                          </button>
+                          <button
+                            onClick={() => handleToggleActivo(t)}
+                            title={t.activo ? "Desactivar/Archivar Tarea" : "Reactivar Tarea"}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: t.activo ? '#ef4444' : '#10b981',
+                              cursor: 'pointer',
+                              padding: '4px 8px',
+                              fontWeight: 600,
+                              borderRadius: '4px',
+                              transition: '0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = t.activo ? '#fee2e2' : '#d1fae5'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            {t.activo ? 'Desactivar' : 'Activar'}
+                          </button>
+                          <button
+                            onClick={() => handleEdit(t)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#2563eb',
+                              cursor: 'pointer',
+                              fontWeight: 600,
+                              padding: '4px 8px',
+                              borderRadius: '4px'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
+                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            Editar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
                 {filteredTasks.length === 0 && (
                   <tr>
                     <td colSpan={8} className={styles.empty}>

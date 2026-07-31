@@ -8,8 +8,10 @@ import AppSidebar from './AppSidebar'
 interface AppShellProps {
   children: React.ReactNode
   usuario: {
+    userId?: number
     nombre: string
     rol: string
+    dominiosPermitidos?: string[]
   } | null
 }
 
@@ -25,7 +27,12 @@ export default function AppShell({ children, usuario }: AppShellProps) {
       <AppHeader toggleSidebar={toggleSidebar} usuario={usuario} />
 
       <div className={styles.layoutBody}>
-        <AppSidebar isCollapsed={isSidebarCollapsed} />
+        <AppSidebar
+          isCollapsed={isSidebarCollapsed}
+          userRole={usuario?.rol || 'AGENTE'}
+          userId={usuario?.userId}
+          userDomains={usuario?.dominiosPermitidos}
+        />
         <main className={styles.layoutMain}>{children}</main>
       </div>
     </div>

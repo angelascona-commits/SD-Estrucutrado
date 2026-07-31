@@ -1,14 +1,14 @@
 import * as XLSX from 'xlsx';
 import { PareoResponse } from '../interfaces/pareo.interfaces';
 
-function limpiarTextoBase(texto: any): string {
+export function limpiarTextoBase(texto: any): string {
   if (!texto) return "";
   let t = String(texto).toUpperCase();
   t = t.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); 
   return t.replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim(); 
 }
 
-function extraerPalabrasClave(texto: any): string {
+export function extraerPalabrasClave(texto: any): string {
   let originalLimpio = limpiarTextoBase(texto);
   if (!originalLimpio) return "";
 
@@ -26,7 +26,7 @@ function extraerPalabrasClave(texto: any): string {
   return t; 
 }
 
-function limpiarDireccion(texto: any): string {
+export function limpiarDireccion(texto: any): string {
   if (!texto) return "";
   let t = limpiarTextoBase(texto);
   t = t.replace(/\b(AV|AVENIDA|CALLE|CLL|JIRON|JR|MZ|MANZANA|LT|LOTE|N|NO|NRO|NUMERO|URB|URBANIZACION|KM|CARRETERA|PISO|LOCAL|INTERIOR|INT|PZ|PLAZA)\b/g, ' ');
@@ -34,7 +34,7 @@ function limpiarDireccion(texto: any): string {
   return t.replace(/\s+/g, ' ').trim(); 
 }
 
-function coincidenciaSegura(t1: string, t2: string): boolean {
+export function coincidenciaSegura(t1: string, t2: string): boolean {
   if (!t1 || !t2) return false;
   if (t1 === t2) return true;
   

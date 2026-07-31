@@ -1,17 +1,10 @@
 import { findUserByEmail } from '@/modules/auth/repository/auth.repository'
 import type { LoginInput, AuthResult } from '@/modules/auth/interfaces/auth.interfaces'
 
-// ─── LÓGICA DE NEGOCIO ────────────────────────────────────────────────────────
-// Este servicio no sabe nada de Supabase ni de cookies.
-// Solo ejecuta las reglas de negocio del dominio Auth.
-// ─────────────────────────────────────────────────────────────────────────────
-
 export async function loginUser(input: LoginInput): Promise<AuthResult> {
   const user = await findUserByEmail(input.email)
 
   if (!user) {
-    
-    
     return { success: false, error: 'Credenciales incorrectas.' }
   }
 
@@ -30,6 +23,7 @@ export async function loginUser(input: LoginInput): Promise<AuthResult> {
       email: user.email,
       nombre: user.nombre,
       rol: user.rol,
+      dominiosPermitidos: user.dominios_permitidos,
     },
   }
 }

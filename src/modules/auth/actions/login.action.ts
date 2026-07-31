@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { loginUser } from '@/modules/auth/services/auth.service'
 import { setSession } from '@/modules/shared/utils/session'
+import { getDominiosPermitidosParaUsuario } from '@/modules/admin/services/roles.service'
 import type { LoginActionState } from '@/modules/auth/interfaces/auth.interfaces'
 
 export async function loginAction(
@@ -28,5 +29,14 @@ export async function loginAction(
 
   await setSession(result.user)
 
-  redirect('/service-desk')
+  // Obtener el primer dominio autorizado para el usuario
+  const dominiosPermitidos = await getDominiosPermitidosParaUsuario(
+    result.user.userId,
+    result.user.rol,
+    result.user.dominiosPermitidos
+  )
+
+  const rutaInicial = dominiosPermitidos[0]?.href || '/tareo'
+
+  redirect(rutaInicial)
 }

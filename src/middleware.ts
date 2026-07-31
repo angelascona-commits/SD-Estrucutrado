@@ -6,9 +6,6 @@ const COOKIE_NAME = 'sgem_session'
 // Rutas que no requieren sesión
 const PUBLIC_ROUTES = ['/login']
 
-// Ruta por defecto después de login
-const DEFAULT_AUTHENTICATED_ROUTE = '/service-desk'
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const session = request.cookies.get(COOKIE_NAME)?.value
@@ -21,9 +18,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Con sesión intentando acceder a login → dashboard
+  // Con sesión intentando acceder a login → redirigir a raíz / para calcular su primer dominio permitido
   if (isAuthenticated && isPublicRoute) {
-    return NextResponse.redirect(new URL(DEFAULT_AUTHENTICATED_ROUTE, request.url))
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
   return NextResponse.next()

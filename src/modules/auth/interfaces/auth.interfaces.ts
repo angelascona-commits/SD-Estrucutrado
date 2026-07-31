@@ -6,6 +6,7 @@ export interface User {
   rol: string
   activo: boolean
   horario_laboral: string
+  dominios_permitidos?: string[]
 }
 
 // Input del formulario de login
@@ -20,6 +21,7 @@ export interface SessionPayload {
   email: string
   nombre: string
   rol: string
+  dominiosPermitidos?: string[]
 }
 
 // Resultado que devuelve el servicio de autenticación
