@@ -15,6 +15,190 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
+.headerControls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.periodoSelect {
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  padding: 0 12px;
+  background: #ffffff;
+  font-weight: 600;
+  color: #374151;
+  outline: none;
+}
+
+.rolloverBtn {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 10px;
+  border: 1.5px solid #7c3aed;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: 0.2s;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
+}
+
+.rolloverBtnLoading {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 10px;
+  border: 1.5px solid #7c3aed;
+  background: #ede9fe;
+  color: #7c3aed;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: not-allowed;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #7c3aed;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.filterBar {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+}
+
+.filterBarGroup {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+}
+
+.tabBtnActiveBlue {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.tabBtnInactiveGray {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.tabBtnActiveRed {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.filterSelect {
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  padding: 0 10px;
+  outline: none;
+  color: #374151;
+  font-size: 13px;
+}
+
+.rolloverBanner {
+  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  border: 1.5px solid #7c3aed;
+  border-radius: 14px;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.rolloverBannerTitle {
+  margin: 0;
+  font-weight: 700;
+  color: #5b21b6;
+  font-size: 15px;
+}
+
+.rolloverBannerSubtitle {
+  margin: 4px 0 0;
+  color: #6d28d9;
+  font-size: 13px;
+}
+
+.rolloverBannerStat {
+  display: flex;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+.rolloverStatBox {
+  text-align: center;
+}
+
+.rolloverStatVal {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  color: #7c3aed;
+}
+
+.rolloverStatLbl {
+  margin: 0;
+  font-size: 11px;
+  color: #8b5cf6;
+  font-weight: 600;
+}
+
+.rolloverCloseBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #7c3aed;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .title {
   margin: 0 0 8px 0;
   font-size: 24px;
@@ -172,6 +356,240 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
+}
+
+.inactiveBadge {
+  font-size: 10px;
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+
+.subText {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.valAsignadas {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.valSubDetail {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.valConsumidas {
+  font-weight: 700;
+  color: #334155;
+}
+
+.valDisponiblesOk {
+  text-align: center;
+  font-weight: bold;
+  color: #10b981;
+}
+
+.valDisponiblesOver {
+  text-align: center;
+  font-weight: bold;
+  color: #ef4444;
+}
+
+.actionRow {
+  display: flex;
+  gap: 8px;
+}
+
+.btnActionHistorial {
+  background: transparent;
+  border: none;
+  color: #7c3aed;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-weight: 600;
+  border-radius: 4px;
+  transition: 0.2s;
+  font-size: 13px;
+}
+
+.btnActionHistorial:hover {
+  background: #f5f3ff;
+}
+
+.btnActionToggleRed {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-weight: 600;
+  border-radius: 4px;
+  transition: 0.2s;
+}
+
+.btnActionToggleRed:hover {
+  background: #fee2e2;
+}
+
+.btnActionToggleGreen {
+  background: transparent;
+  border: none;
+  color: #10b981;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-weight: 600;
+  border-radius: 4px;
+  transition: 0.2s;
+}
+
+.btnActionToggleGreen:hover {
+  background: #d1fae5;
+}
+
+.btnActionEdit {
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.btnActionEdit:hover {
+  background: #eff6ff;
+}
+
+.btnActionDelete {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.btnActionDelete:hover {
+  background: #fee2e2;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalCard {
+  background: #ffffff;
+  border-radius: 18px;
+  width: 400px;
+  padding: 24px;
+  position: relative;
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.formInput {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.formSelect {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+.flexRow {
+  display: flex;
+  gap: 12px;
+}
+
+.flex1 {
+  flex: 1;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.checkboxInput {
+  width: 18px;
+  height: 18px;
+}
+
+.checkboxLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.formFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.btnSubmit {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: none;
+  background: #111827;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.chipProject {
+  display: inline-block;
+  background: #f0fdf4;
+  color: #15803d;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #bbf7d0;
+}
+
+.emptyProjects {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 13px;
 }
 
 @media (max-width: 768px) {

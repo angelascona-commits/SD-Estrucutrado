@@ -9,6 +9,7 @@ import {
 import { CATALOGO_DOMINIOS } from '@/modules/admin/repository/roles.repository'
 import type { UsuarioPermiso } from '@/modules/admin/interfaces/roles.interfaces'
 import Swal from 'sweetalert2'
+import styles from './admin-permisos.module.css'
 
 export default function AdminPermisosPage() {
   const [originalUsuarios, setOriginalUsuarios] = useState<UsuarioPermiso[]>([])
@@ -147,44 +148,25 @@ export default function AdminPermisosPage() {
   const totalConModificaciones = modifiedUserIds.length
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: '1400px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div className={styles.container}>
       
       {/* ─── HEADER SIMPLIFICADO ─── */}
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '16px',
-          marginBottom: '24px',
-        }}
-      >
+      <div className={styles.header}>
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
-            Gestión de Permisos de Usuarios
-          </h1>
-          <p style={{ color: '#64748b', marginTop: '4px', fontSize: '0.875rem', margin: '4px 0 0' }}>
+          <h1 className={styles.title}>Gestión de Permisos de Usuarios</h1>
+          <p className={styles.subtitle}>
             Asigna y modifica los dominios permitidos para cada usuario de la plataforma.
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className={styles.headerActions}>
           {/* Buscador */}
           <input
             type="text"
             placeholder="Buscar por usuario o email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              padding: '9px 14px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              fontSize: '0.875rem',
-              outline: 'none',
-              minWidth: '260px',
-              backgroundColor: '#ffffff',
-            }}
+            className={styles.searchInput}
           />
 
           {/* Botón de Guardado Masivo */}
@@ -192,17 +174,11 @@ export default function AdminPermisosPage() {
             type="button"
             onClick={handleGuardarTodosLosCambios}
             disabled={isSavingBulk || totalConModificaciones === 0}
-            style={{
-              padding: '9px 20px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: totalConModificaciones > 0 ? '#ec5b13' : '#cbd5e1',
-              color: '#ffffff',
-              fontWeight: 600,
-              fontSize: '0.875rem',
-              cursor: totalConModificaciones > 0 && !isSavingBulk ? 'pointer' : 'default',
-              transition: 'background-color 0.2s',
-            }}
+            className={`${styles.btnSaveBulk} ${
+              totalConModificaciones > 0 && !isSavingBulk
+                ? styles.btnSaveBulkActive
+                : styles.btnSaveBulkDisabled
+            }`}
           >
             {isSavingBulk
               ? 'Guardando...'
@@ -214,43 +190,25 @@ export default function AdminPermisosPage() {
       </div>
 
       {/* ─── TABLA ESTILO CLEAN Y AMIGABLE ─── */}
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-          overflow: 'hidden',
-        }}
-      >
+      <div className={styles.cardContainer}>
         {loading ? (
-          <div style={{ padding: '48px', textAlign: 'center', color: '#64748b' }}>
+          <div className={styles.loadingState}>
             Cargando usuarios...
           </div>
         ) : usuariosFiltrados.length === 0 ? (
-          <div style={{ padding: '48px', textAlign: 'center', color: '#94a3b8' }}>
+          <div className={styles.emptyState}>
             No se encontraron usuarios.
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div className={styles.tableWrapper}>
+            <table className={styles.table}>
               <thead>
-                <tr
-                  style={{
-                    backgroundColor: '#f8fafc',
-                    borderBottom: '1px solid #e2e8f0',
-                    color: '#64748b',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                  }}
-                >
-                  <th style={{ padding: '14px 20px' }}>USUARIO</th>
-                  <th style={{ padding: '14px 20px' }}>EMAIL</th>
-                  <th style={{ padding: '14px 20px' }}>ROL</th>
-                  <th style={{ padding: '14px 20px' }}>DOMINIOS PERMITIDOS</th>
-                  <th style={{ padding: '14px 20px', textAlign: 'right' }}>ACCIONES</th>
+                <tr className={styles.tableHeaderRow}>
+                  <th className={styles.th}>USUARIO</th>
+                  <th className={styles.th}>EMAIL</th>
+                  <th className={styles.th}>ROL</th>
+                  <th className={styles.th}>DOMINIOS PERMITIDOS</th>
+                  <th className={styles.thRight}>ACCIONES</th>
                 </tr>
               </thead>
               <tbody>
@@ -263,64 +221,35 @@ export default function AdminPermisosPage() {
                   return (
                     <tr
                       key={u.userId}
-                      style={{
-                        borderBottom: '1px solid #f1f5f9',
-                        backgroundColor: isModified ? '#fff7ed' : 'transparent',
-                        transition: 'background-color 0.15s',
-                      }}
+                      className={`${styles.tr} ${isModified ? styles.trModified : ''}`}
                     >
-                      {/* USUARIO (Avatar + Nombre sin ID) */}
-                      <td style={{ padding: '16px 20px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div
-                            style={{
-                              width: '38px',
-                              height: '38px',
-                              borderRadius: '50%',
-                              backgroundColor: isUserAdmin ? '#e0e7ff' : '#ffedd5',
-                              color: isUserAdmin ? '#3730a3' : '#c2410c',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontWeight: 700,
-                              fontSize: '0.875rem',
-                            }}
-                          >
+                      {/* USUARIO */}
+                      <td className={styles.td}>
+                        <div className={styles.userCell}>
+                          <div className={isUserAdmin ? styles.avatarAdmin : styles.avatarUser}>
                             {iniciales}
                           </div>
                           <div>
-                            <p style={{ margin: 0, fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>
-                              {u.nombre}
-                            </p>
+                            <p className={styles.userName}>{u.nombre}</p>
                           </div>
                         </div>
                       </td>
 
                       {/* EMAIL */}
-                      <td style={{ padding: '16px 20px', fontSize: '0.875rem', color: '#475569' }}>
+                      <td className={`${styles.td} ${styles.userEmail}`}>
                         {u.email}
                       </td>
 
                       {/* ROL */}
-                      <td style={{ padding: '16px 20px' }}>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            padding: '4px 10px',
-                            borderRadius: '6px',
-                            fontSize: '0.75rem',
-                            fontWeight: 700,
-                            backgroundColor: isUserAdmin ? '#e0e7ff' : '#f1f5f9',
-                            color: isUserAdmin ? '#4338ca' : '#475569',
-                          }}
-                        >
+                      <td className={styles.td}>
+                        <span className={isUserAdmin ? styles.roleBadgeAdmin : styles.roleBadgeUser}>
                           {u.rol}
                         </span>
                       </td>
 
-                      {/* DOMINIOS PERMITIDOS (Chips amigables con icono e indicador visual) */}
-                      <td style={{ padding: '16px 20px' }}>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                      {/* DOMINIOS PERMITIDOS */}
+                      <td className={styles.td}>
+                        <div className={styles.domainGrid}>
                           {CATALOGO_DOMINIOS.map((dominio) => {
                             const isChecked = u.dominiosPermitidos.includes(dominio.href)
 
@@ -329,21 +258,7 @@ export default function AdminPermisosPage() {
                                 key={dominio.href}
                                 type="button"
                                 onClick={() => handleToggleDominio(u.userId, dominio.href)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  padding: '6px 12px',
-                                  borderRadius: '20px',
-                                  border: isChecked ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
-                                  backgroundColor: isChecked ? '#f0fdf4' : '#f8fafc',
-                                  color: isChecked ? '#166534' : '#64748b',
-                                  fontSize: '0.8125rem',
-                                  fontWeight: isChecked ? 600 : 500,
-                                  cursor: 'pointer',
-                                  transition: 'all 0.15s ease',
-                                  boxShadow: isChecked ? '0 1px 2px rgba(22, 101, 52, 0.05)' : 'none',
-                                }}
+                                className={isChecked ? styles.domainChipChecked : styles.domainChipUnchecked}
                                 title={isChecked ? `Acceso permitido a ${dominio.label}` : `Habilitar ${dominio.label}`}
                               >
                                 <span
@@ -356,38 +271,20 @@ export default function AdminPermisosPage() {
                                   {dominio.icon}
                                 </span>
                                 <span>{dominio.label}</span>
-                                <span
-                                  style={{
-                                    width: '8px',
-                                    height: '8px',
-                                    borderRadius: '50%',
-                                    backgroundColor: isChecked ? '#22c55e' : '#cbd5e1',
-                                    marginLeft: '2px',
-                                  }}
-                                />
+                                <span className={isChecked ? styles.domainDotActive : styles.domainDotInactive} />
                               </button>
                             )
                           })}
                         </div>
                       </td>
 
-                      {/* ACCIONES (Guardar individual) */}
-                      <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                      {/* ACCIONES */}
+                      <td className={styles.tdRight}>
                         <button
                           type="button"
                           onClick={() => handleGuardarUsuario(u.userId, u.nombre, u.dominiosPermitidos)}
                           disabled={isSavingThis || !isModified}
-                          style={{
-                            padding: '6px 14px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            backgroundColor: isModified ? '#ec5b13' : '#f1f5f9',
-                            color: isModified ? '#ffffff' : '#cbd5e1',
-                            fontWeight: 600,
-                            fontSize: '0.8125rem',
-                            cursor: isModified ? 'pointer' : 'default',
-                            transition: 'all 0.15s',
-                          }}
+                          className={isModified ? styles.btnSaveUserActive : styles.btnSaveUserDisabled}
                         >
                           {isSavingThis ? 'Guardando...' : isModified ? 'Guardar' : 'Sin Cambios'}
                         </button>

@@ -1,0 +1,273 @@
+.container {
+  padding: 24px 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.subtitle {
+  color: #64748b;
+  margin: 4px 0 0;
+  font-size: 0.875rem;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.searchInput {
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.875rem;
+  outline: none;
+  min-width: 260px;
+  background-color: #ffffff;
+}
+
+.btnSaveBulk {
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: background-color 0.2s;
+}
+
+.btnSaveBulkActive {
+  background-color: #ec5b13;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.btnSaveBulkDisabled {
+  background-color: #cbd5e1;
+  color: #ffffff;
+  cursor: default;
+}
+
+.cardContainer {
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.emptyState {
+  padding: 48px;
+  text-align: center;
+  color: #94a3b8;
+}
+
+.loadingState {
+  padding: 48px;
+  text-align: center;
+  color: #64748b;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.tableHeaderRow {
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.th {
+  padding: 14px 20px;
+}
+
+.thRight {
+  padding: 14px 20px;
+  text-align: right;
+}
+
+.tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background-color 0.15s;
+}
+
+.trModified {
+  background-color: #fff7ed;
+}
+
+.td {
+  padding: 16px 20px;
+}
+
+.tdRight {
+  padding: 16px 20px;
+  text-align: right;
+}
+
+.userCell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatarAdmin {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background-color: #e0e7ff;
+  color: #3730a3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.avatarUser {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background-color: #ffedd5;
+  color: #c2410c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.userName {
+  margin: 0;
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.userEmail {
+  font-size: 0.875rem;
+  color: #475569;
+}
+
+.roleBadgeAdmin {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: #e0e7ff;
+  color: #4338ca;
+}
+
+.roleBadgeUser {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.domainGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.domainChipChecked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #bbf7d0;
+  background-color: #f0fdf4;
+  color: #166534;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(22, 101, 52, 0.05);
+}
+
+.domainChipUnchecked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  color: #64748b;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.domainDotActive {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #22c55e;
+  margin-left: 2px;
+}
+
+.domainDotInactive {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #cbd5e1;
+  margin-left: 2px;
+}
+
+.btnSaveUserActive {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background-color: #ec5b13;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btnSaveUserDisabled {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background-color: #f1f5f9;
+  color: #cbd5e1;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  cursor: default;
+  transition: all 0.15s;
+}

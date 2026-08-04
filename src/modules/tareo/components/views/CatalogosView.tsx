@@ -139,16 +139,6 @@ export default function CatalogosView() {
     setSaving(false)
   }
 
-  const actionStyle: React.CSSProperties = {
-    background: 'transparent',
-    border: 'none',
-    color: '#2563eb',
-    cursor: 'pointer',
-    fontWeight: 600,
-    padding: '4px 8px',
-    borderRadius: '4px'
-  }
-
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'trabajadores', label: 'Trabajadores' },
     { key: 'teams', label: 'Teams' },
@@ -184,8 +174,10 @@ export default function CatalogosView() {
                   <td>{item.telefono ?? '-'}</td>
                   <td>{item.horas_maximas ?? '-'}</td>
                   <td>
-                    <button style={actionStyle} onClick={() => handleEdit(item)}>Editar</button>
-                    <button style={{...actionStyle, color: '#ef4444'}} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                    <div className={styles.actionRow}>
+                      <button className={styles.btnActionEdit} onClick={() => handleEdit(item)}>Editar</button>
+                      <button className={styles.btnActionDelete} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -217,8 +209,10 @@ export default function CatalogosView() {
                 <tr key={item.id}>
                   <td>{item.nombre}</td>
                   <td>
-                    <button style={actionStyle} onClick={() => handleEdit(item)}>Editar</button>
-                    <button style={{...actionStyle, color: '#ef4444'}} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                    <div className={styles.actionRow}>
+                      <button className={styles.btnActionEdit} onClick={() => handleEdit(item)}>Editar</button>
+                      <button className={styles.btnActionDelete} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -245,34 +239,27 @@ export default function CatalogosView() {
                 const area = catalogs.areas.find(a => a.id === item.area_id)
                 return (
                   <tr key={item.id}>
-                    <td style={{ fontWeight: 600 }}>{item.nombre}</td>
-                    <td style={{ fontWeight: 500, color: '#4b5563' }}>{area?.nombre ?? '-'}</td>
+                    <td className={styles.valAsignadas}>{item.nombre}</td>
+                    <td className={styles.subText}>{area?.nombre ?? '-'}</td>
                     <td>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      <div className={styles.domainGrid}>
                         {associatedProys.map(p => (
-                          <span key={p.id} style={{
-                            display: 'inline-block',
-                            background: '#f0fdf4',
-                            color: '#15803d',
-                            padding: '4px 10px',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            border: '1px solid #bbf7d0'
-                          }}>
+                          <span key={p.id} className={styles.chipProject}>
                             {p.nombre}
                           </span>
                         ))}
                         {associatedProys.length === 0 && (
-                          <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '13px' }}>
+                          <span className={styles.emptyProjects}>
                             Ningún proyecto enlazado
                           </span>
                         )}
                       </div>
                     </td>
                     <td>
-                      <button style={actionStyle} onClick={() => handleEdit(item)}>Editar</button>
-                      <button style={{...actionStyle, color: '#ef4444'}} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                      <div className={styles.actionRow}>
+                        <button className={styles.btnActionEdit} onClick={() => handleEdit(item)}>Editar</button>
+                        <button className={styles.btnActionDelete} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -299,8 +286,10 @@ export default function CatalogosView() {
                   <td>{item.nombre}</td>
                   <td>{item.horas_maximas_estimadas ?? '-'}</td>
                   <td>
-                    <button style={actionStyle} onClick={() => handleEdit(item)}>Editar</button>
-                    <button style={{...actionStyle, color: '#ef4444'}} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                    <div className={styles.actionRow}>
+                      <button className={styles.btnActionEdit} onClick={() => handleEdit(item)}>Editar</button>
+                      <button className={styles.btnActionDelete} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -334,8 +323,10 @@ export default function CatalogosView() {
                     <td>{solicitante?.nombre ?? '-'}</td>
                     <td>{team?.nombre ?? '-'}</td>
                     <td>
-                      <button style={actionStyle} onClick={() => handleEdit(item)}>Editar</button>
-                      <button style={{...actionStyle, color: '#ef4444'}} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                      <div className={styles.actionRow}>
+                        <button className={styles.btnActionEdit} onClick={() => handleEdit(item)}>Editar</button>
+                        <button className={styles.btnActionDelete} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -372,8 +363,10 @@ export default function CatalogosView() {
                     )}
                   </td>
                   <td>
-                    <button style={actionStyle} onClick={() => handleEdit(item)}>Editar</button>
-                    <button style={{...actionStyle, color: '#ef4444'}} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                    <div className={styles.actionRow}>
+                      <button className={styles.btnActionEdit} onClick={() => handleEdit(item)}>Editar</button>
+                      <button className={styles.btnActionDelete} onClick={() => handleDelete(item.id)}>Eliminar</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -403,48 +396,48 @@ export default function CatalogosView() {
       </div>
 
       {isModalOpen && (
-        <div style={{ zIndex: 1000, position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: '#fff', borderRadius: '18px', width: '400px', padding: '24px', position: 'relative' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '20px', color: '#111827' }}>
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modalCard}>
+            <h3 className={styles.title} style={{ fontSize: '20px', marginBottom: '16px' }}>
               {editItem ? 'Editar' : 'Nuevo'} {tabs.find(t => t.key === activeTab)?.label}
             </h3>
             
-            <form onSubmit={handleSaveForm} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={handleSaveForm} className={styles.modalForm}>
               {activeTab !== 'periodos' && (
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Nombre</label>
-                  <input name="nombre" defaultValue={editItem?.nombre} required style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                  <label className={styles.formLabel}>Nombre</label>
+                  <input name="nombre" defaultValue={editItem?.nombre} required className={styles.formInput} />
                 </div>
               )}
 
               {activeTab === 'trabajadores' && (
                 <>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Correo</label>
-                    <input type="email" name="correo" defaultValue={editItem?.correo} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                    <label className={styles.formLabel}>Correo</label>
+                    <input type="email" name="correo" defaultValue={editItem?.correo} className={styles.formInput} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Teléfono</label>
-                    <input name="telefono" defaultValue={editItem?.telefono} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                    <label className={styles.formLabel}>Teléfono</label>
+                    <input name="telefono" defaultValue={editItem?.telefono} className={styles.formInput} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Horas Máximas / Día</label>
-                    <input type="number" step="any" min="0" name="horas_maximas" defaultValue={editItem?.horas_maximas} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                    <label className={styles.formLabel}>Horas Máximas / Día</label>
+                    <input type="number" step="any" min="0" name="horas_maximas" defaultValue={editItem?.horas_maximas} className={styles.formInput} />
                   </div>
                 </>
               )}
 
               {activeTab === 'solicitantes' && (
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Horas Max. Estimadas</label>
-                  <input type="number" step="any" min="0" name="horas_maximas_estimadas" defaultValue={editItem?.horas_maximas_estimadas} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                  <label className={styles.formLabel}>Horas Max. Estimadas</label>
+                  <input type="number" step="any" min="0" name="horas_maximas_estimadas" defaultValue={editItem?.horas_maximas_estimadas} className={styles.formInput} />
                 </div>
               )}
 
               {activeTab === 'agrupadores' && (
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Área</label>
-                  <select name="area_id" required defaultValue={editItem?.area_id} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box', background: '#fff' }}>
+                  <label className={styles.formLabel}>Área</label>
+                  <select name="area_id" required defaultValue={editItem?.area_id} className={styles.formSelect}>
                     <option value="">Seleccionar área</option>
                     {catalogs?.areas.map(a => (
                       <option key={a.id} value={a.id}>{a.nombre}</option>
@@ -456,8 +449,8 @@ export default function CatalogosView() {
               {activeTab === 'proyectos' && (
                 <>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Agrupador</label>
-                    <select name="agrupador_id" required defaultValue={editItem?.agrupador_id} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box', background: '#fff' }}>
+                    <label className={styles.formLabel}>Agrupador</label>
+                    <select name="agrupador_id" required defaultValue={editItem?.agrupador_id} className={styles.formSelect}>
                       <option value="">Seleccionar agrupador</option>
                       {catalogs?.agrupadores.map(a => (
                         <option key={a.id} value={a.id}>{a.nombre}</option>
@@ -465,8 +458,8 @@ export default function CatalogosView() {
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Solicitante</label>
-                    <select name="solicitante_id" defaultValue={editItem?.solicitante_id || ''} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box', background: '#fff' }}>
+                    <label className={styles.formLabel}>Solicitante</label>
+                    <select name="solicitante_id" defaultValue={editItem?.solicitante_id || ''} className={styles.formSelect}>
                       <option value="">Seleccionar solicitante</option>
                       {catalogs?.solicitantes.map(s => (
                         <option key={s.id} value={s.id}>{s.nombre}</option>
@@ -474,8 +467,8 @@ export default function CatalogosView() {
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Team</label>
-                    <select name="team_id" defaultValue={editItem?.team_id || ''} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box', background: '#fff' }}>
+                    <label className={styles.formLabel}>Team</label>
+                    <select name="team_id" defaultValue={editItem?.team_id || ''} className={styles.formSelect}>
                       <option value="">Seleccionar team</option>
                       {catalogs?.teams.map(t => (
                         <option key={t.id} value={t.id}>{t.nombre}</option>
@@ -487,36 +480,36 @@ export default function CatalogosView() {
 
               {activeTab === 'periodos' && (
                 <>
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Año</label>
-                      <input type="number" name="anio" required defaultValue={editItem?.anio || new Date().getFullYear()} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                  <div className={styles.flexRow}>
+                    <div className={styles.flex1}>
+                      <label className={styles.formLabel}>Año</label>
+                      <input type="number" name="anio" required defaultValue={editItem?.anio || new Date().getFullYear()} className={styles.formInput} />
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Mes</label>
-                      <input type="number" name="mes" min="1" max="12" required defaultValue={editItem?.mes || new Date().getMonth() + 1} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                    <div className={styles.flex1}>
+                      <label className={styles.formLabel}>Mes</label>
+                      <input type="number" name="mes" min="1" max="12" required defaultValue={editItem?.mes || new Date().getMonth() + 1} className={styles.formInput} />
                     </div>
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Fecha Inicio</label>
-                    <input type="date" name="fecha_inicio" defaultValue={editItem?.fecha_inicio} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                    <label className={styles.formLabel}>Fecha Inicio</label>
+                    <input type="date" name="fecha_inicio" defaultValue={editItem?.fecha_inicio} className={styles.formInput} />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Fecha Fin</label>
-                    <input type="date" name="fecha_fin" defaultValue={editItem?.fecha_fin} style={{ width: '100%', height: '40px', padding: '0 12px', border: '1px solid #d1d5db', borderRadius: '8px', boxSizing: 'border-box' }} />
+                    <label className={styles.formLabel}>Fecha Fin</label>
+                    <input type="date" name="fecha_fin" defaultValue={editItem?.fecha_fin} className={styles.formInput} />
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-                    <input type="checkbox" name="cerrado" defaultChecked={editItem?.cerrado} id="cerrado-check" style={{ width: '18px', height: '18px' }} />
-                    <label htmlFor="cerrado-check" style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Período Cerrado</label>
+                  <div className={styles.checkboxRow}>
+                    <input type="checkbox" name="cerrado" defaultChecked={editItem?.cerrado} id="cerrado-check" className={styles.checkboxInput} />
+                    <label htmlFor="cerrado-check" className={styles.checkboxLabel}>Período Cerrado</label>
                   </div>
                 </>
               )}
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
-                <button type="button" onClick={() => setIsModalOpen(false)} style={{ height: '40px', padding: '0 16px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', fontWeight: 600, color: '#374151', cursor: 'pointer' }}>
+              <div className={styles.formFooter}>
+                <button type="button" onClick={() => setIsModalOpen(false)} className={styles.btnCancel}>
                   Cancelar
                 </button>
-                <button type="submit" disabled={saving} style={{ height: '40px', padding: '0 16px', borderRadius: '8px', border: 'none', background: '#111827', fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
+                <button type="submit" disabled={saving} className={styles.btnSubmit}>
                   {saving ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>

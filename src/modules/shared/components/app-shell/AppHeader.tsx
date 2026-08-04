@@ -99,7 +99,7 @@ export default function AppHeader({ toggleSidebar, usuario }: AppHeaderProps) {
                   className={styles.dropdownItem}
                   onClick={() => setIsOpen(false)}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '20px', color: '#64748b' }}>
+                  <span className={`material-symbols-outlined ${styles.dropdownItemIcon}`}>
                     admin_panel_settings
                   </span>
                   <span>Permisos por Perfil</span>
@@ -114,7 +114,7 @@ export default function AppHeader({ toggleSidebar, usuario }: AppHeaderProps) {
                 onClick={handleLogout}
                 disabled={isPending}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>
+                <span className={`material-symbols-outlined ${styles.dropdownItemIcon}`}>
                   logout
                 </span>
                 <span>{isPending ? 'Cerrando sesión...' : 'Cerrar Sesión'}</span>

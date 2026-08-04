@@ -213,21 +213,12 @@ export default function TareasView() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div className={styles.headerControls}>
           {catalogs && (
             <select
               value={selectedPeriodoId ?? ''}
               onChange={(e) => setSelectedPeriodoId(e.target.value ? Number(e.target.value) : null)}
-              style={{
-                height: '40px',
-                borderRadius: '10px',
-                border: '1px solid #d1d5db',
-                padding: '0 12px',
-                background: '#ffffff',
-                fontWeight: 600,
-                color: '#374151',
-                outline: 'none'
-              }}
+              className={styles.periodoSelect}
             >
               {catalogs.periodos.map((periodo) => (
                 <option key={periodo.id} value={periodo.id}>
@@ -246,26 +237,11 @@ export default function TareasView() {
             onClick={() => setRolloverConfirmOpen(true)}
             disabled={rolloverLoading}
             title="Arrastra automáticamente las tareas con horas disponibles al período actual"
-            style={{
-              height: '40px',
-              padding: '0 18px',
-              borderRadius: '10px',
-              border: '1.5px solid #7c3aed',
-              background: rolloverLoading ? '#ede9fe' : 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-              color: rolloverLoading ? '#7c3aed' : '#fff',
-              fontWeight: 700,
-              fontSize: '13px',
-              cursor: rolloverLoading ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: '0.2s',
-              boxShadow: rolloverLoading ? 'none' : '0 2px 8px rgba(124,58,237,0.25)'
-            }}
+            className={rolloverLoading ? styles.rolloverBtnLoading : styles.rolloverBtn}
           >
             {rolloverLoading ? (
               <>
-                <span style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid #7c3aed', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                <span className={styles.spinner} />
                 Procesando...
               </>
             ) : (
@@ -275,37 +251,29 @@ export default function TareasView() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', background: '#fff', padding: '16px', borderRadius: '16px', border: '1px solid #e5e7eb' }}>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: 1 }}>
+      <div className={styles.filterBar}>
+        <div className={styles.filterBarGroup}>
           <button
             type="button"
             onClick={() => setShowArchived(false)}
-            style={{
-              background: !showArchived ? '#e0f2fe' : '#f3f4f6',
-              color: !showArchived ? '#0369a1' : '#4b5563',
-              border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: '0.2s'
-            }}
+            className={!showArchived ? styles.tabBtnActiveBlue : styles.tabBtnInactiveGray}
           >
             Tareas Activas
           </button>
           <button
             type="button"
             onClick={() => setShowArchived(true)}
-            style={{
-              background: showArchived ? '#fee2e2' : '#f3f4f6',
-              color: showArchived ? '#b91c1c' : '#4b5563',
-              border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: '0.2s'
-            }}
+            className={showArchived ? styles.tabBtnActiveRed : styles.tabBtnInactiveGray}
           >
             Archivo (Inactivas)
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className={styles.actionRow}>
           <select
             value={estadoFilter}
             onChange={e => setEstadoFilter(e.target.value)}
-            style={{ height: '36px', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '0 10px', outline: 'none', color: '#374151', fontSize: '13px' }}
+            className={styles.filterSelect}
           >
             <option value="">Todos los Estados</option>
             {uniqueStates.map(st => (
@@ -316,7 +284,7 @@ export default function TareasView() {
           <select
             value={horasFilter}
             onChange={e => setHorasFilter(e.target.value)}
-            style={{ height: '36px', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '0 10px', outline: 'none', color: '#374151', fontSize: '13px' }}
+            className={styles.filterSelect}
           >
             <option value="Todas">Todas las Horas</option>
             <option value="ConHoras">Disponibles {`>`} 0</option>
@@ -327,41 +295,32 @@ export default function TareasView() {
 
       {/* Resultado del arrastre mensual */}
       {rolloverResult && (
-        <div style={{
-          background: 'linear-gradient(135deg, #f5f3ff, #ede9fe)',
-          border: '1.5px solid #7c3aed',
-          borderRadius: '14px',
-          padding: '18px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '16px'
-        }}>
+        <div className={styles.rolloverBanner}>
           <div>
-            <p style={{ margin: 0, fontWeight: 700, color: '#5b21b6', fontSize: '15px' }}>
+            <p className={styles.rolloverBannerTitle}>
               ✅ Arrastre Mensual Completado
             </p>
-            <p style={{ margin: '4px 0 0', color: '#6d28d9', fontSize: '13px' }}>
+            <p className={styles.rolloverBannerSubtitle}>
               {rolloverResult.mensaje}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '20px', flexShrink: 0 }}>
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#7c3aed' }}>
+          <div className={styles.rolloverBannerStat}>
+            <div className={styles.rolloverStatBox}>
+              <p className={styles.rolloverStatVal}>
                 {rolloverResult.tareas_arrastradas}
               </p>
-              <p style={{ margin: 0, fontSize: '11px', color: '#8b5cf6', fontWeight: 600 }}>TAREAS ARRASTRADAS</p>
+              <p className={styles.rolloverStatLbl}>TAREAS ARRASTRADAS</p>
             </div>
           </div>
           <button
             onClick={() => setRolloverResult(null)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7c3aed', fontSize: '18px', fontWeight: 700, lineHeight: 1 }}
+            className={styles.rolloverCloseBtn}
             title="Cerrar"
           >×</button>
         </div>
       )}
 
-      <div className={styles.content} style={{ minHeight: 'auto' }}>
+      <div className={styles.content}>
         {loading ? (
           <div className={styles.loading}>Cargando tareas...</div>
         ) : error ? (
@@ -388,13 +347,13 @@ export default function TareasView() {
 
                   return (
                     <tr key={t.tarea_periodo_id} style={{ opacity: showArchived ? 0.7 : 1 }}>
-                      <td style={{ fontWeight: 600 }}>
+                      <td className={styles.valAsignadas}>
                         {t.tarea_nombre}
-                        {showArchived && <span style={{ fontSize: '10px', background: '#fee2e2', color: '#991b1b', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>Inactiva</span>}
+                        {showArchived && <span className={styles.inactiveBadge}>Inactiva</span>}
                       </td>
                       <td>
                         <div>{t.proyecto_nombre}</div>
-                        <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                        <div className={styles.subText}>
                           {t.agrupador_nombre}
                         </div>
                       </td>
@@ -402,9 +361,9 @@ export default function TareasView() {
                       
                       {/* Horas Asignadas Totales en General */}
                       <td style={{ textAlign: 'center' }}>
-                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{totalAsignadas} h</div>
+                        <div className={styles.valAsignadas}>{totalAsignadas} h</div>
                         {hasArrastre && (
-                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                          <div className={styles.valSubDetail}>
                             Período: {t.horas_asignadas_periodo}h
                           </div>
                         )}
@@ -412,83 +371,43 @@ export default function TareasView() {
 
                       {/* Horas Consumidas Totales en General */}
                       <td style={{ textAlign: 'center' }}>
-                        <div style={{ fontWeight: 700, color: '#334155' }}>{t.horas_totales_acumuladas} h</div>
+                        <div className={styles.valConsumidas}>{t.horas_totales_acumuladas} h</div>
                         {hasArrastre && (
-                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                          <div className={styles.valSubDetail}>
                             Período: {t.horas_consumidas_periodo}h
                           </div>
                         )}
                       </td>
 
                       {/* Horas Disponibles */}
-                      <td style={{ textAlign: 'center', fontWeight: 'bold', color: t.horas_disponibles_periodo < 0 ? '#ef4444' : '#10b981' }}>
+                      <td className={t.horas_disponibles_periodo < 0 ? styles.valDisponiblesOver : styles.valDisponiblesOk}>
                         {t.horas_disponibles_periodo} h
                       </td>
 
                       <td>
-                        <span style={{
-                          background: t.estado_nombre.toLowerCase() === 'completado' ? '#d1fae5' : '#f3f4f6',
-                          color: t.estado_nombre.toLowerCase() === 'completado' ? '#065f46' : '#374151',
-                          padding: '4px 10px',
-                          borderRadius: '999px',
-                          fontSize: '12px',
-                          fontWeight: 600
-                        }}>
+                        <span className={t.estado_nombre.toLowerCase() === 'completado' ? styles.badgeAbierto : styles.tabBtnInactiveGray}>
                           {t.estado_nombre}
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '8px' }}>
+                        <div className={styles.actionRow}>
                           <button
                             onClick={() => { setHistorialTarea({ id: t.tarea_id, nombre: t.tarea_nombre }); setHistorialOpen(true) }}
                             title="Ver historial de días trabajados"
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: '#7c3aed',
-                              cursor: 'pointer',
-                              padding: '4px 8px',
-                              fontWeight: 600,
-                              borderRadius: '4px',
-                              transition: '0.2s',
-                              fontSize: '13px'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = '#f5f3ff'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            className={styles.btnActionHistorial}
                           >
                             Historial
                           </button>
                           <button
                             onClick={() => handleToggleActivo(t)}
                             title={t.activo ? "Desactivar/Archivar Tarea" : "Reactivar Tarea"}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: t.activo ? '#ef4444' : '#10b981',
-                              cursor: 'pointer',
-                              padding: '4px 8px',
-                              fontWeight: 600,
-                              borderRadius: '4px',
-                              transition: '0.2s'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = t.activo ? '#fee2e2' : '#d1fae5'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            className={t.activo ? styles.btnActionToggleRed : styles.btnActionToggleGreen}
                           >
                             {t.activo ? 'Desactivar' : 'Activar'}
                           </button>
                           <button
                             onClick={() => handleEdit(t)}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: '#2563eb',
-                              cursor: 'pointer',
-                              fontWeight: 600,
-                              padding: '4px 8px',
-                              borderRadius: '4px'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
-                            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                            className={styles.btnActionEdit}
                           >
                             Editar
                           </button>
@@ -548,42 +467,26 @@ export default function TareasView() {
 
       {/* Modal de confirmación para el arrastre mensual */}
       {rolloverConfirmOpen && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-        }}>
-          <div style={{
-            background: '#fff', borderRadius: '20px', padding: '32px 36px',
-            maxWidth: '480px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}></div>
-            <h3 style={{ margin: '0 0 12px', color: '#1f2937', fontSize: '20px' }}>
+        <div className={styles.modalBackdrop}>
+          <div className={styles.modalCard}>
+            <h3 className={styles.modalTitle}>
               Ejecutar Arrastre Mensual
             </h3>
-            <p style={{ margin: '0 0 24px', color: '#6b7280', fontSize: '14px', lineHeight: 1.6 }}>
+            <p className={styles.modalDesc}>
               Esta acción tomará todas las tareas con <strong>horas disponibles &gt; 0</strong> del período
               anterior y las arrastrará al período actual con sus horas de arrastre correspondientes.
               El período anterior quedará <strong>cerrado</strong> automáticamente.
             </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <div className={styles.modalActions}>
               <button
                 onClick={() => setRolloverConfirmOpen(false)}
-                style={{
-                  padding: '10px 24px', borderRadius: '10px', border: '1.5px solid #e5e7eb',
-                  background: '#fff', color: '#374151', fontWeight: 600, cursor: 'pointer'
-                }}
+                className={styles.btnCancel}
               >
                 Cancelar
               </button>
               <button
                 onClick={handleArrastreMensual}
-                style={{
-                  padding: '10px 24px', borderRadius: '10px', border: 'none',
-                  background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
-                  color: '#fff', fontWeight: 700, cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(124,58,237,0.35)'
-                }}
+                className={styles.btnConfirmPurple}
               >
                 ✓ Confirmar Arrastre
               </button>
@@ -591,13 +494,6 @@ export default function TareasView() {
           </div>
         </div>
       )}
-
-      {/* Animación de spinner */}
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   )
 }

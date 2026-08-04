@@ -74,7 +74,7 @@ export default function AppSidebar({ isCollapsed, userRole, userId, userDomains 
         {!isCollapsed && <p className={styles.menuTitle}>Dominios</p>}
 
         {loading ? (
-          <div style={{ padding: '12px', fontSize: '0.8125rem', color: '#94a3b8' }}>
+          <div className={styles.loadingState}>
             {!isCollapsed && 'Cargando menú...'}
           </div>
         ) : (
