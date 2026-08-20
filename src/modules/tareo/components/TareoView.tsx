@@ -150,6 +150,7 @@ export default function TareoView() {
   const [selectedPeriodoId, setSelectedPeriodoId] = useState<number | null>(null)
   const [selectedFecha, setSelectedFecha] = useState<string>(getTodayValue())
   const [registros, setRegistros] = useState<RegistroDetalleItem[]>([])
+  const [registrosPeriodo, setRegistrosPeriodo] = useState<RegistroDetalleItem[]>([])
   const [resumenGeneral, setResumenGeneral] = useState<ResumenDiarioGeneralItem[]>([])
   const [tareasPeriodo, setTareasPeriodo] = useState<TareaPeriodoListItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -313,9 +314,10 @@ export default function TareoView() {
     setLoadingData(true)
     setError(null)
 
-    const [registrosResponse, resumenResponse] = await Promise.all([
+    const [registrosResponse, resumenResponse, periodoRegistrosResponse] = await Promise.all([
       listRegistrosByFechaAction(fecha),
-      getResumenDiarioGeneralAction(periodoId ?? undefined)
+      getResumenDiarioGeneralAction(periodoId ?? undefined),
+      periodoId ? getRegistrosByPeriodoAction(periodoId) : Promise.resolve({ success: true, data: [] })
     ])
 
     if (!registrosResponse.success) {
@@ -330,6 +332,12 @@ export default function TareoView() {
       setResumenGeneral([])
     } else {
       setResumenGeneral(resumenResponse.data ?? [])
+    }
+
+    if (periodoRegistrosResponse.success && periodoRegistrosResponse.data) {
+      setRegistrosPeriodo(periodoRegistrosResponse.data)
+    } else {
+      setRegistrosPeriodo([])
     }
 
     await loadTareasPeriodo(periodoId)
@@ -358,7 +366,8 @@ export default function TareoView() {
   }, [registros, dailyFilters])
 
   const totalHorasDia = useMemo(() => {
-    return registrosFiltrados.reduce((acc, item) => acc + Number(item.horas ?? 0), 0)
+    const sum = registrosFiltrados.reduce((acc, item) => acc + Number(item.horas ?? 0), 0)
+    return Math.round(sum * 100) / 100
   }, [registrosFiltrados])
 
   const totalTrabajadoresDia = useMemo(() => {
@@ -380,53 +389,14 @@ export default function TareoView() {
     )
 
     if (!hasFilter) {
-      return resumenGeneral.reduce((acc, item) => acc + Number(item.horas_dia ?? 0), 0)
+      const sum = resumenGeneral.reduce((acc, item) => acc + Number(item.horas_dia ?? 0), 0)
+      return Math.round(sum * 100) / 100
     }
 
-    const matchingTareas = tareasPeriodo.filter((t) => {
-      if (
-        Array.isArray(dailyFilters.tarea) &&
-        dailyFilters.tarea.length > 0 &&
-        !dailyFilters.tarea.includes(t.tarea_nombre)
-      ) {
-        return false
-      }
-
-      if (
-        Array.isArray(dailyFilters.proyecto) &&
-        dailyFilters.proyecto.length > 0 &&
-        !dailyFilters.proyecto.includes(t.proyecto_nombre)
-      ) {
-        return false
-      }
-
-      if (
-        Array.isArray(dailyFilters.agrupador) &&
-        dailyFilters.agrupador.length > 0 &&
-        !dailyFilters.agrupador.includes(t.agrupador_nombre)
-      ) {
-        return false
-      }
-
-      if (
-        Array.isArray(dailyFilters.solicitante) &&
-        dailyFilters.solicitante.length > 0 &&
-        !dailyFilters.solicitante.includes(t.solicitante_nombre)
-      ) {
-        return false
-      }
-
-      if (dailyFilters.search) {
-        const s = dailyFilters.search.toLowerCase()
-        const text = `${t.tarea_nombre} ${t.proyecto_nombre} ${t.agrupador_nombre} ${t.solicitante_nombre}`.toLowerCase()
-        if (!text.includes(s)) return false
-      }
-
-      return true
-    })
-
-    return matchingTareas.reduce((acc, item) => acc + Number(item.horas_consumidas_periodo ?? 0), 0)
-  }, [dailyFilters, resumenGeneral, tareasPeriodo])
+    const filteredPeriodo = applyDailyFilters(registrosPeriodo, dailyFilters)
+    const sum = filteredPeriodo.reduce((acc, item) => acc + Number(item.horas ?? 0), 0)
+    return Math.round(sum * 100) / 100
+  }, [dailyFilters, resumenGeneral, registrosPeriodo])
 
   const handleOpenNuevoRegistro = () => {
     setSelectedRegistro(null)

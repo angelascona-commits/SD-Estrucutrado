@@ -417,7 +417,7 @@ export default function TareoDailyFilters({
         </div>
         <div className={styles.summaryItem}>
           <span className={styles.summaryLabel}>Horas visibles</span>
-          <span className={styles.summaryValue}>{horasVisibles}</span>
+          <span className={styles.summaryValue}>{Math.round(horasVisibles * 100) / 100}</span>
         </div>
       </div>
     </div>

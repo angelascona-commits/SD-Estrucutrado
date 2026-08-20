@@ -10,6 +10,7 @@ describe('SGPRC Service - Validaciones de Solicitud', () => {
     componentes: [
       {
         servicio_requerido: 'AWS Lambda',
+        entorno: 'Producción',
         configuracion_detalles: 'Runtime Node.js 20, 1024MB RAM',
       },
     ],
@@ -37,7 +38,7 @@ describe('SGPRC Service - Validaciones de Solicitud', () => {
     expect(() =>
       validateSolicitudPayload({
         ...validPayload,
-        componentes: [{ servicio_requerido: '', configuracion_detalles: 'Detalle' }],
+        componentes: [{ servicio_requerido: '', entorno: 'Desarrollo', configuracion_detalles: 'Detalle' }],
       })
     ).toThrow('El servicio cloud requerido es obligatorio')
   })

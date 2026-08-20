@@ -14,11 +14,18 @@ interface WidgetCardProps {
   value: string | number
 }
 
+function formatWidgetValue(value: string | number): string | number {
+  if (typeof value === 'number') {
+    return Number(Math.round(value * 100) / 100)
+  }
+  return value
+}
+
 function WidgetCard({ title, value }: WidgetCardProps) {
   return (
     <div className={styles.card}>
       <div className={styles.cardTitle}>{title}</div>
-      <div className={styles.cardValue}>{value}</div>
+      <div className={styles.cardValue}>{formatWidgetValue(value)}</div>
     </div>
   )
 }

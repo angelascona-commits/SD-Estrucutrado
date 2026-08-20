@@ -12,10 +12,13 @@ describe('Tareo Service - Validaciones y Normalización', () => {
     nombre: ' Tarea de Prueba ',
     periodo_id: 1,
     proyecto_id: 2,
+    team_id: null,
     solicitante_id: 3,
     estado_id: 4,
     horas_historicas_arrastre: 10,
     horas_asignadas_periodo: 20,
+    comentario_periodo: null,
+    comentario_dm: null,
     activo: true,
   }
 
@@ -42,16 +45,32 @@ describe('Tareo Service - Validaciones y Normalización', () => {
     const currentTask: TareaPeriodoListItem = {
       tarea_periodo_id: 100,
       tarea_id: 1,
+      tarea_nombre: 'Tarea Actual',
+      team_id: null,
+      team_nombre: null,
+      solicitante_id: 3,
+      solicitante_nombre: 'Cliente X',
+      horas_maximas_estimadas: null,
+      proyecto_id: 2,
+      proyecto_nombre: 'Proyecto 1',
+      agrupador_id: 1,
+      agrupador_nombre: 'Agrupador 1',
+      estado_id: 4,
+      estado_nombre: 'En Proceso',
+      activo: true,
       periodo_id: 1,
+      periodo_anio: 2026,
+      periodo_mes: 7,
+      periodo_cerrado: false,
+      horas_historicas_arrastre: 0,
       horas_asignadas_periodo: 20,
       horas_consumidas_periodo: 15,
-      horas_historicas_arrastre: 0,
-      nombre_tarea: 'Tarea Actual',
-      codigo_proyecto: 'PRJ-1',
-      nombre_proyecto: 'Proyecto 1',
-      solicitante: 'Cliente X',
-      estado: 'En Proceso',
-      activo: true,
+      horas_disponibles_periodo: 5,
+      horas_totales_acumuladas: 15,
+      comentario_periodo: null,
+      comentario_dm: null,
+      created_at: '',
+      updated_at: '',
     }
 
     expect(() =>
@@ -68,6 +87,7 @@ describe('Tareo Service - Validaciones y Normalización', () => {
       fecha: '2026-07-30',
       trabajador_id: 5,
       horas: 8,
+      comentario: null,
     }
 
     expect(() => validateRegistroPayload({ ...validRegistroPayload, horas: 0 })).toThrow('Las horas deben ser mayores a 0')
