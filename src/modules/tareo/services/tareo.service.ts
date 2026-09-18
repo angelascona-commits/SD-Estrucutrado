@@ -5,7 +5,8 @@ import type {
   TareaFilters,
   TareaFormData,
   TareaPeriodoListItem,
-  RegistroDetalleItem
+  RegistroDetalleItem,
+  TareoExportExcelOptions
 } from '../interfaces/tareo.interfaces'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -207,6 +208,21 @@ function sortTareoData(items: TareaPeriodoListItem[]): TareaPeriodoListItem[] {
 }
 
 // Función auxiliar para crear las hojas de detalle
+function formatWeekDate(fechaStr: string): string {
+  if (!fechaStr) return '-'
+  const parts = fechaStr.split('-')
+  if (parts.length < 3) return fechaStr
+  const [yyyy, mm, dd] = parts
+  const meses = [
+    'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+    'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+  ]
+  const mesNombre = meses[parseInt(mm, 10) - 1] || mm
+  const shortYear = yyyy ? yyyy.substring(2) : ''
+  return `${mesNombre} ${yyyy} (${dd}/${mm}/${shortYear})`
+}
+
+// Función auxiliar para crear las hojas de detalle estándar
 function createDetailSheet(
   workbook: ExcelJS.Workbook,
   name: string,
@@ -243,16 +259,7 @@ function createDetailSheet(
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF111827' } }
     cell.alignment = { horizontal: 'center' }
   })
-  function formatWeekDate(fechaStr: string): string {
-    const [yyyy, mm, dd] = fechaStr.split('-')
-    const meses = [
-      'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
-      'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
-    ]
-    const mesNombre = meses[parseInt(mm, 10) - 1]
-    const shortYear = yyyy.substring(2)
-    return `${mesNombre} ${yyyy} (${dd}/${mm}/${shortYear})`
-  }
+
   // Insertar cada registro diario como una fila independiente
   registros.forEach((reg) => {
     sheet.addRow({
@@ -268,6 +275,322 @@ function createDetailSheet(
       comentario_ps: reg.comentario ?? '', // El comentario específico que puso el trabajador ese día
       comentario_dm: '' // Columna vacía para que el cliente la llene
     })
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOJA: DETALLE AGRUPADO POR TAREA (TAREA + REGISTROS ANIDADOS EN UNA SOLA HOJA)
+// ─────────────────────────────────────────────────────────────────────────────
+function createGroupedTaskSheet(
+  workbook: ExcelJS.Workbook,
+  name: string,
+  tareas: TareaPeriodoListItem[],
+  registros: RegistroDetalleItem[],
+  periodoLabel: string,
+  costoHora: number
+) {
+  const sheet = workbook.addWorksheet(name)
+
+  sheet.columns = [
+    { header: 'Task Name / Detalle de Registro', key: 'nombre', width: 48 },
+    { header: 'Fecha / Período', key: 'fecha', width: 26 },
+    { header: 'Recurso / Assignee', key: 'recurso', width: 22 },
+    { header: 'Team', key: 'team', width: 20 },
+    { header: 'Solicitante', key: 'solicitante', width: 24 },
+    { header: 'Proyecto', key: 'proyecto', width: 30 },
+    { header: 'Agrupador', key: 'agrupador', width: 24 },
+    { header: 'Horas Asignadas', key: 'horas_asignadas', width: 16 },
+    { header: 'Horas Tomadas', key: 'horas_tomadas', width: 16 },
+    { header: 'Horas Disponibles', key: 'horas_disponibles', width: 16 },
+    { header: 'Monto (S/.)', key: 'monto', width: 18 },
+    { header: 'Estado', key: 'estado', width: 15 },
+    { header: 'Comentario / Observación', key: 'comentario_ps', width: 40 },
+    { header: 'Comentario DM', key: 'comentario_dm', width: 40 }
+  ]
+
+  // Título
+  sheet.insertRow(1, [`REPORTE DE TAREO (TAREAS Y REGISTROS ANIDADOS) — PERÍODO: ${periodoLabel}`])
+  sheet.mergeCells('A1:N1')
+  sheet.getRow(1).font = { size: 13, bold: true }
+  sheet.getRow(1).alignment = { horizontal: 'center' }
+
+  // Encabezado
+  const headerRow = sheet.getRow(2)
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+  headerRow.eachCell((cell) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }
+    cell.alignment = { horizontal: 'center' }
+  })
+
+  // Agrupar registros por tarea_periodo_id
+  const regsByTask: Record<number, RegistroDetalleItem[]> = {}
+  registros.forEach(r => {
+    const key = r.tarea_periodo_id
+    if (!regsByTask[key]) regsByTask[key] = []
+    regsByTask[key].push(r)
+  })
+
+  let grandTotalAsignadas = 0
+  let grandTotalTomadas = 0
+  let grandTotalMonto = 0
+
+  tareas.forEach((tarea) => {
+    const taskRegs = regsByTask[tarea.tarea_periodo_id] || []
+    const horasTomadas = taskRegs.length > 0
+      ? taskRegs.reduce((sum, r) => sum + Number(r.horas || 0), 0)
+      : Number(tarea.horas_consumidas_periodo || 0)
+    const horasAsignadas = Number(tarea.horas_asignadas_periodo || 0)
+    const horasDisponibles = Number(tarea.horas_disponibles_periodo || 0)
+    const montoTarea = horasTomadas * costoHora
+
+    grandTotalAsignadas += horasAsignadas
+    grandTotalTomadas += horasTomadas
+    grandTotalMonto += montoTarea
+
+    // Fila Padre: Tarea (Header visual destacado)
+    const taskRow = sheet.addRow({
+      nombre: `[TAREA] ${tarea.tarea_nombre}`,
+      fecha: `Período ${periodoLabel}`,
+      recurso: '',
+      team: tarea.team_nombre ?? '',
+      solicitante: tarea.solicitante_nombre ?? '',
+      proyecto: tarea.proyecto_nombre ?? '',
+      agrupador: tarea.agrupador_nombre ?? '',
+      horas_asignadas: horasAsignadas,
+      horas_tomadas: horasTomadas,
+      horas_disponibles: horasDisponibles,
+      monto: montoTarea,
+      estado: tarea.estado_nombre || (tarea.activo ? 'Activa' : 'Inactiva'),
+      comentario_ps: tarea.comentario_periodo ?? '',
+      comentario_dm: tarea.comentario_dm ?? ''
+    })
+
+    taskRow.font = { bold: true, size: 10.5 }
+    taskRow.getCell(1).font = { bold: true, color: { argb: 'FF1E3A8A' } }
+    taskRow.eachCell((cell, colNumber) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } } // Celeste suave
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF93C5FD' } },
+        bottom: { style: 'thin', color: { argb: 'FFBFDBFE' } },
+        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+      }
+      if (colNumber >= 8 && colNumber <= 10) {
+        cell.numFmt = '#,##0.00'
+        cell.alignment = { horizontal: 'right' }
+      }
+      if (colNumber === 11) {
+        cell.numFmt = '"S/ "#,##0.00'
+        cell.alignment = { horizontal: 'right' }
+      }
+    })
+
+    // Filas Hijas: Registros de tareo para esta tarea
+    if (taskRegs.length > 0) {
+      taskRegs.forEach((reg) => {
+        const h = Number(reg.horas || 0)
+        const childRow = sheet.addRow({
+          nombre: `     ↳ ${reg.trabajador_nombre}${reg.comentario ? ` - ${reg.comentario}` : ''}`,
+          fecha: formatWeekDate(reg.fecha),
+          recurso: reg.trabajador_nombre,
+          team: reg.team_nombre ?? '',
+          solicitante: reg.solicitante_nombre,
+          proyecto: reg.proyecto_nombre,
+          agrupador: reg.agrupador_nombre,
+          horas_asignadas: null,
+          horas_tomadas: h,
+          horas_disponibles: null,
+          monto: h * costoHora,
+          estado: reg.estado_tarea,
+          comentario_ps: reg.comentario ?? '',
+          comentario_dm: ''
+        })
+
+        childRow.font = { size: 9.5, color: { argb: 'FF334155' } }
+        childRow.eachCell((cell, colNumber) => {
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFF1F5F9' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFF8FAFC' } },
+            right: { style: 'thin', color: { argb: 'FFF8FAFC' } }
+          }
+          if (colNumber === 9) {
+            cell.numFmt = '#,##0.00'
+            cell.alignment = { horizontal: 'right' }
+            cell.font = { bold: true }
+          }
+          if (colNumber === 11) {
+            cell.numFmt = '"S/ "#,##0.00'
+            cell.alignment = { horizontal: 'right' }
+          }
+        })
+      })
+    } else {
+      // Si no tiene registros en el período
+      const emptyRow = sheet.addRow({
+        nombre: '     (Sin registros diarios en este período)',
+        fecha: '-',
+        recurso: '-',
+        team: '-',
+        solicitante: '-',
+        proyecto: '-',
+        agrupador: '-',
+        horas_asignadas: null,
+        horas_tomadas: 0,
+        horas_disponibles: null,
+        monto: 0,
+        estado: tarea.estado_nombre,
+        comentario_ps: '',
+        comentario_dm: ''
+      })
+      emptyRow.font = { italic: true, size: 9, color: { argb: 'FF94A3B8' } }
+    }
+  })
+
+  // Fila de Total General
+  const grandTotalRow = sheet.addRow({
+    nombre: 'TOTAL GENERAL',
+    fecha: '',
+    recurso: '',
+    team: '',
+    solicitante: '',
+    proyecto: '',
+    agrupador: '',
+    horas_asignadas: grandTotalAsignadas,
+    horas_tomadas: grandTotalTomadas,
+    horas_disponibles: grandTotalAsignadas - grandTotalTomadas,
+    monto: grandTotalMonto,
+    estado: '',
+    comentario_ps: '',
+    comentario_dm: ''
+  })
+
+  grandTotalRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } }
+  grandTotalRow.eachCell((cell, colNumber) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }
+    cell.border = {
+      top: { style: 'medium', color: { argb: 'FF000000' } },
+      bottom: { style: 'medium', color: { argb: 'FF000000' } }
+    }
+    if (colNumber >= 8 && colNumber <= 10) {
+      cell.numFmt = '#,##0.00'
+      cell.alignment = { horizontal: 'right' }
+    }
+    if (colNumber === 11) {
+      cell.numFmt = '"S/ "#,##0.00'
+      cell.alignment = { horizontal: 'right' }
+    }
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HOJAS INDEPENDIENTES: UNA PESTAÑA POR CADA TAREA
+// ─────────────────────────────────────────────────────────────────────────────
+function createIndependentTaskSheets(
+  workbook: ExcelJS.Workbook,
+  tareas: TareaPeriodoListItem[],
+  registros: RegistroDetalleItem[],
+  periodoLabel: string,
+  costoHora: number
+) {
+  const regsByTask: Record<number, RegistroDetalleItem[]> = {}
+  registros.forEach(r => {
+    const key = r.tarea_periodo_id
+    if (!regsByTask[key]) regsByTask[key] = []
+    regsByTask[key].push(r)
+  })
+
+  const usedSheetNames = new Set<string>()
+
+  tareas.forEach((tarea, index) => {
+    const taskRegs = regsByTask[tarea.tarea_periodo_id] || []
+    const rawName = (tarea.tarea_nombre || 'Tarea').replace(/[\\/*?:[\]]/g, '').trim()
+    let sheetName = `T${tarea.tarea_id}_${rawName.slice(0, 20)}`.trim()
+    if (!sheetName || usedSheetNames.has(sheetName)) {
+      sheetName = `Tarea_${tarea.tarea_id}_${index + 1}`.slice(0, 31)
+    }
+    usedSheetNames.add(sheetName)
+
+    const sheet = workbook.addWorksheet(sheetName)
+
+    sheet.columns = [
+      { header: 'Fecha', key: 'fecha', width: 24 },
+      { header: 'Recurso (Trabajador)', key: 'recurso', width: 25 },
+      { header: 'Team', key: 'team', width: 18 },
+      { header: 'Horas Tomadas', key: 'horas', width: 16 },
+      { header: 'Monto (S/.)', key: 'monto', width: 18 },
+      { header: 'Comentario / Observación', key: 'comentario_ps', width: 40 },
+      { header: 'Comentario DM', key: 'comentario_dm', width: 35 }
+    ]
+
+    // Bloque de Cabecera de la Tarea
+    sheet.insertRow(1, [`REPORTE INDEPENDIENTE DE TAREA: ${tarea.tarea_nombre}`])
+    sheet.mergeCells('A1:G1')
+    sheet.getRow(1).font = { size: 13, bold: true, color: { argb: 'FFFFFFFF' } }
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } }
+    sheet.getRow(1).alignment = { horizontal: 'center' }
+
+    sheet.addRow([
+      `Período: ${periodoLabel}`,
+      `Proyecto: ${tarea.proyecto_nombre}`,
+      `Agrupador: ${tarea.agrupador_nombre}`,
+      `Solicitante: ${tarea.solicitante_nombre}`,
+      `Estado: ${tarea.estado_nombre || (tarea.activo ? 'Activa' : 'Inactiva')}`,
+      '',
+      ''
+    ])
+    sheet.getRow(2).font = { bold: true, size: 9.5, color: { argb: 'FF334155' } }
+
+    const horasTomadas = taskRegs.reduce((sum, r) => sum + Number(r.horas || 0), 0)
+    sheet.addRow([
+      `Horas Asignadas: ${Number(tarea.horas_asignadas_periodo || 0).toFixed(2)}`,
+      `Horas Tomadas: ${horasTomadas.toFixed(2)}`,
+      `Horas Disponibles: ${Number(tarea.horas_disponibles_periodo || 0).toFixed(2)}`,
+      `Monto Total: S/ ${(horasTomadas * costoHora).toFixed(2)}`,
+      '',
+      '',
+      ''
+    ])
+    sheet.getRow(3).font = { bold: true, size: 9.5, color: { argb: 'FF0F172A' } }
+
+    sheet.addRow([]) // Fila vacía
+
+    const tableHeaderRow = sheet.getRow(5)
+    tableHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    tableHeaderRow.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }
+      cell.alignment = { horizontal: 'center' }
+    })
+
+    if (taskRegs.length > 0) {
+      taskRegs.forEach((reg) => {
+        const h = Number(reg.horas || 0)
+        const r = sheet.addRow({
+          fecha: formatWeekDate(reg.fecha),
+          recurso: reg.trabajador_nombre,
+          team: reg.team_nombre ?? '',
+          horas: h,
+          monto: h * costoHora,
+          comentario_ps: reg.comentario ?? '',
+          comentario_dm: ''
+        })
+        r.getCell(4).numFmt = '#,##0.00'
+        r.getCell(5).numFmt = '"S/ "#,##0.00'
+        styleRow(r)
+      })
+    } else {
+      const emptyR = sheet.addRow(['Sin registros diarios', '-', '-', 0, 0, '', ''])
+      emptyR.font = { italic: true, color: { argb: 'FF94A3B8' } }
+      styleRow(emptyR)
+    }
+
+    const totalRow = sheet.addRow([
+      'TOTAL TAREA', '', '', horasTomadas, horasTomadas * costoHora, '', ''
+    ])
+    totalRow.font = { bold: true, size: 11 }
+    totalRow.getCell(4).numFmt = '#,##0.00'
+    totalRow.getCell(5).numFmt = '"S/ "#,##0.00'
+    styleRow(totalRow, true)
   })
 }
 
@@ -298,41 +621,73 @@ export async function generateTareoExcel(
   registros: RegistroDetalleItem[],
   periodoLabel: string,
   costoHora: number,
-  isFiltered: boolean = false
+  isFiltered: boolean = false,
+  options?: TareoExportExcelOptions
 ): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
 
-  if (isFiltered) {
-    createDetailSheet(workbook, 'Detalle Registros', registros, periodoLabel);
-    createFilteredSummarySheet(workbook, tareasPeriodo, costoHora);
-  } else {
-    // Separación de datos para detalle y resumen basada en catálogo dinámico de áreas
-    const areaMap = await getAgrupadorAreaMap();
+  let filteredTareas = [...tareasPeriodo]
+  let filteredRegistros = [...registros]
+
+  // 1. Filtrado por duración (>50h o <=50h)
+  if (options?.duracionFiltro === 'mas_50h') {
+    filteredTareas = filteredTareas.filter(t => 
+      Number(t.horas_asignadas_periodo || 0) > 50 || 
+      Number(t.horas_consumidas_periodo || 0) > 50 || 
+      Number(t.horas_totales_acumuladas || 0) > 50
+    )
+    const allowedIds = new Set(filteredTareas.map(t => t.tarea_periodo_id))
+    filteredRegistros = filteredRegistros.filter(r => allowedIds.has(r.tarea_periodo_id))
+  } else if (options?.duracionFiltro === 'hasta_50h') {
+    filteredTareas = filteredTareas.filter(t => 
+      Number(t.horas_asignadas_periodo || 0) <= 50 && 
+      Number(t.horas_consumidas_periodo || 0) <= 50 && 
+      Number(t.horas_totales_acumuladas || 0) <= 50
+    )
+    const allowedIds = new Set(filteredTareas.map(t => t.tarea_periodo_id))
+    filteredRegistros = filteredRegistros.filter(r => allowedIds.has(r.tarea_periodo_id))
+  }
+
+  // 2. Filtrado por tarea específica
+  if (options?.tareaId) {
+    filteredTareas = filteredTareas.filter(t => t.tarea_id === options.tareaId || t.tarea_periodo_id === options.tareaId)
+    const allowedIds = new Set(filteredTareas.map(t => t.tarea_periodo_id))
+    filteredRegistros = filteredRegistros.filter(r => allowedIds.has(r.tarea_periodo_id))
+  }
+
+  const effectiveLayout = options?.layout || (isFiltered ? 'agrupado_unica_hoja' : 'agrupado_unica_hoja')
+
+  // 3. Generación según layout
+  if (effectiveLayout === 'hojas_por_tarea') {
+    createIndependentTaskSheets(workbook, filteredTareas, filteredRegistros, periodoLabel, costoHora)
+    createFilteredSummarySheet(workbook, filteredTareas, costoHora)
+  } else if (effectiveLayout === 'por_area') {
+    const areaMap = await getAgrupadorAreaMap()
     const isAgil = (agrupadorId: number) => {
-      const areaName = areaMap.get(Number(agrupadorId)) || '';
-      return areaName.toLowerCase().trim() === 'agil';
-    };
+      const areaName = areaMap.get(Number(agrupadorId)) || ''
+      return areaName.toLowerCase().trim() === 'agil'
+    }
 
-    const agilRegs = registros.filter(r => isAgil(r.agrupador_id));
-    const proyRegs = registros.filter(r => !isAgil(r.agrupador_id));
+    const agilRegs = filteredRegistros.filter(r => isAgil(r.agrupador_id))
+    const proyRegs = filteredRegistros.filter(r => !isAgil(r.agrupador_id))
+    const agilTareas = filteredTareas.filter(t => isAgil(t.agrupador_id))
+    const proyTareas = filteredTareas.filter(t => !isAgil(t.agrupador_id))
 
-    const agilTareas = tareasPeriodo.filter(t => isAgil(t.agrupador_id));
-    const proyTareas = tareasPeriodo.filter(t => !isAgil(t.agrupador_id));
-
-    // Hojas de detalle
-    createDetailSheet(workbook, 'Agil', agilRegs, periodoLabel);
-    createDetailSheet(workbook, 'Proyectos', proyRegs, periodoLabel);
-
-    // Hoja de resumen con el nuevo formato
-    createSummarySheet(workbook, agilTareas, proyTareas, costoHora);
+    createDetailSheet(workbook, 'Agil', agilRegs, periodoLabel)
+    createDetailSheet(workbook, 'Proyectos', proyRegs, periodoLabel)
+    createSummarySheet(workbook, agilTareas, proyTareas, costoHora)
+  } else {
+    // Modo predeterminado: Tarea + Registros anidados en una sola hoja
+    createGroupedTaskSheet(workbook, 'Detalle por Tarea', filteredTareas, filteredRegistros, periodoLabel, costoHora)
+    createFilteredSummarySheet(workbook, filteredTareas, costoHora)
   }
 
   // Hojas adicionales siempre presentes en el reporte estándar
-  createAgrupadorSummarySheet(workbook, tareasPeriodo, costoHora, periodoLabel);
-  createTeamSheet(workbook, registros, costoHora, periodoLabel);
-  createResourceSheet(workbook, registros, costoHora, periodoLabel);
+  createAgrupadorSummarySheet(workbook, filteredTareas, costoHora, periodoLabel)
+  createTeamSheet(workbook, filteredRegistros, costoHora, periodoLabel)
+  createResourceSheet(workbook, filteredRegistros, costoHora, periodoLabel)
 
-  return workbook;
+  return workbook
 }
 
 function createFilteredSummarySheet(

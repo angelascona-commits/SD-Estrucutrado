@@ -334,7 +334,7 @@ export default function SolicitudModal({ isOpen, onClose, onSuccess, solicitud, 
                         {act}
                       </option>
                     ))}
-                    <option value="custom">✍️ Escribir acción personalizada...</option>
+                    <option value="custom">Escribir acción personalizada...</option>
                   </select>
                   
                   {(!catalogs.acciones.includes(comp.accion_cloud || '') || comp.accion_cloud === '') && (

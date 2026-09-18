@@ -51,7 +51,7 @@ export default function TareoHeader({
             className={styles.linkButton}
             disabled={isGeneratingLink}
           >
-            {isGeneratingLink ? 'Creando Link...' : '🔗 Compartir Link'}
+            {isGeneratingLink ? 'Creando Link...' : 'Compartir Link'}
           </button>
           <button
             type="button"

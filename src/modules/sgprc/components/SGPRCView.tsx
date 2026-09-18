@@ -526,7 +526,7 @@ export default function SGPRCView() {
                           </div>
                         )}
                         {sol.evaluacion.reglas_perimetrales && (
-                          <div style={{ color: '#059669', fontWeight: 600 }}>✔ Controles Aplicados</div>
+                          <div style={{ color: '#059669', fontWeight: 600 }}>Controles Aplicados</div>
                         )}
                         {sol.evaluacion.comentarios && (
                           <div style={{ color: '#64748b', fontStyle: 'italic', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

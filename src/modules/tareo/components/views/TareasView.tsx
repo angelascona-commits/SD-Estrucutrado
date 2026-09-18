@@ -365,7 +365,7 @@ export default function TareasView() {
         <div className={styles.rolloverBanner}>
           <div>
             <p className={styles.rolloverBannerTitle}>
-              ✅ Arrastre Mensual Completado
+              Arrastre Mensual Completado
             </p>
             <p className={styles.rolloverBannerSubtitle}>
               {rolloverResult.mensaje}
@@ -555,7 +555,7 @@ export default function TareasView() {
                 onClick={handleArrastreMensual}
                 className={styles.btnConfirmPurple}
               >
-                ✓ Confirmar Arrastre
+                Confirmar Arrastre
               </button>
             </div>
           </div>

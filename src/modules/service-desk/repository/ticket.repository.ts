@@ -57,7 +57,7 @@ export async function getDashboardTickets(): Promise<RawDashboardTicket[]> {
 
   const mapped = data.map(mapRawTicketRow)
 
-  // 🔥 AQUÍ SE EXCLUYEN DEL DASHBOARD
+  // Excluir archivados del dashboard
   return mapped.filter((t) => !isArchivedTicket(t))
 }
 
@@ -84,7 +84,7 @@ export async function getArchivedTickets(): Promise<RawDashboardTicket[]> {
 
   const mapped = data.map(mapRawTicketRow)
 
-  // 🔥 SOLO ARCHIVADOS
+  // Solo archivados
   return mapped.filter(isArchivedTicket)
 }
 

@@ -313,7 +313,7 @@ export default function TareaHistorialModal({
                               </div>
                               {reg.comentario && (
                                 <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  💬 {reg.comentario}
+                                  {reg.comentario}
                                 </div>
                               )}
                             </div>

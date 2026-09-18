@@ -190,17 +190,84 @@ export default function TareoView() {
   })
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportCosto, setExportCosto] = useState('65')
-  const [exportFilters, setExportFilters] = useState({ periodo_id: '', solicitante_id: '', trabajador_id: '', agrupador_id: '', proyecto_id: '', team_id: '' })
+  const [exportFilters, setExportFilters] = useState<{
+    periodo_id: string
+    solicitante_id: string
+    trabajador_id: string
+    agrupador_id: string
+    proyecto_id: string
+    team_id: string
+    duracionFiltro: 'todas' | 'mas_50h' | 'hasta_50h'
+    layout: 'agrupado_unica_hoja' | 'por_area' | 'hojas_por_tarea'
+    tarea_id: string
+  }>({
+    periodo_id: '',
+    solicitante_id: '',
+    trabajador_id: '',
+    agrupador_id: '',
+    proyecto_id: '',
+    team_id: '',
+    duracionFiltro: 'todas',
+    layout: 'agrupado_unica_hoja',
+    tarea_id: ''
+  })
   // Tipo de reporte: 'standard' | 'equipo_recurso' | 'multi_mes'
   const [exportTipoReporte, setExportTipoReporte] = useState<'standard' | 'equipo_recurso' | 'multi_mes'>('standard')
   // Multi-mes: selección múltiple de períodos
   const [multiMesPeriodoIds, setMultiMesPeriodoIds] = useState<number[]>([])
 
   const [linkModalOpen, setLinkModalOpen] = useState(false)
-  const [linkFilters, setLinkFilters] = useState({ periodo_id: '', costo_hora: '65', solicitante_id: '', trabajador_id: '', agrupador_id: '', proyecto_id: '', team_id: '' })
+  const [linkFilters, setLinkFilters] = useState<{
+    periodo_id: string
+    costo_hora: string
+    solicitante_id: string
+    trabajador_id: string
+    agrupador_id: string
+    proyecto_id: string
+    team_id: string
+    duracionFiltro: 'todas' | 'mas_50h' | 'hasta_50h'
+    tarea_id: string
+  }>({
+    periodo_id: '',
+    costo_hora: '65',
+    solicitante_id: '',
+    trabajador_id: '',
+    agrupador_id: '',
+    proyecto_id: '',
+    team_id: '',
+    duracionFiltro: 'todas',
+    tarea_id: ''
+  })
   const [generatedLinkData, setGeneratedLinkData] = useState<{ isOpen: boolean, link: string }>({ isOpen: false, link: '' })
   const [registrosExport, setRegistrosExport] = useState<RegistroDetalleItem[]>([])
   const [loadingExportData, setLoadingExportData] = useState(false)
+
+  const modalTareasList = useMemo(() => {
+    const pId = Number(exportModalOpen ? (exportFilters.periodo_id || selectedPeriodoId) : (linkFilters.periodo_id || selectedPeriodoId))
+    const map = new Map<number, { id: number; tarea_id: number; nombre: string; horas: number }>()
+
+    tareasPeriodo.filter(t => !pId || t.periodo_id === pId).forEach(t => {
+      map.set(t.tarea_id, {
+        id: t.tarea_periodo_id,
+        tarea_id: t.tarea_id,
+        nombre: t.tarea_nombre,
+        horas: Number(t.horas_asignadas_periodo || t.horas_consumidas_periodo || 0)
+      })
+    })
+
+    registrosExport.forEach(r => {
+      if (!map.has(r.tarea_id)) {
+        map.set(r.tarea_id, {
+          id: r.tarea_periodo_id,
+          tarea_id: r.tarea_id,
+          nombre: r.tarea_nombre,
+          horas: Number(r.horas_asignadas_periodo || r.horas_consumidas_periodo || 0)
+        })
+      }
+    })
+
+    return Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [tareasPeriodo, registrosExport, exportFilters.periodo_id, linkFilters.periodo_id, selectedPeriodoId, exportModalOpen])
 
   useEffect(() => {
     const fetchRegistros = async (pId: number) => {
@@ -293,7 +360,13 @@ export default function TareoView() {
       setError('Selecciona un período antes de generar el enlace.')
       return
     }
-    setLinkFilters(prev => ({ ...prev, costo_hora: '65', periodo_id: selectedPeriodoId.toString() }))
+    setLinkFilters(prev => ({
+      ...prev,
+      costo_hora: '65',
+      periodo_id: selectedPeriodoId.toString(),
+      duracionFiltro: 'todas',
+      tarea_id: ''
+    }))
     setLinkModalOpen(true)
   }
 
@@ -309,7 +382,9 @@ export default function TareoView() {
       linkFilters.costo_hora ? Number(linkFilters.costo_hora) : undefined,
       linkFilters.agrupador_id ? Number(linkFilters.agrupador_id) : undefined,
       linkFilters.proyecto_id ? Number(linkFilters.proyecto_id) : undefined,
-      linkFilters.team_id ? Number(linkFilters.team_id) : undefined
+      linkFilters.team_id ? Number(linkFilters.team_id) : undefined,
+      linkFilters.duracionFiltro,
+      linkFilters.tarea_id ? Number(linkFilters.tarea_id) : undefined
     )
 
     if (response.success && response.data) {
@@ -515,7 +590,13 @@ export default function TareoView() {
       setError('Selecciona un período para exportar')
       return
     }
-    setExportFilters(prev => ({ ...prev, periodo_id: selectedPeriodoId.toString() }))
+    setExportFilters(prev => ({
+      ...prev,
+      periodo_id: selectedPeriodoId.toString(),
+      duracionFiltro: 'todas',
+      layout: 'agrupado_unica_hoja',
+      tarea_id: ''
+    }))
     setExportTipoReporte('standard')
     setMultiMesPeriodoIds(selectedPeriodoId ? [selectedPeriodoId] : [])
     setExportModalOpen(true)
@@ -588,7 +669,10 @@ export default function TareoView() {
         exportFilters.trabajador_id ? Number(exportFilters.trabajador_id) : undefined,
         exportFilters.agrupador_id ? Number(exportFilters.agrupador_id) : undefined,
         exportFilters.proyecto_id ? Number(exportFilters.proyecto_id) : undefined,
-        exportFilters.team_id ? Number(exportFilters.team_id) : undefined
+        exportFilters.team_id ? Number(exportFilters.team_id) : undefined,
+        exportFilters.duracionFiltro,
+        exportFilters.layout,
+        exportFilters.tarea_id ? Number(exportFilters.tarea_id) : undefined
       )
 
       if (response.success && response.data) {
@@ -601,6 +685,27 @@ export default function TareoView() {
       setExporting(false)
     }
   }
+
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    flex: 1,
+    minWidth: 0,
+    padding: '11px 14px',
+    borderRadius: '10px',
+    border: active ? '2px solid #2563eb' : '1.5px solid #e5e7eb',
+    background: active ? '#eff6ff' : '#ffffff',
+    color: active ? '#1d4ed8' : '#4b5563',
+    fontWeight: active ? 600 : 500,
+    fontSize: '13px',
+    cursor: 'pointer',
+    textAlign: 'center',
+    transition: 'all 0.18s',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '3px',
+    boxSizing: 'border-box',
+  })
 
   if (loading) {
     return (
@@ -617,20 +722,6 @@ export default function TareoView() {
           { id: 'standard', label: 'Detalle', desc: 'Detalle de Tareas, Resumen, Equipo y Recurso' },
           { id: 'multi_mes', label: 'Graficas', desc: 'Totales y tendencia histórica con gráficas' },
         ] as const
-
-        const tabStyle = (active: boolean): React.CSSProperties => ({
-          flex: 1,
-          padding: '10px 8px',
-          borderRadius: '10px',
-          border: active ? '2px solid #2563eb' : '1.5px solid #e5e7eb',
-          background: active ? '#eff6ff' : '#f9fafb',
-          color: active ? '#1d4ed8' : '#6b7280',
-          fontWeight: active ? 700 : 500,
-          fontSize: '13px',
-          cursor: 'pointer',
-          textAlign: 'center',
-          transition: 'all 0.18s',
-        })
 
         const fieldStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: '6px' }
         const labelStyle: React.CSSProperties = { fontWeight: 600, fontSize: '13px', color: '#374151' }
@@ -675,7 +766,7 @@ export default function TareoView() {
                   </label>
                   <div className={styles.gridThree}>
                     {catalogs?.periodos?.map(p => {
-                      const label = `${String(p.mes).padStart(2, '0')}/${p.anio}${p.cerrado ? ' ✓' : ''}`
+                      const label = `${String(p.mes).padStart(2, '0')}/${p.anio}${p.cerrado ? ' · Cerrado' : ''}`
                       const checked = multiMesPeriodoIds.includes(p.id)
                       return (
                         <label key={p.id} className={checked ? styles.periodCheckboxLabelChecked : styles.periodCheckboxLabel}>
@@ -689,8 +780,8 @@ export default function TareoView() {
                   </div>
                   <div style={{ marginTop: '10px', fontSize: '13px', color: '#6b7280' }}>
                     {multiMesPeriodoIds.length === 0
-                      ? '⚠️ Selecciona al menos un período'
-                      : `✅ ${multiMesPeriodoIds.length} período(s) seleccionado(s)`}
+                      ? 'Selecciona al menos un período'
+                      : `${multiMesPeriodoIds.length} período(s) seleccionado(s)`}
                   </div>
 
                 </div>
@@ -698,6 +789,84 @@ export default function TareoView() {
 
               {isMono && (
                 <div className={styles.gridTwo}>
+                  {/* Filtro de Duración de Tarea */}
+                  <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
+                    <label className={styles.label}>Filtro de Duración de Tareas</label>
+                    <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                      <button
+                        type="button"
+                        style={tabStyle(exportFilters.duracionFiltro === 'todas')}
+                        onClick={() => setExportFilters({ ...exportFilters, duracionFiltro: 'todas' })}
+                      >
+                        <div>Todas las tareas</div>
+                      </button>
+                      <button
+                        type="button"
+                        style={tabStyle(exportFilters.duracionFiltro === 'mas_50h')}
+                        onClick={() => setExportFilters({ ...exportFilters, duracionFiltro: 'mas_50h' })}
+                      >
+                        <div>Tareas Largas (&gt; 50 horas)</div>
+                      </button>
+                      <button
+                        type="button"
+                        style={tabStyle(exportFilters.duracionFiltro === 'hasta_50h')}
+                        onClick={() => setExportFilters({ ...exportFilters, duracionFiltro: 'hasta_50h' })}
+                      >
+                        <div>Tareas Estándar (≤ 50 horas)</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Estructura del Detalle en Excel */}
+                  <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
+                    <label className={styles.label}>Estructura del Detalle en Excel</label>
+                    <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                      <button
+                        type="button"
+                        style={tabStyle(exportFilters.layout === 'agrupado_unica_hoja')}
+                        onClick={() => setExportFilters({ ...exportFilters, layout: 'agrupado_unica_hoja' })}
+                      >
+                        <div>Tarea + Registros Anidados</div>
+                        <div className={styles.tabDesc}>Todo en una sola hoja organizada jerárquicamente</div>
+                      </button>
+                      <button
+                        type="button"
+                        style={tabStyle(exportFilters.layout === 'por_area')}
+                        onClick={() => setExportFilters({ ...exportFilters, layout: 'por_area' })}
+                      >
+                        <div>Pestañas por Área</div>
+                        <div className={styles.tabDesc}>Hojas separadas para Ágil y Proyectos</div>
+                      </button>
+                      <button
+                        type="button"
+                        style={tabStyle(exportFilters.layout === 'hojas_por_tarea')}
+                        onClick={() => setExportFilters({ ...exportFilters, layout: 'hojas_por_tarea' })}
+                      >
+                        <div>Hojas Independientes</div>
+                        <div className={styles.tabDesc}>Una pestaña dedicada por cada tarea</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tarea Específica Opcional */}
+                  <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
+                    <label className={styles.label}>
+                      Tarea Específica <span style={{ color: '#9ca3af', fontWeight: 400 }}>(Opcional: reporte individual de una sola tarea)</span>
+                    </label>
+                    <select
+                      value={exportFilters.tarea_id}
+                      onChange={e => setExportFilters({ ...exportFilters, tarea_id: e.target.value })}
+                      className={styles.input}
+                    >
+                      <option value="">Todas las tareas (según los demás filtros)</option>
+                      {modalTareasList.map(t => (
+                        <option key={t.tarea_id} value={t.tarea_id}>
+                          {t.nombre} {t.horas > 0 ? `(${t.horas.toFixed(1)}h)` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className={styles.field}>
                     <label className={styles.label}>Período</label>
                     <select value={exportFilters.periodo_id}
@@ -869,6 +1038,53 @@ export default function TareoView() {
                   <option value="">Todos los equipos</option>
                   {linkOptions.teams.map((t) => (
                     <option key={t.id} value={t.id}>{t.nombre}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filtro de Duración en Link */}
+              <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
+                <label className={styles.label}>Filtro de Duración de Tareas</label>
+                <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                  <button
+                    type="button"
+                    style={tabStyle(linkFilters.duracionFiltro === 'todas')}
+                    onClick={() => setLinkFilters({ ...linkFilters, duracionFiltro: 'todas' })}
+                  >
+                    <div>Todas las tareas</div>
+                  </button>
+                  <button
+                    type="button"
+                    style={tabStyle(linkFilters.duracionFiltro === 'mas_50h')}
+                    onClick={() => setLinkFilters({ ...linkFilters, duracionFiltro: 'mas_50h' })}
+                  >
+                    <div>Tareas Largas (&gt; 50 horas)</div>
+                  </button>
+                  <button
+                    type="button"
+                    style={tabStyle(linkFilters.duracionFiltro === 'hasta_50h')}
+                    onClick={() => setLinkFilters({ ...linkFilters, duracionFiltro: 'hasta_50h' })}
+                  >
+                    <div>Tareas Estándar (≤ 50 horas)</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tarea Específica en Link */}
+              <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
+                <label className={styles.label}>
+                  Tarea Específica <span style={{ color: '#9ca3af', fontWeight: 400 }}>(Opcional)</span>
+                </label>
+                <select
+                  value={linkFilters.tarea_id}
+                  onChange={e => setLinkFilters({ ...linkFilters, tarea_id: e.target.value })}
+                  className={styles.input}
+                >
+                  <option value="">Todas las tareas (según los demás filtros)</option>
+                  {modalTareasList.map(t => (
+                    <option key={t.tarea_id} value={t.tarea_id}>
+                      {t.nombre} {t.horas > 0 ? `(${t.horas.toFixed(1)}h)` : ''}
+                    </option>
                   ))}
                 </select>
               </div>

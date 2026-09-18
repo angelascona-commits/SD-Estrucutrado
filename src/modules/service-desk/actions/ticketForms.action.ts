@@ -42,15 +42,15 @@ function buildTicketSlaInfo(
     asignacionHoras === null
       ? null
       : asignacionExcede
-        ? `⚠️ Excede 8 hrs laborales (${asignacionHoras.toFixed(2)} hrs)`
-        : `✅ Asignación a tiempo (${asignacionHoras.toFixed(2)} hrs)`
+        ? `Excede 8 hrs laborales (${asignacionHoras.toFixed(2)} hrs)`
+        : `Asignación a tiempo (${asignacionHoras.toFixed(2)} hrs)`
 
   const atencionMensaje =
     atencionHoras === null
       ? null
       : atencionIncumpleMinimo
-        ? `⚠️ Menor a 16 hrs laborales (${atencionHoras.toFixed(2)} hrs)`
-        : `✅ Rango correcto (${atencionHoras.toFixed(2)} hrs)`
+        ? `Menor a 16 hrs laborales (${atencionHoras.toFixed(2)} hrs)`
+        : `Rango correcto (${atencionHoras.toFixed(2)} hrs)`
 
   return {
     asignacionHoras,

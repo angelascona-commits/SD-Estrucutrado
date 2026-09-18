@@ -36,8 +36,8 @@ export default function PareoView() {
               <p><b>Agregados:</b> ${result.data.summary.agregados}</p>
               <p><b>Eliminados:</b> ${result.data.summary.eliminados}</p>
               <hr style="border-color: #eee; margin: 10px 0;"/>
-              <p style="color: #e67e22;"><b>⚠️ Duplicados en Excel:</b> ${result.data.summary.duplicadosExcel}</p>
-              <p style="color: #e67e22;"><b>⚠️ Duplicados en BD:</b> ${result.data.summary.duplicadosBD}</p>
+              <p style="color: #e67e22;"><b>Duplicados en Excel:</b> ${result.data.summary.duplicadosExcel}</p>
+              <p style="color: #e67e22;"><b>Duplicados en BD:</b> ${result.data.summary.duplicadosBD}</p>
             </div>
           `,
           confirmButtonColor: 'var(--primary, #ec5b13)',

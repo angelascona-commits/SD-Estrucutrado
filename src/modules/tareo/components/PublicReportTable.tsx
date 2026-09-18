@@ -19,6 +19,7 @@ export default function PublicReportTable({ registros, feedback, linkId, costoHo
   const [selectedPry, setSelectedPry] = useState('')
   const [selectedSolicitante, setSelectedSolicitante] = useState('')
   const [selectedTeam, setSelectedTeam] = useState('')
+  const [selectedDuracion, setSelectedDuracion] = useState<'todas' | 'mas_50h' | 'hasta_50h'>('todas')
 
   // Estados de comentarios (Protecta = PS)
   const [comentariosPS, setComentariosPS] = useState<{
@@ -69,7 +70,14 @@ export default function PublicReportTable({ registros, feedback, linkId, costoHo
       const matchSol = selectedSolicitante ? g.solicitante_nombre === selectedSolicitante : true
       const matchTeam = selectedTeam ? g.team_nombre === selectedTeam : true
       
-      return matchSearch && matchPry && matchSol && matchTeam
+      let matchDuracion = true
+      if (selectedDuracion === 'mas_50h') {
+        matchDuracion = g.totalHoras > 50 || Number(g.horas_asignadas_periodo || 0) > 50 || Number(g.horas_totales_acumuladas || 0) > 50
+      } else if (selectedDuracion === 'hasta_50h') {
+        matchDuracion = g.totalHoras <= 50 && Number(g.horas_asignadas_periodo || 0) <= 50 && Number(g.horas_totales_acumuladas || 0) <= 50
+      }
+
+      return matchSearch && matchPry && matchSol && matchTeam && matchDuracion
     })
 
     const listaPlana: any[] = []
@@ -78,7 +86,7 @@ export default function PublicReportTable({ registros, feedback, linkId, costoHo
       g.detalle.forEach((det: any) => listaPlana.push(det)) // Filas de Registro Diario
     })
     return { listaPlana, gruposFiltrados }
-  }, [registros, searchTerm, selectedPry, selectedSolicitante, selectedTeam])
+  }, [registros, searchTerm, selectedPry, selectedSolicitante, selectedTeam, selectedDuracion])
 
   const { listaPlana: filasExcel, gruposFiltrados: tareasResumen } = filasExcelYResumen
 
@@ -112,6 +120,7 @@ export default function PublicReportTable({ registros, feedback, linkId, costoHo
     setSelectedPry('')
     setSelectedSolicitante('')
     setSelectedTeam('')
+    setSelectedDuracion('todas')
   }
 
   return (
@@ -128,6 +137,12 @@ export default function PublicReportTable({ registros, feedback, linkId, costoHo
             style={{ minWidth: '200px' }}
           />
           
+          <select className={styles.select} value={selectedDuracion} onChange={e => setSelectedDuracion(e.target.value as any)}>
+            <option value="todas">Todas las duraciones</option>
+            <option value="mas_50h">Tareas Largas (&gt; 50h)</option>
+            <option value="hasta_50h">Tareas Estándar (≤ 50h)</option>
+          </select>
+
           <select className={styles.select} value={selectedPry} onChange={e => setSelectedPry(e.target.value)}>
             <option value="">Todos los proyectos</option>
             {opciones.proyectos.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
@@ -143,7 +158,7 @@ export default function PublicReportTable({ registros, feedback, linkId, costoHo
             {opciones.teams.map(t => <option key={t as string} value={t as string}>{t as string}</option>)}
           </select>
 
-          {(searchTerm || selectedPry || selectedSolicitante || selectedTeam) && (
+          {(searchTerm || selectedPry || selectedSolicitante || selectedTeam || selectedDuracion !== 'todas') && (
             <button 
               onClick={limpiarFiltros} 
               style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', textDecoration: 'underline', fontSize: '13px' }}

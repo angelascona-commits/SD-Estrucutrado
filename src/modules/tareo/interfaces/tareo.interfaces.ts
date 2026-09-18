@@ -188,3 +188,12 @@ export interface RegistroRealtimeValidationResult {
   can_save: boolean
   messages: string[]
 }
+
+export type TareoExportLayout = 'agrupado_unica_hoja' | 'por_area' | 'hojas_por_tarea'
+export type TareoDuracionFiltro = 'todas' | 'mas_50h' | 'hasta_50h'
+
+export interface TareoExportExcelOptions {
+  duracionFiltro?: TareoDuracionFiltro
+  layout?: TareoExportLayout
+  tareaId?: number
+}

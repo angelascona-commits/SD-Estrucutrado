@@ -13,7 +13,7 @@ export function AlertModal({ isOpen, message, onClose }: AlertModalProps) {
     <div style={{ zIndex: 1100, position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: '#fff', borderRadius: '16px', width: '380px', padding: '24px', position: 'relative', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
         <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ color: '#eab308' }}>⚠️</span> Atención
+          Atención
         </h3>
         <p style={{ margin: '0 0 24px 0', color: '#4b5563', fontSize: '14px', lineHeight: '1.5' }}>
           {message}

@@ -111,23 +111,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 20px;
 }
 
 .modalLarge {
   background: #ffffff;
   border-radius: 20px;
-  width: 760px;
+  width: 960px;
+  max-width: 95vw;
   max-height: 90vh;
   overflow-y: auto;
-  padding: 32px;
+  overflow-x: hidden;
+  padding: 32px 36px;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
 }
 
 .modalMedium {
   background: #ffffff;
   border-radius: 18px;
-  width: 700px;
-  padding: 32px;
+  width: 860px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 32px 36px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 .modalSuccess {

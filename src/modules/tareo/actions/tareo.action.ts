@@ -508,7 +508,10 @@ export async function exportTareoAction(
   trabajadorId?: number,
   agrupadorId?: number,
   proyectoId?: number,
-  teamId?: number
+  teamId?: number,
+  duracionFiltro?: import('../interfaces/tareo.interfaces').TareoDuracionFiltro,
+  layout?: import('../interfaces/tareo.interfaces').TareoExportLayout,
+  tareaId?: number
 ): Promise<ActionResult<{ base64: string; fileName: string }>> {
   try {
     // Traemos todo en paralelo: Registros diarios (detalle) y Tareas del mes (resumen)
@@ -529,8 +532,6 @@ export async function exportTareoAction(
     }
     
     if (trabajadorId) {
-      // Para las tareas, el trabajador puede no estar directamente mapeado, pero los registros sí.
-      // Así que filtramos registros. Y luego filtramos tareas para que sólo queden las que tienen registros.
       registros = registros.filter(r => r.trabajador_id === trabajadorId)
       const tareasConRegistros = new Set(registros.map(r => r.tarea_periodo_id))
       tareasPeriodo = tareasPeriodo.filter(t => tareasConRegistros.has(t.tarea_periodo_id))
@@ -555,6 +556,33 @@ export async function exportTareoAction(
       isFiltered = true
     }
 
+    if (tareaId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.tarea_id === tareaId || t.tarea_periodo_id === tareaId)
+      const allowedTaskIds = new Set(tareasPeriodo.map(t => t.tarea_periodo_id))
+      registros = registros.filter(r => allowedTaskIds.has(r.tarea_periodo_id))
+      isFiltered = true
+    }
+
+    if (duracionFiltro === 'mas_50h') {
+      tareasPeriodo = tareasPeriodo.filter(t => 
+        Number(t.horas_asignadas_periodo || 0) > 50 || 
+        Number(t.horas_consumidas_periodo || 0) > 50 || 
+        Number(t.horas_totales_acumuladas || 0) > 50
+      )
+      const allowedTaskIds = new Set(tareasPeriodo.map(t => t.tarea_periodo_id))
+      registros = registros.filter(r => allowedTaskIds.has(r.tarea_periodo_id))
+      isFiltered = true
+    } else if (duracionFiltro === 'hasta_50h') {
+      tareasPeriodo = tareasPeriodo.filter(t => 
+        Number(t.horas_asignadas_periodo || 0) <= 50 && 
+        Number(t.horas_consumidas_periodo || 0) <= 50 && 
+        Number(t.horas_totales_acumuladas || 0) <= 50
+      )
+      const allowedTaskIds = new Set(tareasPeriodo.map(t => t.tarea_periodo_id))
+      registros = registros.filter(r => allowedTaskIds.has(r.tarea_periodo_id))
+      isFiltered = true
+    }
+
     // Recalcular horas_consumidas_periodo basado en los registros filtrados para el Resumen
     const horasPorTarea = registros.reduce((acc, r) => {
       acc[r.tarea_periodo_id] = (acc[r.tarea_periodo_id] || 0) + Number(r.horas)
@@ -563,39 +591,41 @@ export async function exportTareoAction(
 
     tareasPeriodo = tareasPeriodo.map(t => ({
       ...t,
-      horas_consumidas_periodo: horasPorTarea[t.tarea_periodo_id] || 0
+      horas_consumidas_periodo: horasPorTarea[t.tarea_periodo_id] ?? t.horas_consumidas_periodo
     }))
 
-    if (registros.length === 0) {
-      return { success: false, error: 'No existen registros operativos para este período.' }
+    if (tareasPeriodo.length === 0 && registros.length === 0) {
+      return { success: false, error: 'No se encontraron registros ni tareas para los filtros seleccionados.' }
     }
 
     const first = registros[0]
-    const periodoLabel = `${first.anio}-${String(first.mes).padStart(2, '0')}`
+    const periodoLabel = first 
+      ? `${first.anio}-${String(first.mes).padStart(2, '0')}`
+      : tareasPeriodo[0] ? `${tareasPeriodo[0].periodo_anio}-${String(tareasPeriodo[0].periodo_mes).padStart(2, '0')}` : 'PERIODO'
 
     let fileNameBase = 'REPORTE_TAREO'
     if (isFiltered) {
       const parts = ['REPORTE']
-      if (solicitanteId) {
-        parts.push(first.solicitante_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
-      }
-      if (trabajadorId) {
-        parts.push(first.trabajador_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
-      }
-      if (agrupadorId) {
-        parts.push(first.agrupador_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
-      }
-      if (proyectoId) {
-        parts.push(first.proyecto_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
-      }
-      if (teamId) {
-        parts.push(first.team_nombre?.replace(/[^a-zA-Z0-9]/g, '_') ?? 'TEAM')
-      }
+      if (duracionFiltro === 'mas_50h') parts.push('TAREAS_LARGAS_MAS50H')
+      if (tareaId && tareasPeriodo[0]) parts.push(tareasPeriodo[0].tarea_nombre.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20))
+      if (solicitanteId && first) parts.push(first.solicitante_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
+      if (trabajadorId && first) parts.push(first.trabajador_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
+      if (agrupadorId && first) parts.push(first.agrupador_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
+      if (proyectoId && first) parts.push(first.proyecto_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
+      if (teamId && first) parts.push(first.team_nombre?.replace(/[^a-zA-Z0-9]/g, '_') ?? 'TEAM')
       fileNameBase = parts.join('_')
     }
 
-    // Pasamos ambas listas al generador
-    const workbook = await generateTareoExcel(tareasPeriodo, registros, periodoLabel, costoHora, isFiltered)
+    if (layout === 'hojas_por_tarea') {
+      fileNameBase += '_INDEPENDIENTES'
+    }
+
+    // Pasamos ambas listas al generador con las opciones
+    const workbook = await generateTareoExcel(tareasPeriodo, registros, periodoLabel, costoHora, isFiltered, {
+      duracionFiltro,
+      layout,
+      tareaId
+    })
     const buffer = await workbook.xlsx.writeBuffer()
     
     return {
@@ -771,7 +801,9 @@ export async function generatePublicLinkAction(
   costoHora?: number,
   agrupadorId?: number,
   proyectoId?: number,
-  teamId?: number
+  teamId?: number,
+  duracionFiltro?: string,
+  tareaId?: number
 ): Promise<ActionResult<string>> {
   try {
     const expiration = new Date()
@@ -798,6 +830,8 @@ export async function generatePublicLinkAction(
     if (proyectoId) params.append('proyecto', String(proyectoId))
     if (teamId) params.append('team', String(teamId))
     if (costoHora) params.append('costo', String(costoHora))
+    if (duracionFiltro && duracionFiltro !== 'todas') params.append('duracion', duracionFiltro)
+    if (tareaId) params.append('tarea', String(tareaId))
     
     const query = params.toString()
     if (query) url += `?${query}`
