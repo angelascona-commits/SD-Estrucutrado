@@ -11,6 +11,7 @@ export interface TareoDailyFilterState {
   agrupador: string[]
   trabajador: string[]
   solicitante: string[]
+  descripcion: string
 }
 
 interface TareoDailyFiltersProps {
@@ -122,7 +123,7 @@ function MultiSelectField({ label, options, selected, onChange, placeholderAll }
   )
 }
 
-function normalizeText(value: string) {
+export function normalizeText(value: string) {
   return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -130,7 +131,7 @@ function normalizeText(value: string) {
     .trim()
 }
 
-function getUniqueValues(values: Array<string | null | undefined>) {
+export function getUniqueValues(values: Array<string | null | undefined>) {
   return Array.from(
     new Set(
       values
@@ -140,9 +141,10 @@ function getUniqueValues(values: Array<string | null | undefined>) {
   ).sort((a, b) => a.localeCompare(b))
 }
 
-function hasActiveFilters(filters: TareoDailyFilterState) {
+export function hasActiveFilters(filters: TareoDailyFilterState) {
   return Boolean(
     filters.search ||
+      filters.descripcion ||
       (Array.isArray(filters.tarea) && filters.tarea.length > 0) ||
       (Array.isArray(filters.proyecto) && filters.proyecto.length > 0) ||
       (Array.isArray(filters.agrupador) && filters.agrupador.length > 0) ||
@@ -151,7 +153,7 @@ function hasActiveFilters(filters: TareoDailyFilterState) {
   )
 }
 
-function applyFilters(
+export function applyFilters(
   registros: RegistroDetalleItem[],
   filters: TareoDailyFilterState,
   excludeField?: keyof TareoDailyFilterState
@@ -204,6 +206,23 @@ function applyFilters(
       return false
     }
 
+    if (
+      excludeField !== 'descripcion' &&
+      filters.descripcion &&
+      filters.descripcion.trim()
+    ) {
+      const descFilter = normalizeText(filters.descripcion)
+      const descValues = [
+        item.comentario ?? '',
+        (item as any).descripcion ?? '',
+        (item as any).comentario_periodo ?? '',
+        (item as any).comentario_dm ?? ''
+      ]
+      if (!descValues.some((value) => normalizeText(value).includes(descFilter))) {
+        return false
+      }
+    }
+
     if (!search) {
       return true
     }
@@ -216,6 +235,9 @@ function applyFilters(
       item.solicitante_nombre,
       item.team_nombre ?? '',
       item.comentario ?? '',
+      (item as any).descripcion ?? '',
+      (item as any).comentario_periodo ?? '',
+      (item as any).comentario_dm ?? '',
       String(item.horas),
       String(item.horas_disponibles_periodo),
       String(item.horas_asignadas_periodo),
@@ -286,7 +308,8 @@ export default function TareoDailyFilters({
       proyecto: [],
       agrupador: [],
       trabajador: [],
-      solicitante: []
+      solicitante: [],
+      descripcion: ''
     })
   }
 
@@ -296,7 +319,7 @@ export default function TareoDailyFilters({
         <div>
           <h3 className={styles.title}>Filtros del día</h3>
           <p className={styles.subtitle}>
-            Encuentra registros por tarea, proyecto, agrupador, trabajador o solicitante
+            Encuentra registros por tarea, proyecto, agrupador, trabajador, solicitante o descripción
           </p>
         </div>
 
@@ -320,6 +343,9 @@ export default function TareoDailyFilters({
       {activeFilters && !showFilters && (
         <div className={styles.activeFiltersRow}>
           {filters.search && <span className={styles.filterTag}>Búsqueda: {filters.search}</span>}
+          {filters.descripcion && (
+            <span className={styles.filterTag}>Descripción: {filters.descripcion}</span>
+          )}
           {filters.tarea.length > 0 && (
             <span className={styles.filterTag}>Tareas: {filters.tarea.join(', ')}</span>
           )}
@@ -348,7 +374,7 @@ export default function TareoDailyFilters({
                 value={filters.search}
                 onChange={(event) => handleChange('search', event.target.value)}
                 className={styles.input}
-                placeholder="Buscar por tarea, proyecto, agrupador, trabajador, comentario..."
+                placeholder="Buscar por tarea, proyecto, agrupador, trabajador, comentario, descripción..."
               />
             </div>
 
@@ -404,6 +430,17 @@ export default function TareoDailyFilters({
                 selected={filters.solicitante}
                 onChange={(val) => handleChange('solicitante', val)}
                 placeholderAll="Todos"
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label}>Descripción</label>
+              <input
+                type="text"
+                value={filters.descripcion}
+                onChange={(event) => handleChange('descripcion', event.target.value)}
+                className={styles.input}
+                placeholder="Buscar por coincidencia en descripción..."
               />
             </div>
           </div>

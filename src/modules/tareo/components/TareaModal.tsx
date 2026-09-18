@@ -836,7 +836,7 @@ export default function TareaModal({
                       </div>
                       {quickRegValidation && quickRegValidation.excede_maximo_dia && (
                         <div className={styles.quickRegValidError}>
-                          El trabajador superará su límite de horas diarias ({quickRegValidation.total_horas_resultante}H). Se pedirá confirmación al guardar.
+                          El trabajador superará su límite de horas diarias ({quickRegValidation.total_horas_resultante}H &gt; {quickRegValidation.horas_maximas_trabajador ?? 24}H). Se pedirá confirmación al guardar.
                         </div>
                       )}
                       {quickRegValidation && !quickRegValidation.excede_maximo_dia && quickReg.horas > 0 && (

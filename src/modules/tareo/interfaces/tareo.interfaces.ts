@@ -181,6 +181,7 @@ export interface RegistroRealtimeValidationResult {
   horas_ingresadas: number
   total_horas_resultante: number
   horas_disponibles_periodo: number
+  horas_maximas_trabajador: number | null
   excede_maximo_dia: boolean
   excede_horas_disponibles: boolean
   periodo_cerrado: boolean

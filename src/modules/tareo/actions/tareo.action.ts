@@ -396,6 +396,7 @@ export async function validateRegistroRealtimeAction(
           horas_ingresadas: horasIngresadas,
           total_horas_resultante: horasIngresadas,
           horas_disponibles_periodo: 0,
+          horas_maximas_trabajador: null,
           excede_maximo_dia: false,
           excede_horas_disponibles: false,
           periodo_cerrado: false,
@@ -419,7 +420,7 @@ export async function validateRegistroRealtimeAction(
       }
     }
 
-    const maxHorasDia = trabajadorInfo?.horas_maximas ?? 24
+    const maxHorasDia = trabajadorInfo?.horas_maximas && trabajadorInfo.horas_maximas > 0 ? trabajadorInfo.horas_maximas : 24
     const totalHorasResultante = horasTrabajadorDia + horasIngresadas
     const excedeMaximoDia = totalHorasResultante > maxHorasDia
     const oldHoras = currentRegistro ? Number(currentRegistro.horas || 0) : 0
@@ -430,7 +431,7 @@ export async function validateRegistroRealtimeAction(
     const messages: string[] = []
 
     if (excedeMaximoDia) {
-      messages.push(`El trabajador supera el límite configurado de ${maxHorasDia} horas para el día. (Tiene ${horasTrabajadorDia}H asignadas)`)
+      messages.push(`El trabajador supera el límite configurado de ${maxHorasDia}H para el día. (Tiene ${horasTrabajadorDia}H asignadas y resultaría en ${totalHorasResultante}H)`)
     }
 
     if (excedeHorasDisponibles) {
@@ -448,6 +449,7 @@ export async function validateRegistroRealtimeAction(
         horas_ingresadas: horasIngresadas,
         total_horas_resultante: totalHorasResultante,
         horas_disponibles_periodo: horasDisponiblesReales,
+        horas_maximas_trabajador: maxHorasDia,
         excede_maximo_dia: excedeMaximoDia,
         excede_horas_disponibles: excedeHorasDisponibles,
         periodo_cerrado: periodoCerrado,

@@ -106,6 +106,19 @@ function applyDailyFilters(
       return false
     }
 
+    if (filters.descripcion && filters.descripcion.trim()) {
+      const descFilter = normalizeText(filters.descripcion)
+      const descValues = [
+        item.comentario ?? '',
+        (item as any).descripcion ?? '',
+        (item as any).comentario_periodo ?? '',
+        (item as any).comentario_dm ?? ''
+      ]
+      if (!descValues.some((value) => normalizeText(value).includes(descFilter))) {
+        return false
+      }
+    }
+
     if (!search) {
       return true
     }
@@ -118,10 +131,15 @@ function applyDailyFilters(
       item.solicitante_nombre,
       item.team_nombre ?? '',
       item.comentario ?? '',
+      (item as any).descripcion ?? '',
+      (item as any).comentario_periodo ?? '',
+      (item as any).comentario_dm ?? '',
       String(item.horas),
       String(item.horas_disponibles_periodo),
       String(item.horas_asignadas_periodo),
-      String(item.horas_consumidas_periodo)
+      String(item.horas_consumidas_periodo),
+      String(item.horas_historicas_arrastre ?? ''),
+      String(item.horas_totales_acumuladas ?? '')
     ]
 
     return values.some((value) => normalizeText(value).includes(search))
@@ -167,7 +185,8 @@ export default function TareoView() {
     proyecto: [],
     agrupador: [],
     trabajador: [],
-    solicitante: []
+    solicitante: [],
+    descripcion: ''
   })
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportCosto, setExportCosto] = useState('65')
@@ -381,6 +400,7 @@ export default function TareoView() {
   const totalAcumuladoMes = useMemo(() => {
     const hasFilter = Boolean(
       dailyFilters.search ||
+        dailyFilters.descripcion ||
         (Array.isArray(dailyFilters.tarea) && dailyFilters.tarea.length > 0) ||
         (Array.isArray(dailyFilters.proyecto) && dailyFilters.proyecto.length > 0) ||
         (Array.isArray(dailyFilters.agrupador) && dailyFilters.agrupador.length > 0) ||

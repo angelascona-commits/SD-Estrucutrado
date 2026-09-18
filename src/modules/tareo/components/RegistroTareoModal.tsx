@@ -133,10 +133,11 @@ export default function RegistroTareoModal({
 
     try {
       if (validation && validation.excede_maximo_dia) {
+        const limiteConfigurado = validation.horas_maximas_trabajador ?? 24
         await Swal.fire({
           icon: 'error',
           title: 'Límite Diario Superado',
-          text: `El trabajador ya tiene registradas ${validation.horas_trabajador_dia} horas en este día. Al intentar registrar ${validation.horas_ingresadas} horas más, se superará el límite diario de 12 horas.`,
+          text: validation.messages[0] || `El trabajador ya tiene registradas ${validation.horas_trabajador_dia} horas en este día. Al intentar registrar ${validation.horas_ingresadas} horas más, el total será de ${validation.total_horas_resultante} horas, superando el límite diario configurado de ${limiteConfigurado} horas.`,
           confirmButtonText: 'Aceptar',
           confirmButtonColor: 'var(--primary, #ec5b13)'
         })

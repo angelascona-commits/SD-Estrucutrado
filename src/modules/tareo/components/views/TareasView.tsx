@@ -17,6 +17,7 @@ import type {
 import TareaModal from '../TareaModal'
 import TareaHistorialModal from '../TareaHistorialModal'
 import { AlertModal, ConfirmModal } from '../FeedbackModals'
+import { normalizeText } from '../TareoDailyFilters'
 import styles from './CatalogosView.module.css'
 
 export default function TareasView() {
@@ -61,8 +62,9 @@ export default function TareasView() {
   }
 
   const [showArchived, setShowArchived] = useState(false)
-  const [estadoFilter, setEstadoFilter] = useState<string>('')
-  const [horasFilter, setHorasFilter] = useState<string>('Todas')
+  const [horasTomadasFilter, setHorasTomadasFilter] = useState<string>('Todas')
+  const [horasDisponiblesFilter, setHorasDisponiblesFilter] = useState<string>('Todas')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const loadData = async (periodoId?: number | null) => {
     setLoading(true)
@@ -187,16 +189,51 @@ export default function TareasView() {
   const filteredTasks = tasks.filter(t => {
     if (showArchived ? t.activo : !t.activo) return false;
 
-    if (estadoFilter && t.estado_nombre !== estadoFilter) return false;
+    // Filtro por intervalo de horas tomadas (consumidas)
+    if (horasTomadasFilter && horasTomadasFilter !== 'Todas') {
+      const tomadas = Number(t.horas_consumidas_periodo || 0)
+      if (horasTomadasFilter === '0' && tomadas !== 0) return false
+      if (horasTomadasFilter === 'mayor0' && tomadas <= 0) return false
+      if (horasTomadasFilter === '0-10' && (tomadas <= 0 || tomadas > 10)) return false
+      if (horasTomadasFilter === '10-25' && (tomadas <= 10 || tomadas > 25)) return false
+      if (horasTomadasFilter === '25-50' && (tomadas <= 25 || tomadas > 50)) return false
+      if (horasTomadasFilter === 'mas50' && tomadas <= 50) return false
+    }
 
-    if (horasFilter === 'ConHoras' && t.horas_disponibles_periodo <= 0) return false;
-    if (horasFilter === 'SinHoras' && t.horas_disponibles_periodo > 0) return false;
+    // Filtro por intervalo de horas disponibles
+    if (horasDisponiblesFilter && horasDisponiblesFilter !== 'Todas') {
+      const disponibles = Number(t.horas_disponibles_periodo || 0)
+      if (horasDisponiblesFilter === 'ConHoras' && disponibles <= 0) return false
+      if (horasDisponiblesFilter === 'SinHoras' && disponibles > 0) return false
+      if (horasDisponiblesFilter === '0-10' && (disponibles <= 0 || disponibles > 10)) return false
+      if (horasDisponiblesFilter === '10-25' && (disponibles <= 10 || disponibles > 25)) return false
+      if (horasDisponiblesFilter === '25-50' && (disponibles <= 25 || disponibles > 50)) return false
+      if (horasDisponiblesFilter === 'mas50' && disponibles <= 50) return false
+    }
+
+    if (searchQuery.trim()) {
+      const q = normalizeText(searchQuery)
+      const values = [
+        t.tarea_nombre ?? '',
+        t.proyecto_nombre ?? '',
+        t.agrupador_nombre ?? '',
+        t.solicitante_nombre ?? '',
+        t.team_nombre ?? '',
+        t.estado_nombre ?? '',
+        t.comentario_periodo ?? '',
+        t.comentario_dm ?? '',
+        String(t.horas_asignadas_periodo ?? ''),
+        String(t.horas_consumidas_periodo ?? ''),
+        String(t.horas_disponibles_periodo ?? ''),
+        String(t.horas_totales_acumuladas ?? '')
+      ]
+      if (!values.some(val => normalizeText(val).includes(q))) {
+        return false
+      }
+    }
 
     return true;
   })
-
-  // get unique states for filter
-  const uniqueStates = Array.from(new Set(tasks.map(t => t.estado_nombre))).filter(Boolean)
 
   const buildPeriodoLabel = (periodo: any) => {
     const month = `${periodo.mes}`.padStart(2, '0')
@@ -269,26 +306,56 @@ export default function TareasView() {
           </button>
         </div>
 
+        <div className={styles.searchInputWrapper}>
+          <span className={`material-symbols-outlined ${styles.searchIcon}`}>search</span>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por tarea, proyecto, agrupador, solicitante, descripción..."
+            className={styles.searchInput}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className={styles.searchClearBtn}
+              title="Limpiar búsqueda"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>close</span>
+            </button>
+          )}
+        </div>
+
         <div className={styles.actionRow}>
           <select
-            value={estadoFilter}
-            onChange={e => setEstadoFilter(e.target.value)}
+            value={horasTomadasFilter}
+            onChange={e => setHorasTomadasFilter(e.target.value)}
             className={styles.filterSelect}
+            title="Filtrar por intervalo de horas tomadas"
           >
-            <option value="">Todos los Estados</option>
-            {uniqueStates.map(st => (
-              <option key={st} value={st}>{st}</option>
-            ))}
+            <option value="Todas">Horas Tomadas: Todas</option>
+            <option value="0">Sin consumo (0 h)</option>
+            <option value="mayor0">Con consumo (&gt; 0 h)</option>
+            <option value="0-10">0.1 a 10 h tomadas</option>
+            <option value="10-25">10 a 25 h tomadas</option>
+            <option value="25-50">25 a 50 h tomadas</option>
+            <option value="mas50">Más de 50 h tomadas</option>
           </select>
 
           <select
-            value={horasFilter}
-            onChange={e => setHorasFilter(e.target.value)}
+            value={horasDisponiblesFilter}
+            onChange={e => setHorasDisponiblesFilter(e.target.value)}
             className={styles.filterSelect}
+            title="Filtrar por intervalo de horas disponibles"
           >
-            <option value="Todas">Todas las Horas</option>
-            <option value="ConHoras">Disponibles {`>`} 0</option>
-            <option value="SinHoras">Agotadas {`<=`} 0</option>
+            <option value="Todas">Horas Disponibles: Todas</option>
+            <option value="ConHoras">Disponibles (&gt; 0 h)</option>
+            <option value="SinHoras">Agotadas (&le; 0 h)</option>
+            <option value="0-10">0.1 a 10 h disponibles</option>
+            <option value="10-25">10 a 25 h disponibles</option>
+            <option value="25-50">25 a 50 h disponibles</option>
+            <option value="mas50">Más de 50 h disponibles</option>
           </select>
         </div>
       </div>
