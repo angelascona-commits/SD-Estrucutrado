@@ -23,7 +23,9 @@ import type {
   ResumenDiarioGeneralItem,
   TareaFormData,
   TareaPeriodoListItem,
-  TareoCatalogs
+  TareoCatalogs,
+  TareoExportLayout,
+  TareoDuracionFiltro
 } from '../interfaces/tareo.interfaces'
 import styles from '../styles/tareo-view.module.css'
 import RegistroTareoModal from './RegistroTareoModal'
@@ -197,8 +199,8 @@ export default function TareoView() {
     agrupador_id: string
     proyecto_id: string
     team_id: string
-    duracionFiltro: 'todas' | 'mas_50h' | 'hasta_50h'
-    layout: 'agrupado_unica_hoja' | 'por_area' | 'hojas_por_tarea'
+    duracionFiltro: TareoDuracionFiltro
+    layout: TareoExportLayout
     tarea_id: string
   }>({
     periodo_id: '',
@@ -208,7 +210,7 @@ export default function TareoView() {
     proyecto_id: '',
     team_id: '',
     duracionFiltro: 'todas',
-    layout: 'agrupado_unica_hoja',
+    layout: 'protecta_oficial',
     tarea_id: ''
   })
   // Tipo de reporte: 'standard' | 'equipo_recurso' | 'multi_mes'
@@ -594,7 +596,7 @@ export default function TareoView() {
       ...prev,
       periodo_id: selectedPeriodoId.toString(),
       duracionFiltro: 'todas',
-      layout: 'agrupado_unica_hoja',
+      layout: 'protecta_oficial',
       tarea_id: ''
     }))
     setExportTipoReporte('standard')
@@ -823,19 +825,19 @@ export default function TareoView() {
                     <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
                       <button
                         type="button"
+                        style={tabStyle(exportFilters.layout === 'protecta_oficial' || exportFilters.layout === 'por_area')}
+                        onClick={() => setExportFilters({ ...exportFilters, layout: 'protecta_oficial' })}
+                      >
+                        <div style={{ fontWeight: 600 }}>Formato Protecta Oficial (Recomendado)</div>
+                        <div className={styles.tabDesc}>Hojas Ágil, Proyectos, Resumen-2 y Agrupador con comentarios</div>
+                      </button>
+                      <button
+                        type="button"
                         style={tabStyle(exportFilters.layout === 'agrupado_unica_hoja')}
                         onClick={() => setExportFilters({ ...exportFilters, layout: 'agrupado_unica_hoja' })}
                       >
                         <div>Tarea + Registros Anidados</div>
-                        <div className={styles.tabDesc}>Todo en una sola hoja organizada jerárquicamente</div>
-                      </button>
-                      <button
-                        type="button"
-                        style={tabStyle(exportFilters.layout === 'por_area')}
-                        onClick={() => setExportFilters({ ...exportFilters, layout: 'por_area' })}
-                      >
-                        <div>Pestañas por Área</div>
-                        <div className={styles.tabDesc}>Hojas separadas para Ágil y Proyectos</div>
+                        <div className={styles.tabDesc}>Estructura jerárquica con saldo de horas en una sola hoja</div>
                       </button>
                       <button
                         type="button"

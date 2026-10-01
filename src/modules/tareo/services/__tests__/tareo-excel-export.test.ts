@@ -254,4 +254,46 @@ describe('generateTareoExcel', () => {
     expect(stringified).toContain('Desarrollo Feature Grande')
     expect(stringified).not.toContain('Ajuste de Bug Menor')
   })
+
+  it('genera formato Protecta Oficial con Resumen-2, Resumen por Agrupador y detalle con comentarios', async () => {
+    const workbook = await generateTareoExcel(
+      mockTareas,
+      mockRegistros,
+      '2026-09',
+      51.5,
+      false,
+      { layout: 'protecta_oficial' }
+    )
+
+    const sheetNames = workbook.worksheets.map(ws => ws.name)
+    expect(sheetNames).toContain('Resumen-2')
+    expect(sheetNames).toContain('Resumen por Agrupador')
+    expect(sheetNames).toContain('Agil')
+    expect(sheetNames).toContain('Resumen por Equipo')
+    expect(sheetNames).toContain('Resumen por Recurso')
+
+    // Verificar Resumen-2
+    const resumen2Sheet = workbook.getWorksheet('Resumen-2')
+    expect(resumen2Sheet).toBeDefined()
+    const r2Values = JSON.stringify(resumen2Sheet?.getSheetValues())
+    expect(r2Values).toContain('Objetivo')
+    expect(r2Values).toContain('Funcionalidad')
+    expect(r2Values).toContain('TOTAL GENERAL')
+
+    // Verificar hoja Agil
+    const agilSheet = workbook.getWorksheet('Agil')
+    expect(agilSheet).toBeDefined()
+    expect(agilSheet?.autoFilter).toBeDefined()
+    expect(agilSheet?.views?.[0]?.state).toBe('frozen')
+
+    // Verificar columnas en la fila 1 de Agil
+    const headerRowValues = agilSheet?.getRow(1).values as string[]
+    expect(headerRowValues).toContain('Task Name')
+    expect(headerRowValues).toContain('Week (drop down)')
+    expect(headerRowValues).toContain('Assignee')
+    expect(headerRowValues).toContain('Horas Estimadas')
+    expect(headerRowValues).toContain('Comentario PS')
+    expect(headerRowValues).toContain('Comentario DM')
+  })
 })
+

@@ -6,7 +6,7 @@ const COOKIE_NAME = 'sgem_session'
 // Rutas que no requieren sesión
 const PUBLIC_ROUTES = ['/login']
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const session = request.cookies.get(COOKIE_NAME)?.value
 
@@ -25,6 +25,8 @@ export function middleware(request: NextRequest) {
 
   return NextResponse.next()
 }
+
+export const middleware = proxy
 
 export const config = {
   // Excluye archivos estáticos, imágenes y API routes de Next.js

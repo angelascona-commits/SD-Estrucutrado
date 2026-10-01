@@ -222,47 +222,58 @@ function formatWeekDate(fechaStr: string): string {
   return `${mesNombre} ${yyyy} (${dd}/${mm}/${shortYear})`
 }
 
-// Función auxiliar para crear las hojas de detalle estándar
+// Función auxiliar para crear las hojas de detalle estándar (Formato Protecta Oficial)
 function createDetailSheet(
   workbook: ExcelJS.Workbook,
   name: string,
   registros: RegistroDetalleItem[],
-  periodoLabel: string
+  periodoLabel: string,
+  tareas?: TareaPeriodoListItem[]
 ) {
   const sheet = workbook.addWorksheet(name)
 
-  // Las columnas exactas de tu imagen
+  // Columnas exactas del reporte base de Protecta
   sheet.columns = [
-    { header: 'Task Name', key: 'nombre', width: 45 },
-    { header: 'Week (drop down)', key: 'periodo', width: 25 },
-    { header: 'Assignee', key: 'assignee', width: 20 },
+    { header: 'Task Name', key: 'nombre', width: 48 },
+    { header: 'Week (drop down)', key: 'periodo', width: 26 },
+    { header: 'Assignee', key: 'assignee', width: 22 },
     { header: 'Team (labels)', key: 'team', width: 20 },
     { header: 'Solicitante (drop down)', key: 'solicitante', width: 25 },
-    { header: 'Pry - Protecta (drop down)', key: 'proyecto', width: 35 },
-    { header: 'Agrupador', key: 'agrupador', width: 25 },
-    { header: 'Horas Estimadas', key: 'horas', width: 18 },
+    { header: 'Pry - Protecta (drop down)', key: 'proyecto', width: 36 },
+    { header: 'Agrupador', key: 'agrupador', width: 28 },
+    { header: 'Horas Estimadas', key: 'horas', width: 16 },
     { header: 'Estado', key: 'estado', width: 15 },
-    { header: 'Comentario PS', key: 'comentario_ps', width: 40 },
+    { header: 'Comentario PS', key: 'comentario_ps', width: 45 },
     { header: 'Comentario DM', key: 'comentario_dm', width: 40 }
   ]
 
-  // Título
-  sheet.insertRow(1, [`REPORTE DE TAREO - PERÍODO: ${periodoLabel}`])
-  sheet.mergeCells('A1:K1')
-  sheet.getRow(1).font = { size: 14, bold: true }
-  sheet.getRow(1).alignment = { horizontal: 'center' }
-
-  // Estilos del encabezado
-  const headerRow = sheet.getRow(2)
-  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+  // Fila 1: Cabecera idéntica al archivo oficial
+  const headerRow = sheet.getRow(1)
+  headerRow.height = 28
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10.5 }
   headerRow.eachCell((cell) => {
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF111827' } }
-    cell.alignment = { horizontal: 'center' }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
   })
 
-  // Insertar cada registro diario como una fila independiente
+  // Cabecera fija (Sticky Header)
+  sheet.views = [{ state: 'frozen', ySplit: 1 }]
+
+  // Mapa de tareas para extraer comentarios DM/objetivos
+  const taskMap = new Map<number, TareaPeriodoListItem>()
+  if (Array.isArray(tareas)) {
+    tareas.forEach((t) => taskMap.set(t.tarea_periodo_id, t))
+  }
+
+  let totalHoras = 0
+
+  // Insertar cada registro diario con comentarios PS y DM
   registros.forEach((reg) => {
-    sheet.addRow({
+    const task = taskMap.get(reg.tarea_periodo_id)
+    const h = Number(reg.horas || 0)
+    totalHoras += h
+
+    const row = sheet.addRow({
       nombre: reg.tarea_nombre,
       periodo: formatWeekDate(reg.fecha),
       assignee: reg.trabajador_nombre,
@@ -270,12 +281,57 @@ function createDetailSheet(
       solicitante: reg.solicitante_nombre,
       proyecto: reg.proyecto_nombre,
       agrupador: reg.agrupador_nombre,
-      horas: Number(reg.horas), // Las horas específicas de ese día
-      estado: reg.estado_tarea,
-      comentario_ps: reg.comentario ?? '', // El comentario específico que puso el trabajador ese día
-      comentario_dm: '' // Columna vacía para que el cliente la llene
+      horas: h,
+      estado: reg.estado_tarea || 'Conforme',
+      comentario_ps: reg.comentario ?? '',
+      comentario_dm: task?.comentario_dm ?? ''
+    })
+
+    row.height = 20
+    row.eachCell((cell, colNumber) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+        left: { style: 'thin', color: { argb: 'FFF1F5F9' } },
+        right: { style: 'thin', color: { argb: 'FFF1F5F9' } }
+      }
+      if (colNumber === 2 || colNumber === 9) {
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      } else if (colNumber === 8) {
+        cell.numFmt = '#,##0.00'
+        cell.alignment = { horizontal: 'right', vertical: 'middle' }
+      } else if (colNumber >= 10) {
+        cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true }
+      } else {
+        cell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
+      }
     })
   })
+
+  // Fila de Total General al pie de la tabla
+  if (registros.length > 0) {
+    const totalRow = sheet.addRow([
+      'TOTAL GENERAL', '', '', '', '', '', '', totalHoras, '', '', ''
+    ])
+    totalRow.height = 24
+    totalRow.font = { bold: true, size: 11 }
+    totalRow.getCell(8).numFmt = '#,##0.00'
+    totalRow.eachCell((cell, colNumber) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'double', color: { argb: 'FF000000' } }
+      }
+      if (colNumber === 8) {
+        cell.alignment = { horizontal: 'right', vertical: 'middle' }
+      }
+    })
+
+    // Autofilter nativo de Excel activado
+    sheet.autoFilter = {
+      from: 'A1',
+      to: `K${registros.length + 1}`
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -655,35 +711,44 @@ export async function generateTareoExcel(
     filteredRegistros = filteredRegistros.filter(r => allowedIds.has(r.tarea_periodo_id))
   }
 
-  const effectiveLayout = options?.layout || (isFiltered ? 'agrupado_unica_hoja' : 'agrupado_unica_hoja')
+  const effectiveLayout = options?.layout || (isFiltered ? 'protecta_oficial' : 'protecta_oficial')
 
   // 3. Generación según layout
   if (effectiveLayout === 'hojas_por_tarea') {
     createIndependentTaskSheets(workbook, filteredTareas, filteredRegistros, periodoLabel, costoHora)
     createFilteredSummarySheet(workbook, filteredTareas, costoHora)
-  } else if (effectiveLayout === 'por_area') {
+  } else if (effectiveLayout === 'por_area' || effectiveLayout === 'protecta_oficial') {
     const areaMap = await getAgrupadorAreaMap()
-    const isAgil = (agrupadorId: number) => {
-      const areaName = areaMap.get(Number(agrupadorId)) || ''
-      return areaName.toLowerCase().trim() === 'agil'
+    const isAgilAgrupador = (agrupadorId: number, agrupadorNombre?: string) => {
+      const areaName = (areaMap.get(Number(agrupadorId)) || '').toLowerCase().trim()
+      const name = (agrupadorNombre || '').toLowerCase().trim()
+      return areaName === 'agil' || areaName === 'ágil' || name.includes('agil') || name.includes('ágil')
     }
 
-    const agilRegs = filteredRegistros.filter(r => isAgil(r.agrupador_id))
-    const proyRegs = filteredRegistros.filter(r => !isAgil(r.agrupador_id))
-    const agilTareas = filteredTareas.filter(t => isAgil(t.agrupador_id))
-    const proyTareas = filteredTareas.filter(t => !isAgil(t.agrupador_id))
+    const agilRegs = filteredRegistros.filter(r => isAgilAgrupador(r.agrupador_id, r.agrupador_nombre))
+    const proyRegs = filteredRegistros.filter(r => !isAgilAgrupador(r.agrupador_id, r.agrupador_nombre))
+    const agilTareas = filteredTareas.filter(t => isAgilAgrupador(t.agrupador_id, t.agrupador_nombre))
+    const proyTareas = filteredTareas.filter(t => !isAgilAgrupador(t.agrupador_id, t.agrupador_nombre))
 
-    createDetailSheet(workbook, 'Agil', agilRegs, periodoLabel)
-    createDetailSheet(workbook, 'Proyectos', proyRegs, periodoLabel)
-    createSummarySheet(workbook, agilTareas, proyTareas, costoHora)
+    // Orden idéntico al reporte oficial de Protecta:
+    // 1. Resumen-2 (Resumen Ejecutivo)
+    createSummarySheet(workbook, agilTareas, proyTareas, costoHora, agilRegs, proyRegs)
+    // 2. Resumen por Agrupador
+    createAgrupadorSummarySheet(workbook, filteredTareas, costoHora, periodoLabel)
+    // 3. Agil (Detalle de registros diarios ágiles con comentarios PS y DM)
+    createDetailSheet(workbook, 'Agil', agilRegs, periodoLabel, filteredTareas)
+    // 4. Proyectos (Detalle de registros proyectos tradicionales con comentarios PS y DM)
+    createDetailSheet(workbook, 'Proyectos', proyRegs, periodoLabel, filteredTareas)
   } else {
-    // Modo predeterminado: Tarea + Registros anidados en una sola hoja
+    // Modo agrupado_unica_hoja: Tarea + Registros anidados en una sola hoja
     createGroupedTaskSheet(workbook, 'Detalle por Tarea', filteredTareas, filteredRegistros, periodoLabel, costoHora)
     createFilteredSummarySheet(workbook, filteredTareas, costoHora)
   }
 
   // Hojas adicionales siempre presentes en el reporte estándar
-  createAgrupadorSummarySheet(workbook, filteredTareas, costoHora, periodoLabel)
+  if (effectiveLayout !== 'por_area' && effectiveLayout !== 'protecta_oficial') {
+    createAgrupadorSummarySheet(workbook, filteredTareas, costoHora, periodoLabel)
+  }
   createTeamSheet(workbook, filteredRegistros, costoHora, periodoLabel)
   createResourceSheet(workbook, filteredRegistros, costoHora, periodoLabel)
 
@@ -737,120 +802,232 @@ function createSummarySheet(
   workbook: ExcelJS.Workbook,
   agilTareas: TareaPeriodoListItem[],
   proyectosTareas: TareaPeriodoListItem[],
-  costoHora: number
+  costoHora: number,
+  agilRegistros?: RegistroDetalleItem[],
+  proyectosRegistros?: RegistroDetalleItem[]
 ) {
-  const sheet = workbook.addWorksheet('Resumen');
+  const sheet = workbook.addWorksheet('Resumen-2')
 
-  // Configuración de anchos de columna
-  sheet.getColumn(1).width = 50; // Agrupador / Proyecto
-  sheet.getColumn(2).width = 15; // Horas
-  sheet.getColumn(3).width = 20; // Monto S/
+  // Columnas idénticas al archivo base de Protecta
+  sheet.getColumn(1).width = 46 // Agrupador / Proyecto
+  sheet.getColumn(2).width = 46 // Objetivo
+  sheet.getColumn(3).width = 62 // Funcionalidad
+  sheet.getColumn(4).width = 16 // Horas
+  sheet.getColumn(5).width = 20 // Monto a pagar
 
-  const addNestedTable = (title: string, tareas: TareaPeriodoListItem[], startRow: number) => {
-    // 1. Agrupar por Agrupador -> Proyecto
-    type GroupedHierarchy = Record<string, {
-      proyectos: Record<string, number>;
-      totalH: number;
-    }>;
+  const addProjectSection = (
+    title: string,
+    tareas: TareaPeriodoListItem[],
+    registros: RegistroDetalleItem[] | undefined,
+    startRow: number
+  ) => {
+    // Título de la Sección
+    const titleCell = sheet.getCell(`A${startRow}`)
+    titleCell.value = title
+    titleCell.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
+    sheet.mergeCells(`A${startRow}:E${startRow}`)
+    sheet.getRow(startRow).height = 26
+    sheet.getRow(startRow).eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF111827' } }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    })
 
-    const grouped = tareas.reduce((acc, t) => {
-      const agrupador = t.agrupador_nombre || 'Sin Agrupador';
-      const proyecto = t.proyecto_nombre || 'Sin Proyecto';
-      const horas = Number(t.horas_consumidas_periodo || 0);
-      
-      if (!acc[agrupador]) {
-        acc[agrupador] = { proyectos: {}, totalH: 0 };
+    // Cabecera de columnas
+    const headerRow = sheet.getRow(startRow + 1)
+    headerRow.height = 24
+    headerRow.values = ['Agrupador / Proyecto', 'Objetivo', 'Funcionalidad', 'Horas', 'Monto a pagar']
+    headerRow.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } }
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10.5 }
+      cell.alignment = { horizontal: 'center', vertical: 'middle' }
+      cell.border = {
+        top: { style: 'thin', color: { argb: '000000' } },
+        bottom: { style: 'thin', color: { argb: '000000' } },
+        left: { style: 'thin', color: { argb: '000000' } },
+        right: { style: 'thin', color: { argb: '000000' } }
       }
-      
-      acc[agrupador].proyectos[proyecto] = (acc[agrupador].proyectos[proyecto] || 0) + horas;
-      acc[agrupador].totalH += horas;
-      
-      return acc;
-    }, {} as GroupedHierarchy);
+    })
 
-    // Título de la tabla
-    const titleCell = sheet.getCell(`A${startRow}`);
-    titleCell.value = title;
-    titleCell.font = { bold: true, size: 12 };
+    let currentRow = startRow + 2
+    const agrupadorSubtotalRows: number[] = []
 
-    // Cabecera
-    const header = sheet.getRow(startRow + 1);
-    header.values = ['Agrupador / Proyecto', 'Horas', 'Monto a pagar'];
-    styleRow(header, true);
+    // Agrupar tareas por Agrupador -> Proyecto
+    const agrupadorMap = new Map<string, Map<string, TareaPeriodoListItem[]>>()
+    tareas.forEach((t) => {
+      const agr = t.agrupador_nombre || 'Sin Agrupador'
+      const proy = t.proyecto_nombre || 'Sin Proyecto'
+      if (!agrupadorMap.has(agr)) agrupadorMap.set(agr, new Map())
+      const proyMap = agrupadorMap.get(agr)!
+      if (!proyMap.has(proy)) proyMap.set(proy, [])
+      proyMap.get(proy)!.push(t)
+    })
 
-    let currentRow = startRow + 2;
-    let totalH = 0;
+    const regsByProy = new Map<string, RegistroDetalleItem[]>()
+    if (registros) {
+      registros.forEach((r) => {
+        const proy = r.proyecto_nombre || 'Sin Proyecto'
+        if (!regsByProy.has(proy)) regsByProy.set(proy, [])
+        regsByProy.get(proy)!.push(r)
+      })
+    }
 
-    Object.entries(grouped).forEach(([agrupador, groupData]) => {
-      if (groupData.totalH === 0) return;
-
+    agrupadorMap.forEach((proyMap, agrupadorName) => {
       // Fila de Encabezado de Agrupador (Fondo celeste suave, texto azul)
-      const agrupRow = sheet.addRow([`AGRUPADOR: ${agrupador}`, '', '']);
-      agrupRow.getCell(1).font = { bold: true, color: { argb: 'FF1E3A8A' } }; // Azul oscuro
-      agrupRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F7FF' } }; // Fondo celeste
-      styleRow(agrupRow);
-      currentRow++;
+      const agrRow = sheet.addRow([`AGRUPADOR: ${agrupadorName}`, '', '', '', ''])
+      agrRow.height = 22
+      agrRow.getCell(1).font = { bold: true, color: { argb: 'FF1E3A8A' }, size: 10.5 }
+      agrRow.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F7FF' } }
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFBFDBFE' } },
+          bottom: { style: 'thin', color: { argb: 'FFBFDBFE' } }
+        }
+      })
+      currentRow++
 
-      // Proyectos bajo este Agrupador
-      Object.entries(groupData.proyectos).forEach(([proyecto, h]) => {
-        if (h === 0) return;
-        const row = sheet.addRow([`   ${proyecto}`, h, h * costoHora]);
-        row.getCell(2).numFmt = '#,##0.00';
-        row.getCell(3).numFmt = '"S/ "#,##0.00';
-        styleRow(row);
-        currentRow++;
-      });
+      const startProyRow = currentRow
 
-      // Sub Total por Agrupador
-      const subRow = sheet.addRow([`   Sub Total ${agrupador}`, groupData.totalH, groupData.totalH * costoHora]);
-      subRow.font = { bold: true, italic: true };
-      subRow.getCell(2).numFmt = '#,##0.00';
-      subRow.getCell(3).numFmt = '"S/ "#,##0.00';
-      styleRow(subRow);
-      currentRow++;
+      proyMap.forEach((tasks, proyName) => {
+        const proyRegs = regsByProy.get(proyName) || []
+        const horasProy = proyRegs.length > 0
+          ? proyRegs.reduce((sum, r) => sum + Number(r.horas || 0), 0)
+          : tasks.reduce((sum, t) => sum + Number(t.horas_consumidas_periodo || 0), 0)
 
-      totalH += groupData.totalH;
-    });
+        // Objetivo: Extraer de comentario_dm o comentario_periodo
+        const objetivoTask = tasks.find(
+          (t) => (t.comentario_dm && t.comentario_dm.trim()) || (t.comentario_periodo && t.comentario_periodo.trim())
+        )
+        const objetivo = objetivoTask?.comentario_dm?.trim() || objetivoTask?.comentario_periodo?.trim() || ''
 
-    // Fila del subtotal general de este área
-    const subtotal = sheet.addRow([`TOTAL ${title}`, totalH, totalH * costoHora]);
-    subtotal.font = { bold: true };
-    subtotal.getCell(2).numFmt = '#,##0.00';
-    subtotal.getCell(3).numFmt = '"S/ "#,##0.00';
-    styleRow(subtotal);
-    currentRow++;
+        // Funcionalidad: Lista de tareas y actividades asociadas
+        const funcList: string[] = []
+        tasks.forEach((t) => {
+          let line = `[${t.tarea_nombre}]`
+          if (t.comentario_periodo && t.comentario_periodo.trim() !== objetivo) {
+            line += ` ${t.comentario_periodo.trim()}`
+          }
+          if (!funcList.includes(line)) funcList.push(line)
+        })
+        if (funcList.length === 0) funcList.push(`[${proyName}]`)
+        const funcionalidad = funcList.join('\n')
 
-    return { h: totalH, m: totalH * costoHora, next: currentRow + 3 };
-  };
+        const row = sheet.addRow([
+          `   ${proyName}`,
+          objetivo,
+          funcionalidad,
+          horasProy,
+          { formula: `D${currentRow}*${costoHora}` }
+        ])
 
-  // 1. RESUMEN AGIL (Agrupado por Agrupador -> Proyecto)
-  const resAgil = addNestedTable('RESUMEN AGIL', agilTareas, 1);
+        row.getCell(4).numFmt = '#,##0.00'
+        row.getCell(5).numFmt = '"S/ "#,##0.00'
+        row.getCell(1).alignment = { horizontal: 'left', vertical: 'top', indent: 1 }
+        row.getCell(2).alignment = { horizontal: 'left', vertical: 'top', wrapText: true }
+        row.getCell(3).alignment = { horizontal: 'left', vertical: 'top', wrapText: true }
+        row.getCell(4).alignment = { horizontal: 'right', vertical: 'top' }
+        row.getCell(5).alignment = { horizontal: 'right', vertical: 'top' }
 
-  // 2. RESUMEN PROYECTOS (Agrupado por Agrupador -> Proyecto)
-  const resProy = addNestedTable('RESUMEN PROYECTOS', proyectosTareas, resAgil.next);
+        row.eachCell((cell) => {
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFF1F5F9' } },
+            right: { style: 'thin', color: { argb: 'FFF1F5F9' } }
+          }
+        })
 
-  // 3. CONSOLIDADO GENERAL
-  const genStart = resProy.next;
-  const genTitle = sheet.getCell(`A${genStart}`);
-  genTitle.value = 'CONSOLIDADO GENERAL';
-  genTitle.font = { bold: true, size: 12 };
+        currentRow++
+      })
 
-  const genHeader = sheet.getRow(genStart + 1);
-  genHeader.values = ['Categoría', 'Total Horas', 'Total a Pagar'];
-  styleRow(genHeader, true);
+      const endProyRow = currentRow - 1
 
-  const r1 = sheet.addRow(['Agil', resAgil.h, resAgil.m]);
-  r1.getCell(3).numFmt = '"S/ "#,##0.00';
-  styleRow(r1);
+      // Fila de Sub Total por Agrupador
+      const subRow = sheet.addRow([
+        `   Sub Total ${agrupadorName}`,
+        '',
+        '',
+        { formula: `SUM(D${startProyRow}:D${endProyRow})` },
+        { formula: `SUM(E${startProyRow}:E${endProyRow})` }
+      ])
+      subRow.height = 20
+      subRow.font = { bold: true, italic: true }
+      subRow.getCell(4).numFmt = '#,##0.00'
+      subRow.getCell(5).numFmt = '"S/ "#,##0.00'
+      subRow.getCell(4).alignment = { horizontal: 'right', vertical: 'middle' }
+      subRow.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' }
+      subRow.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+          bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+        }
+      })
 
-  const r2 = sheet.addRow(['Proyectos', resProy.h, resProy.m]);
-  r2.getCell(3).numFmt = '"S/ "#,##0.00';
-  styleRow(r2);
+      agrupadorSubtotalRows.push(currentRow)
+      currentRow++
+    })
 
-  const total = sheet.addRow(['TOTAL GENERAL', resAgil.h + resProy.h, resAgil.m + resProy.m]);
-  total.font = { bold: true, size: 11 };
-  total.getCell(3).numFmt = '"S/ "#,##0.00';
-  styleRow(total);
+    // Subtotal de la sección
+    const subtotalFormulaD = agrupadorSubtotalRows.length > 0
+      ? agrupadorSubtotalRows.map((r) => `D${r}`).join('+')
+      : '0'
+    const subtotalFormulaE = agrupadorSubtotalRows.length > 0
+      ? agrupadorSubtotalRows.map((r) => `E${r}`).join('+')
+      : '0'
+
+    const subtotalSectionRow = sheet.addRow([
+      `SUB TOTAL ${title.trim()}`,
+      '',
+      '',
+      { formula: subtotalFormulaD },
+      { formula: subtotalFormulaE }
+    ])
+    subtotalSectionRow.height = 22
+    subtotalSectionRow.font = { bold: true, size: 11 }
+    subtotalSectionRow.getCell(4).numFmt = '#,##0.00'
+    subtotalSectionRow.getCell(5).numFmt = '"S/ "#,##0.00'
+    subtotalSectionRow.getCell(4).alignment = { horizontal: 'right', vertical: 'middle' }
+    subtotalSectionRow.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' }
+    subtotalSectionRow.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } }
+      cell.border = {
+        top: { style: 'thin', color: { argb: '000000' } },
+        bottom: { style: 'double', color: { argb: '000000' } }
+      }
+    })
+
+    const sectionSubtotalRowNumber = currentRow
+    currentRow += 2 // Separador
+
+    return { rowNumber: sectionSubtotalRowNumber, nextRow: currentRow }
+  }
+
+  // 1. RESUMEN AGIL
+  const resAgil = addProjectSection('RESUMEN AGIL', agilTareas, agilRegistros, 1)
+
+  // 2. RESUMEN PROYECTOS TRADICIONALES
+  const resProy = addProjectSection('RESUMEN PROYECTOS', proyectosTareas, proyectosRegistros, resAgil.nextRow)
+
+  // 3. TOTAL GENERAL
+  const grandTotalRow = sheet.addRow([
+    'TOTAL GENERAL',
+    '',
+    '',
+    { formula: `D${resAgil.rowNumber}+D${resProy.rowNumber}` },
+    { formula: `E${resAgil.rowNumber}+E${resProy.rowNumber}` }
+  ])
+  grandTotalRow.height = 26
+  grandTotalRow.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } }
+  grandTotalRow.getCell(4).numFmt = '#,##0.00'
+  grandTotalRow.getCell(5).numFmt = '"S/ "#,##0.00'
+  grandTotalRow.getCell(4).alignment = { horizontal: 'right', vertical: 'middle' }
+  grandTotalRow.getCell(5).alignment = { horizontal: 'right', vertical: 'middle' }
+  grandTotalRow.eachCell((cell) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }
+    cell.border = {
+      top: { style: 'medium', color: { argb: '000000' } },
+      bottom: { style: 'double', color: { argb: '000000' } }
+    }
+  })
 }
 
 function createAgrupadorSummarySheet(
@@ -859,51 +1036,96 @@ function createAgrupadorSummarySheet(
   costoHora: number,
   periodoLabel: string
 ) {
-  const sheet = workbook.addWorksheet('Resumen por Agrupador');
-  sheet.getColumn(1).width = 40; // Agrupador
-  sheet.getColumn(2).width = 15; // Horas
-  sheet.getColumn(3).width = 20; // Monto S/
+  if (workbook.getWorksheet('Resumen por Agrupador')) return
+
+  const sheet = workbook.addWorksheet('Resumen por Agrupador')
+  sheet.getColumn(1).width = 45 // Agrupador
+  sheet.getColumn(2).width = 16 // Horas
+  sheet.getColumn(3).width = 20 // Monto S/
 
   // Título
-  const title = sheet.getCell('A1');
-  title.value = `RESUMEN DE HORAS POR AGRUPADOR — PERÍODO ${periodoLabel}`;
-  title.font = { bold: true, size: 13 };
-  sheet.mergeCells('A1:C1');
-  sheet.getRow(1).alignment = { horizontal: 'center' };
+  const title = sheet.getCell('A1')
+  title.value = `RESUMEN DE HORAS POR AGRUPADOR - PERÍODO ${periodoLabel}`
+  title.font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' } }
+  sheet.mergeCells('A1:C1')
+  sheet.getRow(1).height = 26
+  sheet.getRow(1).eachCell((cell) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF111827' } }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+  })
 
   // Cabecera
-  const header = sheet.getRow(2);
-  header.values = ['Agrupador', 'Horas Totales', 'Monto a pagar (S/.)'];
-  styleRow(header, true);
+  const header = sheet.getRow(2)
+  header.height = 24
+  header.values = ['Agrupador', 'Horas Totales', 'Monto a pagar (S/.)']
+  header.eachCell((cell) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } }
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10.5 }
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    cell.border = {
+      top: { style: 'thin', color: { argb: '000000' } },
+      bottom: { style: 'thin', color: { argb: '000000' } },
+      left: { style: 'thin', color: { argb: '000000' } },
+      right: { style: 'thin', color: { argb: '000000' } }
+    }
+  })
 
   // Agrupar por Agrupador
   const grouped = tareasPeriodo.reduce((acc, t) => {
-    const name = t.agrupador_nombre || 'Sin Agrupador';
-    const horas = Number(t.horas_consumidas_periodo || 0);
-    acc[name] = (acc[name] || 0) + horas;
-    return acc;
-  }, {} as Record<string, number>);
+    const name = t.agrupador_nombre || 'Sin Agrupador'
+    const horas = Number(t.horas_consumidas_periodo || 0)
+    acc[name] = (acc[name] || 0) + horas
+    return acc
+  }, {} as Record<string, number>)
 
-  let grandTotal = 0;
+  let currentRow = 3
+  const startRow = currentRow
 
   // Insertar agrupadores ordenados por horas consumidas descendentemente
   Object.entries(grouped)
     .sort((a, b) => b[1] - a[1])
     .forEach(([name, h]) => {
-      if (h === 0) return;
-      const row = sheet.addRow([name, h, h * costoHora]);
-      row.getCell(2).numFmt = '#,##0.00';
-      row.getCell(3).numFmt = '"S/ "#,##0.00';
-      styleRow(row);
-      grandTotal += h;
-    });
+      if (h === 0) return
+      const row = sheet.addRow([name, h, { formula: `B${currentRow}*${costoHora}` }])
+      row.height = 20
+      row.getCell(2).numFmt = '#,##0.00'
+      row.getCell(3).numFmt = '"S/ "#,##0.00'
+      row.getCell(1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 }
+      row.getCell(2).alignment = { horizontal: 'right', vertical: 'middle' }
+      row.getCell(3).alignment = { horizontal: 'right', vertical: 'middle' }
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFF1F5F9' } },
+          right: { style: 'thin', color: { argb: 'FFF1F5F9' } }
+        }
+      })
+      currentRow++
+    })
+
+  const lastDataRow = currentRow - 1
 
   // Fila de Total General
-  const totalRow = sheet.addRow(['TOTAL GENERAL', grandTotal, grandTotal * costoHora]);
-  totalRow.font = { bold: true, size: 12 };
-  totalRow.getCell(2).numFmt = '#,##0.00';
-  totalRow.getCell(3).numFmt = '"S/ "#,##0.00';
-  styleRow(totalRow);
+  if (lastDataRow >= startRow) {
+    const totalRow = sheet.addRow([
+      'Totales',
+      { formula: `SUM(B${startRow}:B${lastDataRow})` },
+      { formula: `SUM(C${startRow}:C${lastDataRow})` }
+    ])
+    totalRow.height = 24
+    totalRow.font = { bold: true, size: 11 }
+    totalRow.getCell(2).numFmt = '#,##0.00'
+    totalRow.getCell(3).numFmt = '"S/ "#,##0.00'
+    totalRow.getCell(2).alignment = { horizontal: 'right', vertical: 'middle' }
+    totalRow.getCell(3).alignment = { horizontal: 'right', vertical: 'middle' }
+    totalRow.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: '000000' } },
+        bottom: { style: 'double', color: { argb: '000000' } }
+      }
+    })
+  }
 }
 function styleRow(row: ExcelJS.Row, isHeader: boolean = false) {
   row.eachCell((cell) => {

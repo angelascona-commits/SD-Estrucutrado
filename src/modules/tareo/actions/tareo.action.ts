@@ -603,9 +603,12 @@ export async function exportTareoAction(
       ? `${first.anio}-${String(first.mes).padStart(2, '0')}`
       : tareasPeriodo[0] ? `${tareasPeriodo[0].periodo_anio}-${String(tareasPeriodo[0].periodo_mes).padStart(2, '0')}` : 'PERIODO'
 
-    let fileNameBase = 'REPORTE_TAREO'
+    let fileNameBase = (layout === 'protecta_oficial' || layout === 'por_area')
+      ? 'TAREO_DMSOFTWARE_PROTECTA'
+      : 'REPORTE_TAREO'
+
     if (isFiltered) {
-      const parts = ['REPORTE']
+      const parts = [(layout === 'protecta_oficial' || layout === 'por_area') ? 'TAREO_PROTECTA' : 'REPORTE']
       if (duracionFiltro === 'mas_50h') parts.push('TAREAS_LARGAS_MAS50H')
       if (tareaId && tareasPeriodo[0]) parts.push(tareasPeriodo[0].tarea_nombre.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20))
       if (solicitanteId && first) parts.push(first.solicitante_nombre.replace(/[^a-zA-Z0-9]/g, '_'))
@@ -929,10 +932,9 @@ export async function saveDraftCommentsAction(
   }
 }
 const getAdminSupabase = () => {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
+  return createClient(url, key)
 }
 
 /**
