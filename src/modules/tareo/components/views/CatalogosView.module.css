@@ -511,6 +511,21 @@
   background: #d1fae5;
 }
 
+.btnActionVer {
+  background: transparent;
+  border: none;
+  color: #0284c7;
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: 0.15s;
+}
+
+.btnActionVer:hover {
+  background: #e0f2fe;
+}
+
 .btnActionEdit {
   background: transparent;
   border: none;

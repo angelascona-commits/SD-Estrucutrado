@@ -2,8 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Swal from 'sweetalert2'
-import { validateRegistroRealtimeAction, saveCatalogItemAction, saveTareaAction } from '../actions/tareo.action'
+import {
+  validateRegistroRealtimeAction,
+  saveCatalogItemAction,
+  saveTareaAction,
+  listTareasAction
+} from '../actions/tareo.action'
 import type {
+  PeriodoItem,
   RegistroFormData,
   RegistroRealtimeValidationResult,
   TareaPeriodoListItem,
@@ -19,6 +25,7 @@ interface RegistroTareoModalProps {
   tareasPeriodo: TareaPeriodoListItem[]
   trabajadores: TrabajadorItem[]
   fechaInicial?: string
+  periodos?: PeriodoItem[]
 }
 
 function getInitialState(
@@ -52,14 +59,35 @@ export default function RegistroTareoModal({
   registro,
   tareasPeriodo,
   trabajadores,
-  fechaInicial
+  fechaInicial,
+  periodos = []
 }: RegistroTareoModalProps) {
   const [formData, setFormData] = useState<RegistroFormData>(getInitialState(registro, fechaInicial))
   const [horasInput, setHorasInput] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [validation, setValidation] = useState<RegistroRealtimeValidationResult | null>(null)
   const [validating, setValidating] = useState(false)
+  const [periodTasks, setPeriodTasks] = useState<TareaPeriodoListItem[]>([])
+  const [loadingPeriodTasks, setLoadingPeriodTasks] = useState(false)
   const isEditing = Boolean(registro)
+
+  // Determinar el período exacto correspondiente a la fecha seleccionada
+  const targetPeriodo = useMemo(() => {
+    if (!formData.fecha || !periodos || periodos.length === 0) return null
+    const [yearStr, monthStr] = formData.fecha.split('-')
+    const year = Number(yearStr)
+    const month = Number(monthStr)
+
+    return (
+      periodos.find(
+        (p) =>
+          p.fecha_inicio &&
+          p.fecha_fin &&
+          formData.fecha >= p.fecha_inicio &&
+          formData.fecha <= p.fecha_fin
+      ) ?? periodos.find((p) => p.anio === year && p.mes === month) ?? null
+    )
+  }, [formData.fecha, periodos])
 
   useEffect(() => {
     if (isOpen) {
@@ -69,6 +97,101 @@ export default function RegistroTareoModal({
       setValidation(null)
     }
   }, [isOpen, registro, fechaInicial])
+
+  // Filtro estricto: al cambiar la fecha, listar únicamente las tareas correspondientes al período de dicha fecha
+  useEffect(() => {
+    if (!isOpen) return
+
+    let isMounted = true
+
+    const updateTasksForFecha = async () => {
+      if (!formData.fecha) {
+        setPeriodTasks([])
+        return
+      }
+
+      const [yearStr, monthStr] = formData.fecha.split('-')
+      const year = Number(yearStr)
+      const month = Number(monthStr)
+
+      const resolvedPeriod =
+        periodos && periodos.length > 0
+          ? periodos.find(
+              (p) =>
+                p.fecha_inicio &&
+                p.fecha_fin &&
+                formData.fecha >= p.fecha_inicio &&
+                formData.fecha <= p.fecha_fin
+            ) ?? periodos.find((p) => p.anio === year && p.mes === month) ?? null
+          : null
+
+      const applyNewTasks = (newTasks: TareaPeriodoListItem[]) => {
+        setPeriodTasks(newTasks)
+        setFormData((prev) => {
+          if (!prev.tarea_periodo_id) return prev
+
+          // ¿Existe el tarea_periodo_id actual en la lista del período?
+          const exists = newTasks.some((t) => t.tarea_periodo_id === prev.tarea_periodo_id)
+          if (exists) return prev
+
+          // Si no existe, intentar asociar automáticamente a la misma tarea en este período
+          const oldTask =
+            tareasPeriodo.find((t) => t.tarea_periodo_id === prev.tarea_periodo_id) ??
+            periodTasks.find((t) => t.tarea_periodo_id === prev.tarea_periodo_id)
+
+          if (oldTask) {
+            const matchInNew = newTasks.find(
+              (t) => t.tarea_id === oldTask.tarea_id || t.tarea_nombre === oldTask.tarea_nombre
+            )
+            if (matchInNew) {
+              return { ...prev, tarea_periodo_id: matchInNew.tarea_periodo_id }
+            }
+          }
+
+          // Si no existe equivalente en el nuevo período, resetear selección a 0
+          return { ...prev, tarea_periodo_id: 0 }
+        })
+      }
+
+      // 1. Revisar si tareasPeriodo recibidas por prop ya corresponden a este período
+      const matchingInProps = tareasPeriodo.filter((t) =>
+        resolvedPeriod
+          ? t.periodo_id === resolvedPeriod.id
+          : t.periodo_anio === year && t.periodo_mes === month
+      )
+
+      if (matchingInProps.length > 0) {
+        if (isMounted) {
+          applyNewTasks(matchingInProps)
+        }
+        return
+      }
+
+      // 2. Si no están en las props y hay un período identificado, consultarlas al backend
+      if (resolvedPeriod?.id) {
+        if (isMounted) setLoadingPeriodTasks(true)
+        const res = await listTareasAction({ periodo_id: resolvedPeriod.id })
+        if (isMounted) {
+          setLoadingPeriodTasks(false)
+          if (res.success && res.data) {
+            applyNewTasks(res.data)
+          } else {
+            applyNewTasks([])
+          }
+        }
+      } else {
+        if (isMounted) {
+          applyNewTasks([])
+        }
+      }
+    }
+
+    void updateTasksForFecha()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isOpen, formData.fecha, periodos, tareasPeriodo])
 
   useEffect(() => {
     const runValidation = async () => {
@@ -110,11 +233,14 @@ export default function RegistroTareoModal({
   ])
 
   const tareaSeleccionada = useMemo(() => {
+    const selectedId = Number(formData.tarea_periodo_id)
+    if (!selectedId) return null
     return (
-      tareasPeriodo.find((item) => item.tarea_periodo_id === Number(formData.tarea_periodo_id)) ??
+      periodTasks.find((item) => item.tarea_periodo_id === selectedId) ??
+      tareasPeriodo.find((item) => item.tarea_periodo_id === selectedId) ??
       null
     )
-  }, [tareasPeriodo, formData.tarea_periodo_id])
+  }, [periodTasks, tareasPeriodo, formData.tarea_periodo_id])
 
   if (!isOpen) {
     return null
@@ -215,6 +341,17 @@ export default function RegistroTareoModal({
         }
       }
 
+      if (targetPeriodo && targetPeriodo.cerrado) {
+        await Swal.fire({
+          icon: 'error',
+          title: 'Período Cerrado',
+          text: `El período ${targetPeriodo.anio}-${String(targetPeriodo.mes).padStart(2, '0')} correspondiente a la fecha está cerrado.`,
+          confirmButtonColor: 'var(--primary, #ec5b13)'
+        })
+        setSaving(false)
+        return
+      }
+
       if (validation && validation.periodo_cerrado) {
         Swal.fire({
           icon: 'error',
@@ -288,15 +425,31 @@ export default function RegistroTareoModal({
             </div>
 
             <div className={`${styles.field} ${styles.fullWidth}`}>
-              <label className={styles.label}>Tarea del período</label>
+              <label className={styles.label}>
+                Tarea del período
+                {targetPeriodo && (
+                  <span className={styles.periodTag}>
+                    Período {targetPeriodo.anio}-{String(targetPeriodo.mes).padStart(2, '0')}
+                  </span>
+                )}
+              </label>
               <select
                 value={formData.tarea_periodo_id || ''}
                 onChange={(event) => handleChange('tarea_periodo_id', Number(event.target.value))}
                 className={styles.select}
                 required
+                disabled={loadingPeriodTasks || !targetPeriodo || Boolean(targetPeriodo?.cerrado)}
               >
-                <option value="">Seleccionar tarea</option>
-                {tareasPeriodo
+                <option value="">
+                  {loadingPeriodTasks
+                    ? 'Cargando tareas del período...'
+                    : !targetPeriodo
+                    ? 'Sin período configurado para esta fecha'
+                    : periodTasks.length === 0
+                    ? 'No hay tareas asignadas a este período'
+                    : 'Seleccionar tarea'}
+                </option>
+                {periodTasks
                   .filter((tarea) => tarea.activo || (isEditing && formData.tarea_periodo_id === tarea.tarea_periodo_id))
                   .map((tarea) => (
                     <option key={tarea.tarea_periodo_id} value={tarea.tarea_periodo_id}>
@@ -439,6 +592,24 @@ export default function RegistroTareoModal({
             </div>
           )}
 
+          {targetPeriodo?.cerrado && (
+            <div className={styles.validationError}>
+              ⚠️ El período {targetPeriodo.anio}-{String(targetPeriodo.mes).padStart(2, '0')} correspondiente a la fecha ({formData.fecha}) se encuentra <strong>cerrado</strong>. No se permite crear ni editar registros en períodos cerrados.
+            </div>
+          )}
+
+          {formData.fecha && !targetPeriodo && periodos && periodos.length > 0 && (
+            <div className={styles.validationError}>
+              ⚠️ No existe un período configurado en el sistema para la fecha seleccionada ({formData.fecha}).
+            </div>
+          )}
+
+          {targetPeriodo && !targetPeriodo.cerrado && !loadingPeriodTasks && periodTasks.length === 0 && (
+            <div className={styles.validationWarning}>
+              ℹ️ El período {targetPeriodo.anio}-{String(targetPeriodo.mes).padStart(2, '0')} no tiene tareas asignadas. No se pueden registrar horas hasta asignar tareas a dicho período.
+            </div>
+          )}
+
           <div className={styles.actions}>
             <button type="button" className={styles.secondaryButton} onClick={onClose}>
               Cancelar
@@ -446,7 +617,15 @@ export default function RegistroTareoModal({
             <button
               type="submit"
               className={styles.primaryButton}
-              disabled={saving || validating || (validation ? validation.periodo_cerrado : false)}
+              disabled={
+                saving ||
+                validating ||
+                loadingPeriodTasks ||
+                Boolean(targetPeriodo?.cerrado) ||
+                !targetPeriodo ||
+                !formData.tarea_periodo_id ||
+                (validation ? validation.periodo_cerrado : false)
+              }
             >
               {saving ? 'Guardando...' : isEditing ? 'Guardar cambios' : 'Guardar registro'}
             </button>

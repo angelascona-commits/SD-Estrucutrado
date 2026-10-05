@@ -36,7 +36,9 @@ import {
   deleteCatalogItem,
   getTrabajadorValidacion,
   getTareaHistorial,
-  ejecutarArrastreMensual
+  ejecutarArrastreMensual,
+  getRegistrosByCatalogItem,
+  resolveValidTareaPeriodoForFecha
 } from '../repository/tareo.repository'
 import {
   applyTareaFilters,
@@ -239,6 +241,13 @@ export async function saveRegistroAction(
     const maxHorasTrabajador = trabajadorInfo?.horas_maximas ?? null
     validateRegistroPayload(normalizedPayload, maxHorasTrabajador)
 
+    // Validar que la fecha pertenezca al período de la tarea o resolver la tarea_periodo correspondiente
+    const { tareaPeriodoId } = await resolveValidTareaPeriodoForFecha(
+      normalizedPayload.tarea_periodo_id,
+      normalizedPayload.fecha
+    )
+    normalizedPayload.tarea_periodo_id = tareaPeriodoId
+
     if (isEditing) {
       if (!payload.id) {
         return { success: false, error: 'El id del registro es obligatorio para editar' }
@@ -406,9 +415,31 @@ export async function validateRegistroRealtimeAction(
       }
     }
 
+    let effectiveTareaPeriodoId = payload.tarea_periodo_id
+    try {
+      const validResolved = await resolveValidTareaPeriodoForFecha(payload.tarea_periodo_id, payload.fecha)
+      effectiveTareaPeriodoId = validResolved.tareaPeriodoId
+    } catch (err: any) {
+      return {
+        success: true,
+        data: {
+          horas_trabajador_dia: 0,
+          horas_ingresadas: horasIngresadas,
+          total_horas_resultante: horasIngresadas,
+          horas_disponibles_periodo: 0,
+          horas_maximas_trabajador: null,
+          excede_maximo_dia: false,
+          excede_horas_disponibles: false,
+          periodo_cerrado: false,
+          can_save: false,
+          messages: [err.message]
+        }
+      }
+    }
+
     const [horasTrabajadorDia, tareaPeriodoInfo, currentRegistro, trabajadorInfo] = await Promise.all([
       getHorasTrabajadorByFecha(payload.trabajador_id, payload.fecha, payload.id),
-      getTareaPeriodoValidacion(payload.tarea_periodo_id),
+      getTareaPeriodoValidacion(effectiveTareaPeriodoId),
       payload.id ? getRegistroById(payload.id) : Promise.resolve(null),
       getTrabajadorValidacion(payload.trabajador_id)
     ])
@@ -974,3 +1005,20 @@ export async function ejecutarArrastreMensualAction(): Promise<ActionResult<{
     }
   }
 }
+
+export async function getRegistrosByCatalogItemAction(
+  type: string,
+  id: number,
+  periodoId?: number | null
+): Promise<ActionResult<RegistroDetalleItem[]>> {
+  try {
+    const data = await getRegistrosByCatalogItem(type, id, periodoId)
+    return { success: true, data }
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error?.message || 'Error al obtener los registros del catálogo'
+    }
+  }
+}
+

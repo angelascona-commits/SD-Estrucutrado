@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { fetchTareoCatalogsAction, saveCatalogItemAction, deleteCatalogItemAction } from '../../actions/tareo.action'
 import type { TareoCatalogs, PeriodoItem } from '../../interfaces/tareo.interfaces'
 import { AlertModal, ConfirmModal } from '../FeedbackModals'
+import CatalogoRegistrosModal from '../CatalogoRegistrosModal'
 import styles from './CatalogosView.module.css'
 
 type TabKey = 
@@ -32,6 +33,13 @@ export default function CatalogosView() {
   const [alertMessage, setAlertMessage] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmConfig, setConfirmConfig] = useState<{message: string, action: () => void} | null>(null)
+
+  // View Records Modal State
+  const [viewModalItem, setViewModalItem] = useState<{ item: any; type: TabKey } | null>(null)
+
+  const handleViewRecords = (item: any, type: TabKey) => {
+    setViewModalItem({ item, type })
+  }
 
   const showAlert = (msg: string) => {
     setAlertMessage(msg)
@@ -175,6 +183,7 @@ export default function CatalogosView() {
                   <td>{item.horas_maximas ?? '-'}</td>
                   <td>
                     <div className={styles.actionRow}>
+                      <button className={styles.btnActionVer} onClick={() => handleViewRecords(item, 'trabajadores')}>Ver</button>
                       <button className={styles.btnActionEdit} onClick={() => handleEdit(item)}>Editar</button>
                       <button className={styles.btnActionDelete} onClick={() => handleDelete(item.id)}>Eliminar</button>
                     </div>
@@ -210,6 +219,9 @@ export default function CatalogosView() {
                   <td>{item.nombre}</td>
                   <td>
                     <div className={styles.actionRow}>
+                      {(activeTab === 'teams' || activeTab === 'areas') && (
+                        <button className={styles.btnActionVer} onClick={() => handleViewRecords(item, activeTab)}>Ver</button>
+                      )}
                       <button className={styles.btnActionEdit} onClick={() => handleEdit(item)}>Editar</button>
                       <button className={styles.btnActionDelete} onClick={() => handleDelete(item.id)}>Eliminar</button>
                     </div>
@@ -257,6 +269,7 @@ export default function CatalogosView() {
                     </td>
                     <td>
                       <div className={styles.actionRow}>
+                        <button className={styles.btnActionVer} onClick={() => handleViewRecords(item, 'agrupadores')}>Ver</button>
                         <button className={styles.btnActionEdit} onClick={() => handleEdit(item)}>Editar</button>
                         <button className={styles.btnActionDelete} onClick={() => handleDelete(item.id)}>Eliminar</button>
                       </div>
@@ -287,6 +300,7 @@ export default function CatalogosView() {
                   <td>{item.horas_maximas_estimadas ?? '-'}</td>
                   <td>
                     <div className={styles.actionRow}>
+                      <button className={styles.btnActionVer} onClick={() => handleViewRecords(item, 'solicitantes')}>Ver</button>
                       <button className={styles.btnActionEdit} onClick={() => handleEdit(item)}>Editar</button>
                       <button className={styles.btnActionDelete} onClick={() => handleDelete(item.id)}>Eliminar</button>
                     </div>
@@ -324,6 +338,7 @@ export default function CatalogosView() {
                     <td>{team?.nombre ?? '-'}</td>
                     <td>
                       <div className={styles.actionRow}>
+                        <button className={styles.btnActionVer} onClick={() => handleViewRecords(item, 'proyectos')}>Ver</button>
                         <button className={styles.btnActionEdit} onClick={() => handleEdit(item)}>Editar</button>
                         <button className={styles.btnActionDelete} onClick={() => handleDelete(item.id)}>Eliminar</button>
                       </div>
@@ -560,6 +575,14 @@ export default function CatalogosView() {
           if (confirmConfig?.action) confirmConfig.action()
         }} 
         onCancel={() => setConfirmOpen(false)} 
+      />
+
+      <CatalogoRegistrosModal
+        isOpen={Boolean(viewModalItem)}
+        onClose={() => setViewModalItem(null)}
+        catalogType={viewModalItem?.type as any}
+        item={viewModalItem?.item ?? null}
+        periodos={catalogs?.periodos ?? []}
       />
     </div>
   )

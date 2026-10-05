@@ -350,22 +350,114 @@ export async function getRegistroById(id: number): Promise<RegistroDetalleItem |
   } as RegistroDetalleItem
 }
 
-export async function createRegistro(payload: RegistroFormData): Promise<number> {
-  const { data: tareaPeriodo, error: tareaPeriodoError } = await supabase
+/**
+ * Valida que la fecha pertenezca al rango de fechas del período de la tarea_periodo.
+ * Si no coincide, busca automáticamente la tarea_periodo correspondiente a esa fecha
+ * o lanza un error descriptivo si no existe.
+ */
+export async function resolveValidTareaPeriodoForFecha(
+  tareaPeriodoId: number,
+  fecha: string
+): Promise<{ tareaPeriodoId: number; tareaId: number }> {
+  if (!fecha) {
+    throw new Error('La fecha es obligatoria.')
+  }
+  if (!tareaPeriodoId) {
+    throw new Error('La tarea del período es obligatoria.')
+  }
+
+  const parts = fecha.split('-').map(Number)
+  const regAnio = parts[0]
+  const regMes = parts[1]
+
+  // 1. Obtener la tarea_periodo actual con su periodo y tarea
+  const { data: currentTp, error: currentTpError } = await supabase
     .from('tareo_tarea_periodo')
-    .select('tarea_id')
-    .eq('id', payload.tarea_periodo_id)
+    .select(`
+      id,
+      tarea_id,
+      periodo_id,
+      tareo_tarea (nombre),
+      tareo_periodo (id, anio, mes, fecha_inicio, fecha_fin, cerrado)
+    `)
+    .eq('id', tareaPeriodoId)
     .single()
 
-  if (tareaPeriodoError) {
-    throw new Error(tareaPeriodoError.message)
+  if (currentTpError || !currentTp) {
+    throw new Error('No se encontró la tarea del período seleccionada.')
   }
+
+  const periodoActual = currentTp.tareo_periodo as any
+  const tareaNombre = (currentTp.tareo_tarea as any)?.nombre ?? `ID ${currentTp.tarea_id}`
+
+  // 2. Verificar si la fecha coincide con el periodo actual
+  const coincidePeriodo =
+    periodoActual &&
+    ((periodoActual.anio === regAnio && periodoActual.mes === regMes) ||
+      (periodoActual.fecha_inicio &&
+        periodoActual.fecha_fin &&
+        fecha >= periodoActual.fecha_inicio &&
+        fecha <= periodoActual.fecha_fin))
+
+  if (coincidePeriodo) {
+    return { tareaPeriodoId: currentTp.id, tareaId: currentTp.tarea_id }
+  }
+
+  // 3. Si no coincide, buscar el período correspondiente a esa fecha en tareo_periodo
+  const { data: periodosList, error: pErr } = await supabase
+    .from('tareo_periodo')
+    .select('id, anio, mes, cerrado, fecha_inicio, fecha_fin')
+
+  if (pErr || !periodosList || periodosList.length === 0) {
+    throw new Error('No se pudieron obtener los períodos configurados en el sistema.')
+  }
+
+  const targetPeriodo =
+    periodosList.find(
+      (p: any) => p.fecha_inicio && p.fecha_fin && fecha >= p.fecha_inicio && fecha <= p.fecha_fin
+    ) ?? periodosList.find((p: any) => p.anio === regAnio && p.mes === regMes)
+
+  if (!targetPeriodo) {
+    throw new Error(
+      `No existe un período configurado en el sistema para la fecha ${fecha} (${regAnio}-${String(regMes).padStart(2, '0')}).`
+    )
+  }
+
+  if (targetPeriodo.cerrado) {
+    throw new Error(
+      `El período ${targetPeriodo.anio}-${String(targetPeriodo.mes).padStart(2, '0')} correspondiente a la fecha ${fecha} se encuentra cerrado.`
+    )
+  }
+
+  // 4. Buscar automáticamente la tarea_periodo de la misma tarea en el periodo de destino
+  const { data: targetTp, error: targetTpErr } = await supabase
+    .from('tareo_tarea_periodo')
+    .select('id, activo')
+    .eq('tarea_id', currentTp.tarea_id)
+    .eq('periodo_id', targetPeriodo.id)
+    .single()
+
+  if (targetTp && !targetTpErr) {
+    return { tareaPeriodoId: targetTp.id, tareaId: currentTp.tarea_id }
+  }
+
+  // 5. Si no existe en el periodo de destino, rechazar con mensaje descriptivo
+  throw new Error(
+    `La fecha del registro (${fecha}) corresponde al período ${targetPeriodo.anio}-${String(targetPeriodo.mes).padStart(2, '0')}, pero la tarea "${tareaNombre}" no está asignada a dicho período. Por favor, asigna o arrastra la tarea al período ${targetPeriodo.anio}-${String(targetPeriodo.mes).padStart(2, '0')} antes de registrar horas.`
+  )
+}
+
+export async function createRegistro(payload: RegistroFormData): Promise<number> {
+  const { tareaPeriodoId, tareaId } = await resolveValidTareaPeriodoForFecha(
+    payload.tarea_periodo_id,
+    payload.fecha
+  )
 
   const { data, error } = await supabase
     .from('tareo_registro')
     .insert({
-      tarea_id: tareaPeriodo.tarea_id,
-      tarea_periodo_id: payload.tarea_periodo_id,
+      tarea_id: tareaId,
+      tarea_periodo_id: tareaPeriodoId,
       fecha: payload.fecha,
       trabajador_id: payload.trabajador_id,
       horas: payload.horas,
@@ -380,22 +472,18 @@ export async function createRegistro(payload: RegistroFormData): Promise<number>
 
   return data.id
 }
-export async function updateRegistro(id: number, payload: RegistroFormData): Promise<void> {
-  const { data: tareaPeriodo, error: tareaPeriodoError } = await supabase
-    .from('tareo_tarea_periodo')
-    .select('tarea_id')
-    .eq('id', payload.tarea_periodo_id)
-    .single()
 
-  if (tareaPeriodoError) {
-    throw new Error(tareaPeriodoError.message)
-  }
+export async function updateRegistro(id: number, payload: RegistroFormData): Promise<void> {
+  const { tareaPeriodoId, tareaId } = await resolveValidTareaPeriodoForFecha(
+    payload.tarea_periodo_id,
+    payload.fecha
+  )
 
   const { error } = await supabase
     .from('tareo_registro')
     .update({
-      tarea_id: tareaPeriodo.tarea_id,
-      tarea_periodo_id: payload.tarea_periodo_id,
+      tarea_id: tareaId,
+      tarea_periodo_id: tareaPeriodoId,
       fecha: payload.fecha,
       trabajador_id: payload.trabajador_id,
       horas: payload.horas,
@@ -661,3 +749,59 @@ export async function ejecutarArrastreMensual(): Promise<{
     mensaje: string
   }
 }
+
+export async function getRegistrosByCatalogItem(
+  type: string,
+  id: number,
+  periodoId?: number | null
+): Promise<RegistroDetalleItem[]> {
+  let query = supabase
+    .from('v_tareo_registro_detalle')
+    .select('*')
+
+  if (type === 'trabajadores') {
+    query = query.eq('trabajador_id', id)
+  } else if (type === 'teams') {
+    query = query.eq('team_id', id)
+  } else if (type === 'solicitantes') {
+    query = query.eq('solicitante_id', id)
+  } else if (type === 'agrupadores') {
+    query = query.eq('agrupador_id', id)
+  } else if (type === 'proyectos') {
+    query = query.eq('proyecto_id', id)
+  } else if (type === 'areas') {
+    const { data: agrupadores, error: errAgrup } = await supabase
+      .from('tareo_agrupador')
+      .select('id')
+      .eq('area_id', id)
+
+    if (errAgrup) throw new Error(errAgrup.message)
+    const agrupadorIds = (agrupadores || []).map((a: any) => a.id)
+    if (agrupadorIds.length === 0) return []
+    query = query.in('agrupador_id', agrupadorIds)
+  }
+
+  if (periodoId) {
+    query = query.eq('periodo_id', periodoId)
+  }
+
+  const { data, error } = await query.order('fecha', { ascending: false })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return (data ?? []).map((item: any) => ({
+    ...item,
+    horas: Number(item.horas ?? 0),
+    horas_historicas_arrastre: Number(item.horas_historicas_arrastre ?? 0),
+    horas_asignadas_periodo: Number(item.horas_asignadas_periodo ?? 0),
+    horas_consumidas_periodo: Number(item.horas_consumidas_periodo ?? 0),
+    horas_disponibles_periodo: Number(item.horas_disponibles_periodo ?? 0),
+    horas_totales_acumuladas: Number(item.horas_totales_acumuladas ?? 0),
+    solicitante_horas_maximas_estimadas:
+      item.solicitante_horas_maximas_estimadas !== null
+        ? Number(item.solicitante_horas_maximas_estimadas)
+        : null
+  })) as RegistroDetalleItem[]
+}

@@ -474,8 +474,10 @@ export default function TareoView() {
 
   const horasVisibles = totalHorasDia
 
-  const totalAcumuladoMes = useMemo(() => {
-    const hasFilter = Boolean(
+  const [mostrarTotalMesCompleto, setMostrarTotalMesCompleto] = useState(false)
+
+  const hasFilter = useMemo(() => {
+    return Boolean(
       dailyFilters.search ||
         dailyFilters.descripcion ||
         (Array.isArray(dailyFilters.tarea) && dailyFilters.tarea.length > 0) ||
@@ -484,7 +486,26 @@ export default function TareoView() {
         (Array.isArray(dailyFilters.trabajador) && dailyFilters.trabajador.length > 0) ||
         (Array.isArray(dailyFilters.solicitante) && dailyFilters.solicitante.length > 0)
     )
+  }, [dailyFilters])
 
+  // Acumulado hasta el día seleccionado (selectedFecha)
+  const totalAcumuladoFecha = useMemo(() => {
+    if (!hasFilter) {
+      const sum = resumenGeneral
+        .filter((item) => !selectedFecha || item.fecha <= selectedFecha)
+        .reduce((acc, item) => acc + Number(item.horas_dia ?? 0), 0)
+      return Math.round(sum * 100) / 100
+    }
+
+    const filteredPeriodo = applyDailyFilters(registrosPeriodo, dailyFilters)
+    const sum = filteredPeriodo
+      .filter((item) => !selectedFecha || item.fecha <= selectedFecha)
+      .reduce((acc, item) => acc + Number(item.horas ?? 0), 0)
+    return Math.round(sum * 100) / 100
+  }, [hasFilter, resumenGeneral, registrosPeriodo, dailyFilters, selectedFecha])
+
+  // Total acumulado del mes completo
+  const totalMesCompleto = useMemo(() => {
     if (!hasFilter) {
       const sum = resumenGeneral.reduce((acc, item) => acc + Number(item.horas_dia ?? 0), 0)
       return Math.round(sum * 100) / 100
@@ -493,7 +514,7 @@ export default function TareoView() {
     const filteredPeriodo = applyDailyFilters(registrosPeriodo, dailyFilters)
     const sum = filteredPeriodo.reduce((acc, item) => acc + Number(item.horas ?? 0), 0)
     return Math.round(sum * 100) / 100
-  }, [dailyFilters, resumenGeneral, registrosPeriodo])
+  }, [hasFilter, resumenGeneral, registrosPeriodo, dailyFilters])
 
   const handleOpenNuevoRegistro = () => {
     setSelectedRegistro(null)
@@ -1184,9 +1205,13 @@ export default function TareoView() {
 
       <TareoDailyWidgets
         totalHorasDia={totalHorasDia}
-        totalAcumuladoMes={totalAcumuladoMes}
+        totalAcumuladoFecha={totalAcumuladoFecha}
+        totalMesCompleto={totalMesCompleto}
         totalRegistrosDia={totalRegistrosDia}
         totalTrabajadoresDia={totalTrabajadoresDia}
+        selectedFecha={selectedFecha}
+        mostrarTotalMesCompleto={mostrarTotalMesCompleto}
+        onToggleTotalMes={() => setMostrarTotalMesCompleto((prev) => !prev)}
       />
       <TareoDailyFilters
         filters={dailyFilters}
@@ -1214,6 +1239,7 @@ export default function TareoView() {
         registro={selectedRegistro}
         tareasPeriodo={tareasPeriodo}
         trabajadores={catalogs?.trabajadores ?? []}
+        periodos={catalogs?.periodos ?? []}
         fechaInicial={selectedFecha}
       />
 

@@ -120,6 +120,45 @@ export default function TareoDailyTable({
                 </div>
 
                 <div className={styles.metaItem}>
+                  <span className={styles.metaLabel}>Período</span>
+                  <span className={styles.metaValue}>
+                    {registro.anio && registro.mes
+                      ? `${registro.anio}-${String(registro.mes).padStart(2, '0')}`
+                      : 'Sin período'}
+                    {(() => {
+                      const fechaParts = registro.fecha ? registro.fecha.split('-') : []
+                      const regAnio = fechaParts[0] ? Number(fechaParts[0]) : null
+                      const regMes = fechaParts[1] ? Number(fechaParts[1]) : null
+                      if (
+                        regAnio &&
+                        regMes &&
+                        registro.anio &&
+                        registro.mes &&
+                        (regAnio !== registro.anio || regMes !== registro.mes)
+                      ) {
+                        return (
+                          <span
+                            style={{
+                              marginLeft: 6,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: '#dc2626',
+                              background: '#fee2e2',
+                              padding: '1px 5px',
+                              borderRadius: 4
+                            }}
+                            title="El período de la tarea no coincide con el mes de la fecha del registro"
+                          >
+                            ⚠️ Descuadre
+                          </span>
+                        )
+                      }
+                      return null
+                    })()}
+                  </span>
+                </div>
+
+                <div className={styles.metaItem}>
                   <span className={styles.metaLabel}>Histórico arrastre</span>
                   <span className={styles.metaValue}>{registro.horas_historicas_arrastre}</span>
                 </div>
