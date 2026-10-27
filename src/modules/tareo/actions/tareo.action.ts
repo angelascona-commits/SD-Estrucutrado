@@ -828,6 +828,37 @@ export async function exportTareoMultiMesAction(
     return { success: false, error: 'Error al generar el reporte multi-mes.' }
   }
 }
+const MESES_SLUG: Record<string, number> = {
+  enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6,
+  julio: 7, agosto: 8, septiembre: 9, setiembre: 9, octubre: 10,
+  noviembre: 11, diciembre: 12
+}
+
+const MESES_LISTA = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+]
+
+function parsePeriodoSlug(slug: string): { mes: number; anio?: number } | null {
+  if (!slug) return null
+  const clean = slug.toLowerCase().trim()
+  const parts = clean.split(/[-_\s]+/)
+  let mes: number | undefined
+  let anio: number | undefined
+
+  for (const p of parts) {
+    if (MESES_SLUG[p]) mes = MESES_SLUG[p]
+    const n = parseInt(p, 10)
+    if (!isNaN(n)) {
+      if (n >= 2000 && n <= 2100) anio = n
+      else if (n >= 1 && n <= 12 && !mes) mes = n
+    }
+  }
+
+  if (mes) return { mes, anio }
+  return null
+}
+
 export async function generatePublicLinkAction(
   periodoId: number,
   solicitanteId?: number,
@@ -841,56 +872,106 @@ export async function generatePublicLinkAction(
 ): Promise<ActionResult<string>> {
   try {
     const expiration = new Date()
-    expiration.setDate(expiration.getDate() + 7) // Expira en 7 días
+    expiration.setDate(expiration.getDate() + 14) // Expira en 14 días
 
-    const { data, error } = await supabase
+    // Registramos en BD para auditoría/rastreo
+    await supabase
       .from('tareo_reporte_link')
       .insert({
         periodo_id: periodoId,
         fecha_expiracion: expiration.toISOString()
       })
-      .select('token')
-      .single()
 
-    if (error) throw error
+    // Obtenemos mes y año para construir la URL limpia
+    const { data: perData } = await supabase
+      .from('tareo_periodo')
+      .select('anio, mes')
+      .eq('id', periodoId)
+      .maybeSingle()
+
+    const mesIndex = (perData?.mes ?? 10) - 1
+    const mesNombre = MESES_LISTA[mesIndex] || 'periodo'
+    const anio = perData?.anio || new Date().getFullYear()
+    const slug = `${mesNombre}-${anio}`
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-    let url = `${baseUrl}/reporte-externo/${data.token}`
-    
     const params = new URLSearchParams()
+    // Ocultar costo si es la tarifa estándar de 65 para mantener la URL completamente limpia
+    if (costoHora && costoHora !== 65) params.append('costo', String(costoHora))
     if (solicitanteId) params.append('solicitante', String(solicitanteId))
     if (trabajadorId) params.append('trabajador', String(trabajadorId))
     if (agrupadorId) params.append('agrupador', String(agrupadorId))
     if (proyectoId) params.append('proyecto', String(proyectoId))
     if (teamId) params.append('team', String(teamId))
-    if (costoHora) params.append('costo', String(costoHora))
     if (duracionFiltro && duracionFiltro !== 'todas') params.append('duracion', duracionFiltro)
     if (tareaId) params.append('tarea', String(tareaId))
-    
-    const query = params.toString()
-    if (query) url += `?${query}`
-    
+
+    const qs = params.toString()
+    // Enlace limpio: /reporte/octubre-2026?costo=65
+    const url = `${baseUrl}/reporte/${slug}${qs ? `?${qs}` : ''}`
+
     return { success: true, data: url }
   } catch (error) {
     return { success: false, error: 'Error al generar el link' }
   }
 } 
-export async function getPublicReportDataAction(token: string, targetPeriodoId?: number): Promise<ActionResult<any>> {
+export async function getPublicReportDataAction(tokenOrSlug: string, targetPeriodoId?: number): Promise<ActionResult<any>> {
   try {
     const adminSupabase = getAdminSupabase();
 
-    // Validar token activo
-    const { data: link, error: linkErr } = await adminSupabase
+    let activePeriodoId = targetPeriodoId;
+    let linkId = '';
+
+    // 1. Si es un token registrado en tareo_reporte_link
+    const { data: link } = await adminSupabase
       .from('tareo_reporte_link')
       .select('id, periodo_id')
-      .eq('token', token)
+      .eq('token', tokenOrSlug)
       .eq('activo', true)
       .gt('fecha_expiracion', new Date().toISOString())
-      .single();
+      .maybeSingle();
 
-    if (linkErr || !link) throw new Error('Enlace inválido o expirado');
+    if (link) {
+      if (!activePeriodoId) activePeriodoId = link.periodo_id;
+      linkId = link.id;
+    } else {
+      // 2. Si es un slug de mes/período (ej: 'octubre-2026' o 'octubre')
+      const parsed = parsePeriodoSlug(tokenOrSlug);
+      if (parsed) {
+        let query = adminSupabase
+          .from('tareo_periodo')
+          .select('id, anio, mes')
+          .eq('mes', parsed.mes);
+        if (parsed.anio) query = query.eq('anio', parsed.anio);
+        const { data: periodosMatch } = await query.order('anio', { ascending: false }).limit(1);
+        if (periodosMatch && periodosMatch.length > 0) {
+          activePeriodoId = periodosMatch[0].id;
+        }
+      } else {
+        // 3. ID numérico directo
+        const numId = parseInt(tokenOrSlug, 10);
+        if (!isNaN(numId) && numId > 0) {
+          activePeriodoId = numId;
+        }
+      }
+    }
 
-    const activePeriodoId = targetPeriodoId || link.periodo_id;
+    // 4. Si aún no hay periodo identificado, cargar el período más reciente
+    if (!activePeriodoId) {
+      const { data: latestPeriodo } = await adminSupabase
+        .from('tareo_periodo')
+        .select('id')
+        .order('anio', { ascending: false })
+        .order('mes', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestPeriodo) {
+        activePeriodoId = latestPeriodo.id;
+      } else {
+        throw new Error('No se encontró el período solicitado.');
+      }
+    }
 
     // Metadatos del periodo activo
     const { data: periodo } = await adminSupabase
@@ -938,8 +1019,8 @@ export async function getPublicReportDataAction(token: string, targetPeriodoId?:
         registros: registros || [], 
         tareasPeriodo: tareasPeriodo || [],
         feedback: feedback || [], 
-        linkId: link.id,
-        linkPeriodoId: link.periodo_id,
+        linkId: link?.id || String(activePeriodoId),
+        linkPeriodoId: link?.periodo_id || activePeriodoId,
         activePeriodoId: activePeriodoId,
         periodo: periodo || null,
         periodos: allPeriodos || [],

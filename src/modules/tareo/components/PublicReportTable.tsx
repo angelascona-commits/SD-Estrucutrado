@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import {
   LayoutDashboard,
@@ -13,7 +13,12 @@ import {
   Menu,
   X,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Clock,
+  Calendar,
+  User,
+  FileText,
+  ChevronRight
 } from 'lucide-react'
 import { saveExternalCommentsAction, exportPublicReportExcelAction } from '../actions/tareo.action'
 import styles from '../styles/public-report.module.css'
@@ -63,6 +68,40 @@ export default function PublicReportTable({
   const [expandedTasks, setExpandedTasks] = useState<Record<number, boolean>>({})
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<any | null>(null)
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedTaskForDetail(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  // Ocultar cualquier token o id en la barra de direcciones y mostrar únicamente /reporte/mes-anio
+  useEffect(() => {
+    if (typeof window !== 'undefined' && periodo?.mes && periodo?.anio) {
+      const MESES_NOMBRES = [
+        'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+      ]
+      const mesNombre = MESES_NOMBRES[periodo.mes - 1] || 'periodo'
+      const slug = `${mesNombre}-${periodo.anio}`
+      const currentParams = new URLSearchParams(window.location.search)
+      currentParams.delete('id')
+      currentParams.delete('token')
+      currentParams.delete('ref')
+      currentParams.delete('doc')
+      currentParams.delete('costo')
+      const qs = currentParams.toString()
+      const newPath = `/reporte/${slug}${qs ? `?${qs}` : ''}`
+      if (window.location.pathname + window.location.search !== newPath) {
+        window.history.replaceState(null, '', newPath)
+      }
+    }
+  }, [periodo])
 
   // ─── 1. ESTADOS DE FILTROS ───────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState('')
@@ -343,6 +382,37 @@ export default function PublicReportTable({
   const totalHorasGeneral = useMemo(() => {
     return tareasResumen.reduce((acc: number, t: any) => acc + t.totalHoras, 0)
   }, [tareasResumen])
+
+  // Desglose de colaboradores para la tarea abierta en la columna lateral
+  const selectedTaskCollaborators = useMemo(() => {
+    if (!selectedTaskForDetail || !selectedTaskForDetail.detalle) return []
+    const map: Record<string, { horas: number; count: number; team: string }> = {}
+    selectedTaskForDetail.detalle.forEach((d: any) => {
+      const name = d.trabajador_nombre || 'No asignado'
+      if (!map[name]) map[name] = { horas: 0, count: 0, team: d.team_nombre || '' }
+      map[name].horas += Number(d.horas) || 0
+      map[name].count += 1
+    })
+    return Object.entries(map)
+      .map(([name, data]) => ({
+        nombre: name,
+        horas: data.horas,
+        count: data.count,
+        team: data.team,
+        pct: selectedTaskForDetail.totalHoras > 0 ? (data.horas / selectedTaskForDetail.totalHoras) * 100 : 0
+      }))
+      .sort((a, b) => b.horas - a.horas)
+  }, [selectedTaskForDetail])
+
+  // Registros ordenados cronológicamente (más recientes primero) para la tarea seleccionada
+  const sortedTaskLogs = useMemo(() => {
+    if (!selectedTaskForDetail || !selectedTaskForDetail.detalle) return []
+    return [...selectedTaskForDetail.detalle].sort((a: any, b: any) => {
+      const dateA = new Date(a.fecha || 0).getTime()
+      const dateB = new Date(b.fecha || 0).getTime()
+      return dateB - dateA
+    })
+  }, [selectedTaskForDetail])
 
   // ─── 6. ESTADÍSTICAS PARA GRÁFICOS Y VISUALIZACIÓN EJECUTIVA ─────────────
   const statsDiarias = useMemo(() => {
@@ -808,7 +878,12 @@ export default function PublicReportTable({
           {/* Tabla Resumen de Horas y Costos (Exacta de Imagen 3) */}
           <div className={styles.card}>
             <div className={styles.cardHeaderRow}>
-              <h2 className={styles.cardTitle}>Resumen de Horas y Costos por Tarea</h2>
+              <div>
+                <h2 className={styles.cardTitle}>Resumen de Horas y Costos por Tarea</h2>
+                <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#64748b' }}>
+                  Haz clic en cualquier tarea para abrir la columna lateral con todos sus registros y detalles.
+                </p>
+              </div>
               <button
                 type="button"
                 className={styles.btnExcel}
@@ -829,25 +904,42 @@ export default function PublicReportTable({
                   </tr>
                 </thead>
                 <tbody>
-                  {tareasResumen.map((t: any) => (
-                    <tr key={`resumen-${t.tarea_periodo_id}`}>
-                      <td style={{ fontWeight: 'normal' }}>
-                        {t.tarea_nombre}
-                        {t.esAgil ? (
-                          <span className={styles.tagAgil}>Ágil</span>
-                        ) : (
-                          <span className={styles.tagProy}>Proy</span>
-                        )}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>{t.totalHoras.toFixed(2)}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        {(t.totalHoras * costoHora).toLocaleString('es-PE', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2
-                        })}
-                      </td>
-                    </tr>
-                  ))}
+                  {tareasResumen.map((t: any) => {
+                    const isSelected = selectedTaskForDetail?.tarea_periodo_id === t.tarea_periodo_id
+                    return (
+                      <tr
+                        key={`resumen-${t.tarea_periodo_id}`}
+                        onClick={() => setSelectedTaskForDetail(isSelected ? null : t)}
+                        className={`${styles.clickableRow} ${isSelected ? styles.clickableRowSelected : ''}`}
+                        title="Haz clic para ver registros y actividades en la columna lateral"
+                      >
+                        <td style={{ fontWeight: isSelected ? '600' : 'normal' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                            <span>
+                              {t.tarea_nombre}
+                              {t.esAgil ? (
+                                <span className={styles.tagAgil}>Ágil</span>
+                              ) : (
+                                <span className={styles.tagProy}>Proy</span>
+                              )}
+                            </span>
+                            <span className={styles.rowActionHint}>
+                              Ver registros →
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: isSelected ? '700' : 'normal' }}>
+                          {t.totalHoras.toFixed(2)}
+                        </td>
+                        <td style={{ textAlign: 'right', fontWeight: isSelected ? '700' : 'normal' }}>
+                          {(t.totalHoras * costoHora).toLocaleString('es-PE', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          })}
+                        </td>
+                      </tr>
+                    )
+                  })}
                   <tr className={styles.totalRow}>
                     <td style={{ textAlign: 'left' }}>TOTAL GENERAL</td>
                     <td style={{ textAlign: 'right' }}>{totalHorasGeneral.toFixed(2)}</td>
@@ -1236,8 +1328,14 @@ export default function PublicReportTable({
                 {topTareas.map((t, i) => {
                   const pctOfMax = (t.totalHoras / maxHorasTopTarea) * 100
                   const monto = t.totalHoras * costoHora
+                  const isSelected = selectedTaskForDetail?.tarea_periodo_id === t.tarea_periodo_id
                   return (
-                    <div key={t.tarea_periodo_id} className={styles.barItem}>
+                    <div
+                      key={t.tarea_periodo_id}
+                      className={`${styles.barItem} ${styles.clickableRow}`}
+                      onClick={() => setSelectedTaskForDetail(isSelected ? null : t)}
+                      title="Haz clic para ver registros y actividades en la columna lateral"
+                    >
                       <div className={styles.barItemHeader}>
                         <span className={styles.barItemName} title={t.tarea_nombre}>
                           <span style={{ fontWeight: 700, color: '#64748b', fontSize: '11px' }}>#{i + 1}</span>
@@ -1725,6 +1823,192 @@ export default function PublicReportTable({
         </div>
       )}
       </div>
+
+      {/* ─── COLUMNA / DRAWER LATERAL DE DETALLE Y REGISTROS ───────────────── */}
+      {selectedTaskForDetail && (
+        <>
+          <div
+            className={styles.sideDrawerOverlay}
+            onClick={() => setSelectedTaskForDetail(null)}
+          />
+          <aside className={styles.sideDrawer} aria-label="Detalle de Tarea">
+            {/* Header */}
+            <div className={styles.sideDrawerHeader}>
+              <div className={styles.sideDrawerTitleBox}>
+                <span className={styles.sideDrawerBadge}>
+                  <FileText size={13} />
+                  Detalle de Tarea & Registros
+                </span>
+                <h3 className={styles.sideDrawerTitle}>
+                  {selectedTaskForDetail.tarea_nombre}
+                </h3>
+                <div style={{ marginTop: '2px' }}>
+                  {selectedTaskForDetail.esAgil ? (
+                    <span className={styles.tagAgil}>Ágil</span>
+                  ) : (
+                    <span className={styles.tagProy}>Proyecto</span>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                className={styles.sideDrawerCloseBtn}
+                onClick={() => setSelectedTaskForDetail(null)}
+                title="Cerrar columna lateral (Esc)"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className={styles.sideDrawerBody}>
+              {/* Métricas clave */}
+              <div className={styles.sideMetricsRow}>
+                <div className={styles.sideMetricCard}>
+                  <div className={styles.sideMetricCardLabel}>Horas Totales</div>
+                  <div className={styles.sideMetricCardValue}>
+                    {selectedTaskForDetail.totalHoras.toFixed(2)}h
+                  </div>
+                </div>
+                <div className={styles.sideMetricCard}>
+                  <div className={styles.sideMetricCardLabel}>Monto Estimado</div>
+                  <div className={styles.sideMetricCardValue}>
+                    S/. {(selectedTaskForDetail.totalHoras * costoHora).toLocaleString('es-PE', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
+                    })}
+                  </div>
+                </div>
+                <div className={styles.sideMetricCard}>
+                  <div className={styles.sideMetricCardLabel}>Registros</div>
+                  <div className={styles.sideMetricCardValue}>
+                    {selectedTaskForDetail.detalle?.length || 0}
+                  </div>
+                </div>
+              </div>
+
+              {/* Información General de la Tarea */}
+              <div className={styles.sideInfoCard}>
+                <div className={styles.sideInfoRow}>
+                  <span className={styles.sideInfoLabel}>Agrupador:</span>
+                  <span className={styles.sideInfoValue}>
+                    {selectedTaskForDetail.agrupador_nombre || 'No asignado'}
+                  </span>
+                </div>
+                <div className={styles.sideInfoRow}>
+                  <span className={styles.sideInfoLabel}>Proyecto:</span>
+                  <span className={styles.sideInfoValue}>
+                    {selectedTaskForDetail.proyecto_nombre || 'No asignado'}
+                  </span>
+                </div>
+                <div className={styles.sideInfoRow}>
+                  <span className={styles.sideInfoLabel}>Solicitante:</span>
+                  <span className={styles.sideInfoValue}>
+                    {selectedTaskForDetail.solicitante_nombre || 'No asignado'}
+                  </span>
+                </div>
+                <div className={styles.sideInfoRow}>
+                  <span className={styles.sideInfoLabel}>Equipo:</span>
+                  <span className={styles.sideInfoValue}>
+                    {selectedTaskForDetail.team_nombre || 'General'}
+                  </span>
+                </div>
+                {selectedTaskForDetail.observacion && (
+                  <div className={styles.sideInfoRow} style={{ alignItems: 'flex-start', flexDirection: 'column', gap: '4px' }}>
+                    <span className={styles.sideInfoLabel}>Observación:</span>
+                    <span className={styles.sideInfoValue} style={{ textAlign: 'left', fontStyle: 'italic', fontWeight: 500, color: '#475569' }}>
+                      "{selectedTaskForDetail.observacion}"
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Colaboradores involucrados */}
+              {selectedTaskCollaborators.length > 0 && (
+                <div>
+                  <div className={styles.sideSectionTitle}>
+                    <Users size={14} />
+                    Colaboradores Participantes ({selectedTaskCollaborators.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
+                    {selectedTaskCollaborators.map((c) => (
+                      <div key={c.nombre} className={styles.sideCollaboratorItem}>
+                        <div className={styles.sideCollaboratorName}>
+                          <User size={13} color="#64748b" />
+                          <span>{c.nombre}</span>
+                          {c.team && (
+                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>
+                              ({c.team})
+                            </span>
+                          )}
+                        </div>
+                        <div className={styles.sideCollaboratorHours}>
+                          {c.horas.toFixed(2)}h
+                          <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal', marginLeft: '4px' }}>
+                            ({c.pct.toFixed(0)}%)
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Registros de actividad detallados */}
+              <div>
+                <div className={styles.sideSectionTitle}>
+                  <Clock size={14} />
+                  Registros Diarios de Actividad ({sortedTaskLogs.length})
+                </div>
+                <div className={styles.sideLogsList} style={{ marginTop: '8px' }}>
+                  {sortedTaskLogs.length === 0 ? (
+                    <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                      No se encontraron registros de horas para esta tarea.
+                    </div>
+                  ) : (
+                    sortedTaskLogs.map((log: any, idx: number) => (
+                      <div key={log.id || `log-${idx}`} className={styles.sideLogItem}>
+                        <div className={styles.sideLogTop}>
+                          <span className={styles.sideLogDate}>
+                            <Calendar size={13} color="#0f3d3e" />
+                            {log.fecha ? new Date(log.fecha + 'T12:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Sin fecha'}
+                          </span>
+                          <span className={styles.sideLogHoursBadge}>
+                            {Number(log.horas || 0).toFixed(2)} hrs
+                          </span>
+                        </div>
+                        <div className={styles.sideLogCollab}>
+                          <User size={12} />
+                          <span className={styles.sideLogCollabStrong}>{log.trabajador_nombre || 'No asignado'}</span>
+                          {log.team_nombre && <span>• {log.team_nombre}</span>}
+                        </div>
+                        <div className={styles.sideLogDesc}>
+                          {log.descripcion || 'Sin descripción registrada'}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className={styles.sideDrawerFooter}>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>
+                Total: <strong>{selectedTaskForDetail.totalHoras.toFixed(2)} hrs</strong> / S/. {(selectedTaskForDetail.totalHoras * costoHora).toFixed(2)}
+              </span>
+              <button
+                type="button"
+                className={styles.btnFilterReset}
+                onClick={() => setSelectedTaskForDetail(null)}
+                style={{ margin: 0, padding: '6px 16px' }}
+              >
+                Cerrar Columna
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
     </div>
   )
 }

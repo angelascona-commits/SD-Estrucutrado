@@ -12,6 +12,7 @@ export function proxy(request: NextRequest) {
 
   const isPublicRoute =
     PUBLIC_ROUTES.includes(pathname) ||
+    pathname.startsWith('/reporte') ||
     pathname.startsWith('/reporte-externo') ||
     pathname.startsWith('/sgprc/decision')
   const isAuthenticated = Boolean(session)
