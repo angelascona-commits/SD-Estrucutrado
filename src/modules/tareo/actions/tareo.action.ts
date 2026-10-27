@@ -875,7 +875,7 @@ export async function generatePublicLinkAction(
     return { success: false, error: 'Error al generar el link' }
   }
 } 
-export async function getPublicReportDataAction(token: string): Promise<ActionResult<any>> {
+export async function getPublicReportDataAction(token: string, targetPeriodoId?: number): Promise<ActionResult<any>> {
   try {
     const adminSupabase = getAdminSupabase();
 
@@ -890,26 +890,190 @@ export async function getPublicReportDataAction(token: string): Promise<ActionRe
 
     if (linkErr || !link) throw new Error('Enlace inválido o expirado');
 
-    // Traer registros
+    const activePeriodoId = targetPeriodoId || link.periodo_id;
+
+    // Metadatos del periodo activo
+    const { data: periodo } = await adminSupabase
+      .from('tareo_periodo')
+      .select('id, anio, mes, fecha_inicio, fecha_fin, cerrado')
+      .eq('id', activePeriodoId)
+      .single();
+
+    // Todos los periodos disponibles para el selector mensual
+    const { data: allPeriodos } = await adminSupabase
+      .from('tareo_periodo')
+      .select('id, anio, mes, cerrado')
+      .order('anio', { ascending: false })
+      .order('mes', { ascending: false });
+
+    // Registros operativos del período
     const { data: registros, error: registrosErr } = await adminSupabase
       .from('v_tareo_registro_detalle') 
       .select('*')
-      .eq('periodo_id', link.periodo_id)
+      .eq('periodo_id', activePeriodoId)
       .order('fecha', { ascending: true });
 
     if (registrosErr) throw new Error(registrosErr.message);
 
-    // NUEVO: Traer los comentarios bidireccionales
+    // Tareas del período (resumen y horas presupuestadas)
+    const { data: tareasPeriodo } = await adminSupabase
+      .from('v_tareo_tarea_periodo_detalle')
+      .select('*')
+      .eq('periodo_id', activePeriodoId);
+
+    // Agrupadores con su área para diferenciar Ágil vs Proyectos Oficial Protecta
+    const { data: agrupadores } = await adminSupabase
+      .from('tareo_agrupador')
+      .select('id, nombre, area:tareo_area(nombre)')
+      .eq('activo', true);
+
+    // Feedback bidireccional (Comentario Protecta vs Comentario Dev)
     const { data: feedback } = await adminSupabase
       .from('tareo_comentarios_externos')
       .select('referencia_tipo, referencia_id, comentario_protecta, comentario_dev');
 
     return { 
       success: true, 
-      data: { registros: registros || [], feedback: feedback || [], linkId: link.id } 
+      data: { 
+        registros: registros || [], 
+        tareasPeriodo: tareasPeriodo || [],
+        feedback: feedback || [], 
+        linkId: link.id,
+        linkPeriodoId: link.periodo_id,
+        activePeriodoId: activePeriodoId,
+        periodo: periodo || null,
+        periodos: allPeriodos || [],
+        agrupadores: agrupadores || []
+      } 
     };
   } catch (error: any) {
     return { success: false, error: error.message };
+  }
+}
+
+export async function exportPublicReportExcelAction(
+  token: string,
+  costoHora: number,
+  periodoId?: number,
+  options?: {
+    duracionFiltro?: import('../interfaces/tareo.interfaces').TareoDuracionFiltro,
+    solicitanteId?: number,
+    trabajadorId?: number,
+    agrupadorId?: number,
+    proyectoId?: number,
+    teamId?: number,
+    tareaId?: number
+  }
+): Promise<ActionResult<{ base64: string; fileName: string }>> {
+  try {
+    const adminSupabase = getAdminSupabase();
+
+    // Validar token activo
+    const { data: link, error: linkErr } = await adminSupabase
+      .from('tareo_reporte_link')
+      .select('id, periodo_id')
+      .eq('token', token)
+      .eq('activo', true)
+      .gt('fecha_expiracion', new Date().toISOString())
+      .single();
+
+    if (linkErr || !link) throw new Error('Enlace inválido o expirado');
+
+    const targetPeriodoId = periodoId || link.periodo_id;
+
+    // Obtener tareas y registros con adminSupabase
+    const { data: tareasData } = await adminSupabase
+      .from('v_tareo_tarea_periodo_detalle')
+      .select('*')
+      .eq('periodo_id', targetPeriodoId);
+
+    const { data: registrosData } = await adminSupabase
+      .from('v_tareo_registro_detalle')
+      .select('*')
+      .eq('periodo_id', targetPeriodoId)
+      .order('fecha', { ascending: true });
+
+    let tareasPeriodo: any[] = tareasData || [];
+    let registros: any[] = registrosData || [];
+    let isFiltered = false;
+
+    if (options?.solicitanteId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.solicitante_id === options.solicitanteId);
+      registros = registros.filter(r => r.solicitante_id === options.solicitanteId);
+      isFiltered = true;
+    }
+    if (options?.trabajadorId) {
+      registros = registros.filter(r => r.trabajador_id === options.trabajadorId);
+      const tareasConRegistros = new Set(registros.map(r => r.tarea_periodo_id));
+      tareasPeriodo = tareasPeriodo.filter(t => tareasConRegistros.has(t.tarea_periodo_id));
+      isFiltered = true;
+    }
+    if (options?.agrupadorId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.agrupador_id === options.agrupadorId);
+      registros = registros.filter(r => r.agrupador_id === options.agrupadorId);
+      isFiltered = true;
+    }
+    if (options?.proyectoId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.proyecto_id === options.proyectoId);
+      registros = registros.filter(r => r.proyecto_id === options.proyectoId);
+      isFiltered = true;
+    }
+    if (options?.teamId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.team_id === options.teamId);
+      registros = registros.filter(r => r.team_id === options.teamId);
+      isFiltered = true;
+    }
+    if (options?.tareaId) {
+      tareasPeriodo = tareasPeriodo.filter(t => t.tarea_id === options.tareaId || t.tarea_periodo_id === options.tareaId);
+      const allowedTaskIds = new Set(tareasPeriodo.map(t => t.tarea_periodo_id));
+      registros = registros.filter(r => allowedTaskIds.has(r.tarea_periodo_id));
+      isFiltered = true;
+    }
+    if (options?.duracionFiltro === 'mas_50h') {
+      tareasPeriodo = tareasPeriodo.filter(t => 
+        Number(t.horas_asignadas_periodo || 0) > 50 || 
+        Number(t.horas_consumidas_periodo || 0) > 50 || 
+        Number(t.horas_totales_acumuladas || 0) > 50
+      );
+      const allowedTaskIds = new Set(tareasPeriodo.map(t => t.tarea_periodo_id));
+      registros = registros.filter(r => allowedTaskIds.has(r.tarea_periodo_id));
+      isFiltered = true;
+    } else if (options?.duracionFiltro === 'hasta_50h') {
+      tareasPeriodo = tareasPeriodo.filter(t => 
+        Number(t.horas_asignadas_periodo || 0) <= 50 && 
+        Number(t.horas_consumidas_periodo || 0) <= 50 && 
+        Number(t.horas_totales_acumuladas || 0) <= 50
+      );
+      const allowedTaskIds = new Set(tareasPeriodo.map(t => t.tarea_periodo_id));
+      registros = registros.filter(r => allowedTaskIds.has(r.tarea_periodo_id));
+      isFiltered = true;
+    }
+
+    if (tareasPeriodo.length === 0 && registros.length === 0) {
+      return { success: false, error: 'No se encontraron registros ni tareas para los filtros seleccionados.' };
+    }
+
+    const first = registros[0];
+    const periodoLabel = first 
+      ? `${first.anio}-${String(first.mes).padStart(2, '0')}`
+      : tareasPeriodo[0] ? `${tareasPeriodo[0].periodo_anio}-${String(tareasPeriodo[0].periodo_mes).padStart(2, '0')}` : 'PERIODO';
+
+    const workbook = await generateTareoExcel(tareasPeriodo, registros, periodoLabel, costoHora, isFiltered, {
+      duracionFiltro: options?.duracionFiltro,
+      layout: 'protecta_oficial',
+      tareaId: options?.tareaId
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return {
+      success: true,
+      data: {
+        base64: Buffer.from(buffer).toString('base64'),
+        fileName: `REPORTE_OFICIAL_PROTECTA_${periodoLabel}.xlsx`
+      }
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Error al exportar reporte.' };
   }
 }
 export async function saveExternalCommentsAction(

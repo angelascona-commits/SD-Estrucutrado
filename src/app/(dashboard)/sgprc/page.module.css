@@ -1,6 +1,6 @@
 .container {
   padding: 24px;
-  background-color: var(--color-background, #f9fafb);
+  background-color: var(--bg-light);
   min-height: 100vh;
   zoom: 80%;
 }

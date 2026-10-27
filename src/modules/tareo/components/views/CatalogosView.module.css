@@ -8,10 +8,10 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  background: white;
+  background: var(--bg-white, white);
   padding: 24px;
   border-radius: 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--slate-200, #e5e7eb);
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
@@ -24,11 +24,11 @@
 .periodoSelect {
   height: 40px;
   border-radius: 10px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--slate-300, #d1d5db);
   padding: 0 12px;
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   font-weight: 600;
-  color: #374151;
+  color: var(--slate-700, #374151);
   outline: none;
 }
 
@@ -85,10 +85,10 @@
   gap: 16px;
   flex-wrap: wrap;
   align-items: center;
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   padding: 16px;
   border-radius: 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--slate-200, #e5e7eb);
 }
 
 .filterBarGroup {
@@ -110,13 +110,13 @@
   width: 100%;
   height: 36px;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--slate-300, #e5e7eb);
   padding: 0 32px 0 34px;
   outline: none;
-  color: #374151;
+  color: var(--slate-800, #374151);
   font-size: 13px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
 }
 
 .searchInput:focus {
@@ -294,17 +294,17 @@
 }
 
 .sidebar {
-  background: white;
+  background: var(--bg-white, white);
   border-radius: 16px;
   padding: 20px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--slate-200, #e5e7eb);
 }
 
 .sidebarTitle {
   font-size: 12px;
   text-transform: uppercase;
   font-weight: 700;
-  color: #9ca3af;
+  color: var(--slate-400, #9ca3af);
   margin-bottom: 12px;
   letter-spacing: 0.05em;
 }
@@ -321,7 +321,7 @@
   text-align: left;
   padding: 10px 14px;
   border-radius: 8px;
-  color: #4b5563;
+  color: var(--slate-600, #4b5563);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -329,20 +329,20 @@
 }
 
 .tabBtn:hover {
-  background: #f3f4f6;
-  color: #111827;
+  background: var(--slate-100, #f3f4f6);
+  color: var(--slate-900, #111827);
 }
 
 .tabBtnActive {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: var(--blue-100, #e0f2fe);
+  color: var(--blue-700, #0369a1);
   font-weight: 600;
 }
 
 .content {
-  background: white;
+  background: var(--bg-white, white);
   border-radius: 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--slate-200, #e5e7eb);
   min-height: 400px;
   overflow: hidden;
 }
@@ -565,11 +565,14 @@
 }
 
 .modalCard {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
+  border: 1px solid var(--slate-200);
   border-radius: 18px;
   width: 400px;
   padding: 24px;
   position: relative;
+  box-shadow: var(--modal-shadow);
+  color: var(--slate-900);
 }
 
 .modalForm {
@@ -582,7 +585,7 @@
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: var(--slate-700, #374151);
   margin-bottom: 6px;
 }
 
@@ -590,7 +593,9 @@
   width: 100%;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--slate-300, #d1d5db);
+  background: var(--bg-white, #ffffff);
+  color: var(--slate-900);
   border-radius: 8px;
   box-sizing: border-box;
 }
@@ -599,10 +604,11 @@
   width: 100%;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--slate-300, #d1d5db);
   border-radius: 8px;
   box-sizing: border-box;
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
+  color: var(--slate-900);
 }
 
 .flexRow {

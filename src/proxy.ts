@@ -10,7 +10,10 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const session = request.cookies.get(COOKIE_NAME)?.value
 
-  const isPublicRoute = PUBLIC_ROUTES.includes(pathname)
+  const isPublicRoute =
+    PUBLIC_ROUTES.includes(pathname) ||
+    pathname.startsWith('/reporte-externo') ||
+    pathname.startsWith('/sgprc/decision')
   const isAuthenticated = Boolean(session)
 
   // Sin sesión intentando acceder a ruta protegida → login
@@ -19,7 +22,7 @@ export function proxy(request: NextRequest) {
   }
 
   // Con sesión intentando acceder a login → redirigir a raíz / para calcular su primer dominio permitido
-  if (isAuthenticated && isPublicRoute) {
+  if (isAuthenticated && pathname === '/login') {
     return NextResponse.redirect(new URL('/', request.url))
   }
 

@@ -31,7 +31,7 @@
   gap: 6px;
   padding: 4px;
   border: 1px solid var(--slate-200, #e2e8f0);
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   border-radius: 12px;
 }
 

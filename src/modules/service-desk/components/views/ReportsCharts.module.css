@@ -18,7 +18,7 @@
   gap: 6px;
   padding: 4px;
   border: 1px solid var(--slate-200, #e2e8f0);
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   border-radius: 12px;
 }
 
@@ -39,7 +39,7 @@
 }
 
 .modeButtonActive {
-  background: var(--orange-600, #ea580c);
+  background: var(--primary, #ea580c);
   color: #ffffff;
 }
 
@@ -65,7 +65,7 @@
 
 .selector {
   min-width: 240px;
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   border: 1px solid var(--slate-300, #cbd5e1);
   border-radius: 10px;
   padding: 10px 12px;
@@ -75,7 +75,7 @@
 }
 
 .chartPanel {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   border: 1px solid var(--slate-200, #e2e8f0);
   border-radius: 14px;
   padding: 18px;
@@ -106,7 +106,7 @@
 
 .columnsCard,
 .chartCard {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   border: 1px solid var(--slate-200, #e2e8f0);
   border-radius: 12px;
   padding: 16px;

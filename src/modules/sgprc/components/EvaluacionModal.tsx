@@ -10,7 +10,7 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
-  solicitud: Solicitud
+  solicitud: Solicitud | null
   rolEvaluador: 'infraestructura' | 'ciberseguridad'
 }
 
@@ -23,8 +23,8 @@ export default function EvaluacionModal({ isOpen, onClose, onSuccess, solicitud,
 
   useEffect(() => {
     if (solicitud && solicitud.evaluacion) {
-      setPresupuesto(String(solicitud.evaluacion.presupuesto || '0'))
-      setIntegracionesDetalle(solicitud.evaluacion.integraciones_detalle || '')
+      setPresupuesto(String(solicitud.evaluacion.presupuesto ?? '0'))
+      setIntegracionesDetalle(solicitud.evaluacion.integraciones_detalle || (solicitud.evaluacion as any).integraciones_detail || '')
       setReglasPerimetrales(solicitud.evaluacion.reglas_perimetrales || '')
       setComentarios(solicitud.evaluacion.comentarios || '')
     } else {
@@ -35,9 +35,11 @@ export default function EvaluacionModal({ isOpen, onClose, onSuccess, solicitud,
     }
   }, [solicitud, isOpen])
 
-  if (!isOpen) return null
+  if (!isOpen || !solicitud) return null
 
   const handleAction = async (decision: 'Aprobar' | 'Rechazar') => {
+    if (!solicitud) return
+
     // Si se rechaza, los comentarios de rechazo son obligatorios
     if (decision === 'Rechazar') {
       const { value: text } = await Swal.fire({
@@ -75,7 +77,18 @@ export default function EvaluacionModal({ isOpen, onClose, onSuccess, solicitud,
           rol_evaluador: rolEvaluador
         }
 
-        await saveEvaluacionAction(evalPayload)
+        const evalRes = await saveEvaluacionAction(evalPayload)
+        if (!evalRes.success) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error al Guardar Evaluación',
+            text: evalRes.error || 'Ocurrió un error inesperado al registrar la evaluación.',
+            confirmButtonColor: 'var(--primary, #ec5b13)'
+          })
+          setLoading(false)
+          return
+        }
+
         const res = await updateSolicitudEstadoAction(solicitud.id, 'Rechazado', text)
 
         if (res.success) {
@@ -138,7 +151,17 @@ export default function EvaluacionModal({ isOpen, onClose, onSuccess, solicitud,
       }
 
       // Guardamos la evaluación
-      await saveEvaluacionAction(evalPayload)
+      const evalRes = await saveEvaluacionAction(evalPayload)
+      if (!evalRes.success) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error al Guardar Evaluación',
+          text: evalRes.error || 'Ocurrió un error inesperado al guardar la evaluación.',
+          confirmButtonColor: 'var(--primary, #ec5b13)'
+        })
+        setLoading(false)
+        return
+      }
 
       // Transición de estado:
       // Infraestructura -> Pendiente Ciberseguridad
@@ -194,7 +217,7 @@ export default function EvaluacionModal({ isOpen, onClose, onSuccess, solicitud,
               {isInfra ? 'Evaluación Técnica de Infraestructura' : 'Aprobación Final de Ciberseguridad'}
             </h2>
           </div>
-          <button className={styles.closeBtn} onClick={onClose}>
+          <button className={styles.closeBtn} onClick={onClose} disabled={loading}>
             ✕
           </button>
         </div>
@@ -203,16 +226,40 @@ export default function EvaluacionModal({ isOpen, onClose, onSuccess, solicitud,
           <div className={styles.solicitudSummary}>
             <div className={styles.summaryRow}>
               <span className={styles.summaryLabel}>Proyectista:</span>
-              <span className={styles.summaryValue}>{solicitud.proyectista_nombre}</span>
+              <span className={styles.summaryValue}>{solicitud.proyectista_nombre || 'No asignado'}</span>
             </div>
             <div className={styles.summaryRow}>
               <span className={styles.summaryLabel}>Negocio:</span>
-              <span className={styles.summaryValue}>{solicitud.descripcion_negocio}</span>
+              <span className={styles.summaryValue}>{solicitud.descripcion_negocio || 'Sin descripción'}</span>
             </div>
             <div className={styles.summaryRow}>
               <span className={styles.summaryLabel}>Sustento:</span>
-              <span className={styles.summaryValue} style={{ fontStyle: 'italic' }}>"{solicitud.sustento_tecnico}"</span>
+              <span className={styles.summaryValue} style={{ fontStyle: 'italic' }}>"{solicitud.sustento_tecnico || 'Sin sustento'}"</span>
             </div>
+            {solicitud.componentes && solicitud.componentes.length > 0 && (
+              <div className={styles.summaryRow} style={{ marginTop: '4px' }}>
+                <span className={styles.summaryLabel}>Componentes:</span>
+                <span className={styles.summaryValue}>
+                  {solicitud.componentes.map(c => `${c.servicio_requerido} (${c.entorno})`).join(', ')}
+                </span>
+              </div>
+            )}
+            {!isInfra && (
+              <>
+                <div className={styles.summaryRow} style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed var(--slate-200)' }}>
+                  <span className={styles.summaryLabel}>Presupuesto Infra:</span>
+                  <span className={styles.summaryValue} style={{ fontWeight: 600, color: 'var(--primary, #0f3d3e)' }}>
+                    S/. {Number(solicitud.evaluacion?.presupuesto || presupuesto || 0).toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                {solicitud.evaluacion?.integraciones_detalle && (
+                  <div className={styles.summaryRow}>
+                    <span className={styles.summaryLabel}>Integraciones:</span>
+                    <span className={styles.summaryValue}>{solicitud.evaluacion.integraciones_detalle}</span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {isInfra ? (
@@ -274,10 +321,10 @@ export default function EvaluacionModal({ isOpen, onClose, onSuccess, solicitud,
             Cerrar
           </button>
           <button type="button" onClick={() => handleAction('Rechazar')} className={styles.btnReject} disabled={loading}>
-            Rechazar
+            {loading ? 'Procesando...' : 'Rechazar'}
           </button>
           <button type="button" onClick={() => handleAction('Aprobar')} className={styles.btnApprove} disabled={loading}>
-            {isInfra ? 'Pre-Aprobar' : 'Aprobación Final'}
+            {loading ? 'Guardando...' : (isInfra ? 'Pre-Aprobar' : 'Aprobación Final')}
           </button>
         </div>
       </div>

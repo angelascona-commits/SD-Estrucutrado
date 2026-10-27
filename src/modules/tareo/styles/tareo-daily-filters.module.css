@@ -4,8 +4,8 @@
   gap: 16px;
   padding: 20px;
   border-radius: 16px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
+  border: 1px solid var(--slate-200, #e5e7eb);
+  background: var(--bg-white, #ffffff);
 }
 
 .topRow {
@@ -20,11 +20,12 @@
   margin: 0;
   font-size: 18px;
   font-weight: 700;
+  color: var(--slate-900);
 }
 
 .subtitle {
   margin: 6px 0 0;
-  color: #6b7280;
+  color: var(--slate-500, #6b7280);
   font-size: 14px;
 }
 
@@ -39,20 +40,31 @@
   padding: 0 16px;
   border-radius: 10px;
   border: none;
-  background: #111827;
+  background: var(--primary, #111827);
   color: #ffffff;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s;
+}
+
+.toggleButton:hover {
+  background: var(--primary-hover);
 }
 
 .clearButton {
   height: 40px;
   padding: 0 16px;
   border-radius: 10px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
+  border: 1px solid var(--slate-300, #d1d5db);
+  background: var(--bg-white, #ffffff);
+  color: var(--slate-700);
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.15s;
+}
+
+.clearButton:hover {
+  background: var(--slate-100);
 }
 
 .activeFiltersRow {
@@ -64,11 +76,11 @@
 .filterTag {
   padding: 8px 12px;
   border-radius: 999px;
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
+  background: var(--slate-100, #f3f4f6);
+  border: 1px solid var(--slate-200, #e5e7eb);
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: var(--slate-700, #374151);
 }
 
 .filtersPanel {
@@ -96,14 +108,16 @@
 .label {
   font-size: 14px;
   font-weight: 600;
+  color: var(--slate-700);
 }
 
 .input,
 .select {
   height: 42px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--slate-300, #d1d5db);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
+  color: var(--slate-900);
   padding: 0 12px;
   font-size: 14px;
 }
@@ -116,27 +130,27 @@
 .multiSelectTrigger {
   height: 42px;
   width: 100%;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--slate-300, #d1d5db);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   padding: 0 12px;
   font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
-  color: #374151;
+  color: var(--slate-800, #374151);
   text-align: left;
   transition: border-color 0.15s ease;
 }
 
 .multiSelectTrigger:hover {
-  border-color: #9ca3af;
+  border-color: var(--slate-400, #9ca3af);
 }
 
 .multiSelectTriggerActive {
-  border-color: #ec5b13;
-  box-shadow: 0 0 0 1px #ec5b13;
+  border-color: var(--primary, #ec5b13);
+  box-shadow: 0 0 0 1px var(--primary, #ec5b13);
 }
 
 .triggerText {
@@ -150,8 +164,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: #ffedd5;
-  color: #c2410c;
+  background-color: var(--orange-100, #ffedd5);
+  color: var(--orange-700, #c2410c);
   font-size: 11px;
   font-weight: 700;
   padding: 2px 8px;
@@ -164,10 +178,10 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background-color: #ffffff;
-  border: 1px solid #e5e7eb;
+  background-color: var(--bg-white, #ffffff);
+  border: 1px solid var(--slate-200, #e5e7eb);
   border-radius: 12px;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--modal-shadow);
   z-index: 99;
   max-height: 260px;
   display: flex;
@@ -180,14 +194,14 @@
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  border-bottom: 1px solid #f3f4f6;
-  background-color: #f9fafb;
+  border-bottom: 1px solid var(--slate-200, #f3f4f6);
+  background-color: var(--slate-50, #f9fafb);
 }
 
 .popoverAction {
   background: none;
   border: none;
-  color: #ec5b13;
+  color: var(--primary, #ec5b13);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -196,7 +210,7 @@
 }
 
 .popoverAction:hover {
-  background-color: #ffedd5;
+  background-color: var(--orange-100, #ffedd5);
 }
 
 .popoverList {
@@ -214,18 +228,18 @@
   padding: 8px 12px;
   cursor: pointer;
   font-size: 13px;
-  color: #374151;
+  color: var(--slate-700, #374151);
   transition: background-color 0.12s;
 }
 
 .popoverOption:hover {
-  background-color: #f3f4f6;
+  background-color: var(--slate-100, #f3f4f6);
 }
 
 .popoverOptionSelected {
-  background-color: #fff7ed;
+  background-color: var(--orange-100, #fff7ed);
   font-weight: 600;
-  color: #c2410c;
+  color: var(--orange-700, #c2410c);
 }
 
 .summaryRow {
@@ -238,8 +252,8 @@
   min-width: 180px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--slate-50, #f9fafb);
+  border: 1px solid var(--slate-200, #e5e7eb);
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -247,7 +261,7 @@
 
 .summaryLabel {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--slate-500, #6b7280);
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -255,7 +269,7 @@
 .summaryValue {
   font-size: 18px;
   font-weight: 700;
-  color: #111827;
+  color: var(--slate-900, #111827);
 }
 
 @media (max-width: 1024px) {

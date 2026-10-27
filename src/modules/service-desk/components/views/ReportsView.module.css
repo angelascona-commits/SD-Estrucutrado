@@ -32,7 +32,7 @@
 }
 
 .actionButton {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   color: var(--slate-700, #334155);
   border: 1px solid var(--slate-300, #cbd5e1);
   padding: 8px 16px;
@@ -44,7 +44,7 @@
 }
 
 .actionButton:hover {
-  background: var(--slate-50, #f8fafc);
+  background: var(--slate-100, #f8fafc);
 }
 
 .reportCaptureArea {
@@ -86,7 +86,7 @@
 }
 
 .kpiCard {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   border: 1px solid var(--slate-200, #e2e8f0);
   border-radius: 12px;
   padding: 16px;
@@ -108,7 +108,7 @@
 }
 
 .reportTableWrapper {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   border: 1px solid var(--slate-200, #e2e8f0);
   border-radius: 12px;
   overflow: auto;
@@ -140,7 +140,7 @@
 }
 
 .emptyState {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   border: 1px dashed var(--slate-300, #cbd5e1);
   border-radius: 12px;
   padding: 20px;

@@ -43,7 +43,7 @@
   gap: 6px;
   padding: 4px;
   border: 1px solid var(--slate-200, #e2e8f0);
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   border-radius: 12px;
 }
 
@@ -62,12 +62,12 @@
 }
 
 .viewTabActive {
-  background: var(--orange-600, #ea580c);
+  background: var(--primary, #ea580c);
   color: #ffffff;
 }
 
 .btnPrimary {
-  background: var(--orange-600, #ea580c);
+  background: var(--primary, #ea580c);
   color: white;
   border: none;
   padding: 8px 20px;
@@ -80,11 +80,11 @@
 }
 
 .btnPrimary:hover {
-  background: var(--orange-700, #c2410c);
+  background: var(--primary-hover, #c2410c);
 }
 
 .btnSecondary {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   color: var(--slate-600, #475569);
   border: 1px solid var(--slate-300, #cbd5e1);
   padding: 8px 16px;

@@ -9,6 +9,13 @@
   animation: fadeIn 0.3s ease;
 }
 
+.themeToggleWrapper {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  z-index: 20;
+}
+
 /* Barra naranja superior */
 .main::before {
   content: '';

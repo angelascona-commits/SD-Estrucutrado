@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { getDominiosUsuarioAction } from '@/modules/admin/actions/roles.action'
 import type { DomainItem } from '@/modules/admin/interfaces/roles.interfaces'
+import ThemeToggle from '@/modules/shared/components/ThemeToggle'
 import styles from './AppSidebar.module.css'
 
 interface AppSidebarProps {
@@ -94,6 +95,10 @@ export default function AppSidebar({ isCollapsed, userRole, userId, userDomains 
             )
           })
         )}
+      </div>
+
+      <div className={styles.sidebarFooter}>
+        <ThemeToggle showLabel={!isCollapsed} className={styles.themeToggleBtn} />
       </div>
     </aside>
   )

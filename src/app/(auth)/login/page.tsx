@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/modules/shared/utils/session'
 import { LoginForm } from '@/modules/auth/components/LoginForm'
+import ThemeToggle from '@/modules/shared/components/ThemeToggle'
 import styles from './page.module.css'
 
 export default async function LoginPage() {
@@ -10,6 +11,9 @@ export default async function LoginPage() {
 
   return (
     <main className={styles.main}>
+      <div className={styles.themeToggleWrapper}>
+        <ThemeToggle />
+      </div>
       <div className={styles.container}>
         <header className={styles.header}>
           <h1 className={styles.title}>Bienvenido</h1>
@@ -24,4 +28,4 @@ export default async function LoginPage() {
       </div>
     </main>
   )
-}
+}

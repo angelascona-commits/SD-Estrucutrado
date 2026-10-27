@@ -9,8 +9,8 @@
   min-width: 220px;
   padding: 16px 20px;
   border-radius: 16px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
+  border: 1px solid var(--slate-200, #e5e7eb);
+  background: var(--bg-white, #ffffff);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -19,8 +19,8 @@
 }
 
 .card:hover {
-  border-color: #d1d5db;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  border-color: var(--slate-300, #d1d5db);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
 }
 
 .cardHeader {
@@ -34,7 +34,7 @@
 .cardTitle {
   font-size: 12px;
   font-weight: 700;
-  color: #64748b;
+  color: var(--slate-500, #64748b);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -42,7 +42,7 @@
 .cardValue {
   font-size: 28px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--slate-900, #0f172a);
   line-height: 1.1;
   margin: 6px 0;
 }
@@ -54,9 +54,9 @@
 }
 
 .toggleBtn {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1d4ed8;
+  background: var(--blue-100, #eff6ff);
+  border: 1px solid var(--blue-700, #bfdbfe);
+  color: var(--blue-700, #1d4ed8);
   font-size: 11px;
   font-weight: 700;
   padding: 4px 10px;
@@ -70,17 +70,15 @@
 }
 
 .toggleBtn:hover {
-  background: #dbeafe;
-  border-color: #93c5fd;
-  color: #1e40af;
+  filter: brightness(0.95);
 }
 
 .cardHelper {
   font-size: 11px;
   font-weight: 600;
-  color: #64748b;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  color: var(--slate-500, #64748b);
+  background: var(--slate-50, #f8fafc);
+  border: 1px solid var(--slate-200, #e2e8f0);
   padding: 4px 9px;
   border-radius: 6px;
   display: inline-flex;
@@ -93,7 +91,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #3b82f6;
+  background-color: var(--primary, #3b82f6);
   display: inline-block;
   flex-shrink: 0;
 }
@@ -101,9 +99,9 @@
 .dateBadge {
   font-size: 11px;
   font-weight: 700;
-  color: #2563eb;
-  background: #eff6ff;
+  color: var(--blue-700, #2563eb);
+  background: var(--blue-100, #eff6ff);
   padding: 2px 7px;
   border-radius: 6px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--blue-100, #dbeafe);
 }

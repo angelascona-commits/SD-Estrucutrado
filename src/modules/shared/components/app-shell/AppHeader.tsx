@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useTransition } from 'react'
 import Link from 'next/link'
 import { logoutAction } from '@/modules/auth/actions/logout.action'
+import { useTheme } from '@/modules/shared/providers/ThemeProvider'
 import styles from './AppHeader.module.css'
 
 interface AppHeaderProps {
@@ -22,6 +23,7 @@ export default function AppHeader({ toggleSidebar, usuario }: AppHeaderProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const menuRef = useRef<HTMLDivElement>(null)
+  const { theme, toggleTheme } = useTheme()
 
   const nombreMostrar = usuario?.nombre || 'Usuario'
   const rolMostrar = usuario?.rol || 'Agente'
@@ -62,8 +64,6 @@ export default function AppHeader({ toggleSidebar, usuario }: AppHeaderProps) {
       </div>
 
       <div className={styles.headerRight}>
-        <div className={styles.divider}></div>
-
         <div className={styles.userProfileWrapper} ref={menuRef}>
           <button
             type="button"
@@ -92,6 +92,17 @@ export default function AppHeader({ toggleSidebar, usuario }: AppHeaderProps) {
               </div>
 
               <div className={styles.dropdownDivider}></div>
+
+              <button
+                type="button"
+                className={styles.dropdownItem}
+                onClick={toggleTheme}
+              >
+                <span className={`material-symbols-outlined ${styles.dropdownItemIcon}`}>
+                  {theme === 'dark' ? 'light_mode' : 'dark_mode'}
+                </span>
+                <span>{theme === 'dark' ? 'Modo Claro' : 'Modo Oscuro'}</span>
+              </button>
 
               {isAdmin && (
                 <Link
@@ -125,4 +136,4 @@ export default function AppHeader({ toggleSidebar, usuario }: AppHeaderProps) {
       </div>
     </header>
   )
-}
+}

@@ -23,7 +23,7 @@
   padding: 0 16px;
   border-radius: 10px;
   border: none;
-  background: #111827;
+  background: var(--primary, #ec5b13);
   color: #ffffff;
   cursor: pointer;
   font-weight: 600;
@@ -31,7 +31,7 @@
 }
 
 .primaryButton:hover {
-  background: #374151;
+  background: var(--primary-hover, #d94e0e);
 }
 
 .primaryButton:disabled {
@@ -43,28 +43,28 @@
   height: 40px;
   padding: 0 16px;
   border-radius: 10px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #374151;
+  border: 1px solid var(--slate-300, #d1d5db);
+  background: var(--bg-white, #ffffff);
+  color: var(--slate-700, #374151);
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s;
 }
 
 .secondaryButton:hover {
-  background: #f3f4f6;
+  background: var(--slate-100, #f3f4f6);
 }
 
 .title {
   margin: 0;
   font-size: 24px;
   font-weight: 700;
-  color: #111827;
+  color: var(--slate-900, #111827);
 }
 
 .subtitle {
   margin: 0;
-  color: #6b7280;
+  color: var(--slate-500, #6b7280);
   font-size: 14px;
 }
 
@@ -79,28 +79,34 @@
   flex-direction: column;
   gap: 6px;
   margin-bottom: 20px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .label {
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: var(--slate-700, #374151);
 }
 
 .input {
   height: 40px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   border-radius: 10px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--slate-300, #d1d5db);
   padding: 0 12px;
-  background: #ffffff;
-  color: #111827;
+  background: var(--bg-white, #ffffff);
+  color: var(--slate-900, #111827);
   outline: none;
   font-size: 14px;
 }
 
 .input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 3px var(--primary-ring, rgba(37, 99, 235, 0.1));
 }
 
 .modalOverlay {
@@ -108,43 +114,52 @@
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 20px;
+  padding: 32px 16px 60px 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .modalLarge {
-  background: #ffffff;
-  border-radius: 20px;
-  width: 960px;
-  max-width: 95vw;
-  max-height: 90vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 32px 36px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+  background: var(--bg-white, #ffffff);
+  border: 1px solid var(--slate-200, #e2e8f0);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 760px;
+  box-sizing: border-box;
+  padding: 24px 28px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  color: var(--slate-900);
+  margin: 0 auto;
+  overflow: hidden;
 }
 
 .modalMedium {
-  background: #ffffff;
-  border-radius: 18px;
-  width: 860px;
-  max-width: 95vw;
-  max-height: 90vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 32px 36px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  background: var(--bg-white, #ffffff);
+  border: 1px solid var(--slate-200, #e2e8f0);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 650px;
+  box-sizing: border-box;
+  padding: 24px 28px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  color: var(--slate-900);
+  margin: 0 auto;
+  overflow: hidden;
 }
 
 .modalSuccess {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
+  border: 1px solid var(--slate-200, #e2e8f0);
   border-radius: 18px;
   width: 450px;
   padding: 32px;
   text-align: center;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  color: var(--slate-900);
 }
 
 .tabGroup {
@@ -157,9 +172,9 @@
   flex: 1;
   padding: 12px 14px;
   border-radius: 12px;
-  border: 2px solid #2563eb;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border: 2px solid var(--primary, #2563eb);
+  background: var(--primary-light, #eff6ff);
+  color: var(--primary, #1d4ed8);
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
@@ -171,9 +186,9 @@
   flex: 1;
   padding: 12px 14px;
   border-radius: 12px;
-  border: 2px solid #e5e7eb;
-  background: #ffffff;
-  color: #4b5563;
+  border: 2px solid var(--slate-200, #e5e7eb);
+  background: var(--bg-white, #ffffff);
+  color: var(--slate-600, #4b5563);
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;
@@ -190,8 +205,10 @@
 
 .gridTwo {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .gridThree {
@@ -200,9 +217,10 @@
   gap: 8px;
   max-height: 220px;
   overflow-y: auto;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--slate-200, #e5e7eb);
   border-radius: 12px;
   padding: 12px;
+  background: var(--bg-white, #ffffff);
 }
 
 .periodCheckboxLabel {
@@ -213,7 +231,7 @@
   padding: 6px 10px;
   border-radius: 8px;
   font-size: 13px;
-  color: #374151;
+  color: var(--slate-700, #374151);
   transition: 0.15s;
 }
 
@@ -224,15 +242,15 @@
   cursor: pointer;
   padding: 6px 10px;
   border-radius: 8px;
-  background: #eff6ff;
-  border: 1.5px solid #93c5fd;
+  background: var(--blue-100, #eff6ff);
+  border: 1.5px solid var(--blue-700, #93c5fd);
   font-size: 13px;
-  color: #374151;
+  color: var(--slate-900, #374151);
   transition: 0.15s;
 }
 
 .periodCheckbox {
-  accent-color: #2563eb;
+  accent-color: var(--primary, #2563eb);
   width: 15px;
   height: 15px;
 }
@@ -240,7 +258,8 @@
 .iconSuccessCircle {
   width: 64px;
   height: 64px;
-  background: #d1fae5;
+  background: var(--emerald-100, #d1fae5);
+  color: var(--emerald-700, #047857);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -259,9 +278,9 @@
   height: 42px;
   padding: 0 12px;
   border-radius: 10px;
-  border: 1px solid #d1d5db;
-  background: #f8fafc;
+  border: 1px solid var(--slate-300, #d1d5db);
+  background: var(--slate-50, #f8fafc);
   font-size: 13px;
-  color: #334155;
+  color: var(--slate-800, #334155);
   font-weight: 500;
 }

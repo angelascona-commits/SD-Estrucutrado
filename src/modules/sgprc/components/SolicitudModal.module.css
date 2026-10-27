@@ -11,7 +11,8 @@
 }
 
 .modal {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
+  border: 1px solid var(--slate-200);
   border-radius: 20px;
   width: 100%;
   max-width: 800px;
@@ -58,6 +59,8 @@
   font-weight: 700;
   color: var(--slate-900);
   margin: 0;
+  border: none;
+  outline: none;
 }
 
 .closeBtn {
@@ -127,7 +130,7 @@
   font-size: 14px;
   outline: none;
   transition: all 0.2s;
-  background-color: #fff;
+  background-color: var(--bg-white, #fff);
   color: var(--slate-900);
 }
 
@@ -243,7 +246,7 @@
 }
 
 .btnCancel {
-  background-color: #fff;
+  background-color: var(--bg-white, #fff);
   border: 1.5px solid var(--slate-200);
   color: var(--slate-600);
   padding: 10px 20px;

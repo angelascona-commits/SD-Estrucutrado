@@ -67,7 +67,7 @@
 }
 
 .metricCard {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   border: 1px solid var(--slate-200);
   border-radius: 16px;
   padding: 20px;
@@ -120,7 +120,7 @@
 .bgApproved { background-color: #ecfdf5; color: #059669; }
 
 .filtersCard {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   border: 1px solid var(--slate-200);
   border-radius: 16px;
   padding: 16px 20px;
@@ -144,6 +144,8 @@
   border: 1.5px solid var(--slate-200);
   outline: none;
   font-size: 14px;
+  background-color: var(--bg-white, #ffffff);
+  color: var(--slate-900);
   transition: all 0.2s;
 }
 
@@ -158,12 +160,12 @@
   border: 1.5px solid var(--slate-200);
   outline: none;
   font-size: 14px;
-  background-color: #fff;
+  background-color: var(--bg-white, #fff);
   color: var(--slate-900);
 }
 
 .tableCard {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
   border: 1px solid var(--slate-200);
   border-radius: 20px;
   overflow: hidden;
@@ -324,7 +326,8 @@
 }
 
 .mailSimModal {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
+  border: 1px solid var(--slate-200);
   border-radius: 20px;
   width: 100%;
   max-width: 660px;

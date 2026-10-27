@@ -710,24 +710,23 @@ export default function TareoView() {
   }
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
-    flex: 1,
-    minWidth: 0,
-    padding: '11px 14px',
-    borderRadius: '10px',
-    border: active ? '2px solid #2563eb' : '1.5px solid #e5e7eb',
-    background: active ? '#eff6ff' : '#ffffff',
-    color: active ? '#1d4ed8' : '#4b5563',
+    padding: '8px 6px',
+    borderRadius: '8px',
+    border: active ? '2px solid var(--primary, #ec5b13)' : '1px solid var(--slate-300, #d1d5db)',
+    background: active ? '#fff7ed' : '#ffffff',
+    color: active ? '#c2410c' : '#374151',
     fontWeight: active ? 600 : 500,
-    fontSize: '13px',
+    fontSize: '12px',
     cursor: 'pointer',
     textAlign: 'center',
-    transition: 'all 0.18s',
+    transition: 'all 0.15s',
     display: 'flex',
-    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '3px',
     boxSizing: 'border-box',
+    width: '100%',
+    minWidth: 0,
+    lineHeight: 1.25,
   })
 
   if (loading) {
@@ -747,18 +746,18 @@ export default function TareoView() {
         ] as const
 
         const fieldStyle: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: '6px' }
-        const labelStyle: React.CSSProperties = { fontWeight: 600, fontSize: '13px', color: '#374151' }
-        const selectStyle: React.CSSProperties = { width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid #d1d5db', fontSize: '14px' }
+        const labelStyle: React.CSSProperties = { fontWeight: 600, fontSize: '13px', color: 'var(--slate-700, #374151)' }
+        const selectStyle: React.CSSProperties = { width: '100%', height: '42px', padding: '0 12px', borderRadius: '10px', border: '1px solid var(--slate-300, #d1d5db)', backgroundColor: 'var(--bg-white, #ffffff)', color: 'var(--slate-900, #0f172a)', fontSize: '14px' }
 
         const isMono = exportTipoReporte === 'standard' || exportTipoReporte === 'equipo_recurso'
 
         return (
           <div className={styles.modalOverlay}>
             <div className={styles.modalLarge}>
-
-              {/* Título */}
-              <h3 className={styles.title}>Exportar Reporte</h3>
-              <p className={styles.subtitle} style={{ marginBottom: '20px' }}>Selecciona el tipo de reporte y configura los parámetros.</p>
+              <div style={{ marginBottom: '20px' }}>
+                <h3 className={styles.title} style={{ margin: 0, fontSize: '20px' }}>Exportar Reporte</h3>
+                <p className={styles.subtitle} style={{ margin: '6px 0 0 0', fontSize: '13px' }}>Selecciona el tipo de reporte y configura los parámetros.</p>
+              </div>
 
               {/* Tabs de tipo de reporte */}
               <div className={styles.tabGroup}>
@@ -815,27 +814,27 @@ export default function TareoView() {
                   {/* Filtro de Duración de Tarea */}
                   <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
                     <label className={styles.label}>Filtro de Duración de Tareas</label>
-                    <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
                       <button
                         type="button"
                         style={tabStyle(exportFilters.duracionFiltro === 'todas')}
                         onClick={() => setExportFilters({ ...exportFilters, duracionFiltro: 'todas' })}
                       >
-                        <div>Todas las tareas</div>
+                        Todas las tareas
                       </button>
                       <button
                         type="button"
                         style={tabStyle(exportFilters.duracionFiltro === 'mas_50h')}
                         onClick={() => setExportFilters({ ...exportFilters, duracionFiltro: 'mas_50h' })}
                       >
-                        <div>Tareas Largas (&gt; 50 horas)</div>
+                        Tareas Largas (&gt; 50 horas)
                       </button>
                       <button
                         type="button"
                         style={tabStyle(exportFilters.duracionFiltro === 'hasta_50h')}
                         onClick={() => setExportFilters({ ...exportFilters, duracionFiltro: 'hasta_50h' })}
                       >
-                        <div>Tareas Estándar (≤ 50 horas)</div>
+                        Tareas Estándar (≤ 50 horas)
                       </button>
                     </div>
                   </div>
@@ -843,7 +842,7 @@ export default function TareoView() {
                   {/* Estructura del Detalle en Excel */}
                   <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
                     <label className={styles.label}>Estructura del Detalle en Excel</label>
-                    <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                    <div style={{ display: 'flex', gap: '10px', width: '100%', flexWrap: 'wrap' }}>
                       <button
                         type="button"
                         style={tabStyle(exportFilters.layout === 'protecta_oficial' || exportFilters.layout === 'por_area')}
@@ -972,12 +971,14 @@ export default function TareoView() {
       {linkModalOpen && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalMedium}>
-            <h3 className={styles.title}>Generar Link de Reporte</h3>
-            <p className={styles.subtitle} style={{ marginBottom: '24px' }}>
-              Seleccione los filtros para el reporte externo interactivo si lo desea.
-            </p>
+            <div style={{ marginBottom: '20px' }}>
+              <h3 className={styles.title} style={{ margin: 0, fontSize: '20px' }}>Generar Link de Reporte</h3>
+              <p className={styles.subtitle} style={{ margin: '6px 0 0 0', fontSize: '13px' }}>
+                Seleccione los filtros para el reporte externo interactivo si lo desea.
+              </p>
+            </div>
 
-            <div className={styles.gridTwo} style={{ marginBottom: '24px' }}>
+            <div className={styles.gridTwo}>
               <div className={styles.field}>
                 <label className={styles.label}>Costo por Hora (S/.)</label>
                 <input
@@ -1066,29 +1067,29 @@ export default function TareoView() {
               </div>
 
               {/* Filtro de Duración en Link */}
-              <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
+              <div className={styles.field} style={{ gridColumn: '1 / -1', marginBottom: '14px' }}>
                 <label className={styles.label}>Filtro de Duración de Tareas</label>
-                <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '8px', width: '100%', boxSizing: 'border-box' }}>
                   <button
                     type="button"
                     style={tabStyle(linkFilters.duracionFiltro === 'todas')}
                     onClick={() => setLinkFilters({ ...linkFilters, duracionFiltro: 'todas' })}
                   >
-                    <div>Todas las tareas</div>
+                    Todas las tareas
                   </button>
                   <button
                     type="button"
                     style={tabStyle(linkFilters.duracionFiltro === 'mas_50h')}
                     onClick={() => setLinkFilters({ ...linkFilters, duracionFiltro: 'mas_50h' })}
                   >
-                    <div>Tareas Largas (&gt; 50 horas)</div>
+                    Tareas Largas (&gt; 50 horas)
                   </button>
                   <button
                     type="button"
                     style={tabStyle(linkFilters.duracionFiltro === 'hasta_50h')}
                     onClick={() => setLinkFilters({ ...linkFilters, duracionFiltro: 'hasta_50h' })}
                   >
-                    <div>Tareas Estándar (≤ 50 horas)</div>
+                    Tareas Estándar (≤ 50 horas)
                   </button>
                 </div>
               </div>
@@ -1112,7 +1113,7 @@ export default function TareoView() {
                 </select>
               </div>
 
-              <div className={styles.field} style={{ gridColumn: '1 / -1' }}>
+              <div className={styles.field} style={{ gridColumn: '1 / -1', marginBottom: '8px' }}>
                 <label className={styles.label}>Recurso (Opcional)</label>
                 <select
                   value={linkFilters.trabajador_id}
@@ -1128,11 +1129,17 @@ export default function TareoView() {
               </div>
             </div>
 
-            <div className={styles.actions} style={{ justifyContent: 'flex-end' }}>
+            <div className={styles.actions} style={{ justifyContent: 'flex-end', marginTop: '24px' }}>
               <button type="button" className={styles.secondaryButton} onClick={() => setLinkModalOpen(false)}>
                 Cancelar
               </button>
-              <button type="button" className={styles.primaryButton} onClick={confirmGenerateLink} disabled={generatingLink}>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={confirmGenerateLink}
+                disabled={generatingLink}
+                style={{ background: '#ec5b13', color: '#fff', border: 'none' }}
+              >
                 {generatingLink ? 'Generando...' : 'Crear Link'}
               </button>
             </div>

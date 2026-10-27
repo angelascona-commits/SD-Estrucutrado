@@ -1,7 +1,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(34, 22, 16, 0.5);
+  background-color: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -11,7 +11,8 @@
 }
 
 .modal {
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
+  border: 1px solid var(--slate-200);
   width: 100%;
   max-width: 1100px;
   max-height: 90vh;
@@ -20,6 +21,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  color: var(--slate-900);
 }
 
 .header {
@@ -28,29 +30,37 @@
   justify-content: space-between;
   gap: 16px;
   padding: 18px 24px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--slate-200, #e2e8f0);
 }
 
 .title {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--slate-900, #0f172a);
+  border: none;
+  outline: none;
 }
 
 .subtitle {
   margin: 6px 0 0;
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--slate-500, #64748b);
+  border: none;
+  outline: none;
 }
 
 .closeButton {
   border: none;
   background: transparent;
-  color: #64748b;
+  color: var(--slate-400, #64748b);
   font-size: 1.5rem;
   cursor: pointer;
   line-height: 1;
+}
+
+.closeButton:hover {
+  color: var(--slate-900);
 }
 
 .body {
@@ -60,10 +70,10 @@
 
 .emptyState {
   padding: 32px 16px;
-  border: 1px dashed #cbd5e1;
+  border: 1px dashed var(--slate-300, #cbd5e1);
   border-radius: 10px;
-  color: #64748b;
-  background: #f8fafc;
+  color: var(--slate-500, #64748b);
+  background: var(--slate-50, #f8fafc);
   font-size: 0.95rem;
 }
 
@@ -79,18 +89,19 @@
 .table thead th {
   text-align: left;
   font-size: 0.8rem;
-  color: #64748b;
+  color: var(--slate-500, #64748b);
   font-weight: 700;
   padding: 12px 10px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--slate-200, #e2e8f0);
+  background: var(--slate-50, #f8fafc);
   white-space: nowrap;
 }
 
 .table tbody td {
   padding: 14px 10px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--slate-100, #f1f5f9);
   font-size: 0.9rem;
-  color: #0f172a;
+  color: var(--slate-800, #0f172a);
   vertical-align: top;
 }
 
@@ -109,15 +120,15 @@
   justify-content: center;
   padding: 4px 10px;
   border-radius: 999px;
-  background: #fef2f2;
-  color: #b91c1c;
+  background: var(--red-100, #fef2f2);
+  color: var(--red-700, #b91c1c);
   font-size: 0.75rem;
   font-weight: 700;
 }
 
 .actionButton {
   border: none;
-  background: #ea580c;
+  background: var(--primary, #ea580c);
   color: #ffffff;
   border-radius: 8px;
   padding: 8px 12px;
@@ -126,13 +137,13 @@
 }
 
 .actionButton:hover {
-  background: #c2410c;
+  background: var(--primary-hover, #c2410c);
 }
 
 .footer {
   padding: 16px 24px;
-  background: #f8fafc;
-  border-top: 1px solid #e2e8f0;
+  background: var(--slate-50, #f8fafc);
+  border-top: 1px solid var(--slate-200, #e2e8f0);
   display: flex;
   justify-content: flex-end;
 }
@@ -142,13 +153,14 @@
   border-radius: 8px;
   font-weight: 700;
   cursor: pointer;
-  background: #ffffff;
-  color: #475569;
-  border: 1px solid #cbd5e1;
+  background: var(--bg-white, #ffffff);
+  color: var(--slate-700, #475569);
+  border: 1px solid var(--slate-300, #cbd5e1);
+  transition: all 0.15s;
 }
 
 .secondaryButton:hover {
-  background: #f8fafc;
+  background: var(--slate-100, #f8fafc);
 }
 
 @media (max-width: 768px) {

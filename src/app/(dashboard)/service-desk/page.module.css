@@ -1,7 +1,7 @@
 /* Estilos Base del Dashboard (Adaptados de Dashboard.css) */
 .container {
   padding: 24px;
-  background-color: var(--color-background, #f9fafb);
+  background-color: var(--bg-light, #f9fafb);
   min-height: 100vh;
   zoom: 80%;
 }
@@ -55,7 +55,7 @@
 }
 
 .ticketTable tr:hover {
-  background-color: #c9cfd1;
+  background-color: var(--slate-100, #f1f5f9);
   cursor: pointer;
 }
 
@@ -395,7 +395,7 @@
   gap: 8px;
   font-size: 1rem;
   font-weight: 700;
-  color: var(--slate-800, #1e293b);
+  color: var(--slate-900, #1e293b);
 }
 
 .urgentIcon {
@@ -404,7 +404,7 @@
 
 .urgentLink {
   font-size: 0.8rem;
-  color: var(--orange-600, #ea580c);
+  color: var(--primary, #ea580c);
   text-decoration: none;
   font-weight: 600;
 }
@@ -420,7 +420,7 @@
 }
 
 .urgentCard {
-  background: white;
+  background: var(--bg-white, #ffffff);
   border: 1px solid var(--slate-200, #e2e8f0);
   border-left: 4px solid #ef4444;
   border-radius: 8px;
@@ -428,7 +428,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  box-shadow: var(--card-shadow);
 }
 
 .urgentCardHeader {
@@ -439,13 +439,13 @@
 
 .urgentId {
   font-weight: 700;
-  color: var(--orange-600, #ea580c);
+  color: var(--primary, #ea580c);
   font-size: 0.9rem;
 }
 
 .urgentPill {
-  background: #fef2f2;
-  color: #ef4444;
+  background: var(--red-100, #fef2f2);
+  color: var(--red-500, #ef4444);
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 0.65rem;
@@ -478,13 +478,13 @@
 }
 
 .urgentDesignado strong {
-  color: var(--slate-700, #334155);
+  color: var(--slate-800, #334155);
 }
 
 .urgentActionLink {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--orange-600, #ea580c);
+  color: var(--primary, #ea580c);
   text-decoration: none;
 }
 

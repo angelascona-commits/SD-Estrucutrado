@@ -4,8 +4,8 @@
   gap: 16px;
   padding: 20px;
   border-radius: 16px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
+  border: 1px solid var(--slate-200, #e5e7eb);
+  background: var(--bg-white, #ffffff);
 }
 
 .topRow {
@@ -20,11 +20,12 @@
   margin: 0;
   font-size: 28px;
   font-weight: 700;
+  color: var(--slate-900);
 }
 
 .subtitle {
   margin: 6px 0 0;
-  color: #6b7280;
+  color: var(--slate-500, #6b7280);
 }
 
 .actions {
@@ -38,36 +39,47 @@
   padding: 0 16px;
   border-radius: 10px;
   border: none;
-  background: #111827;
+  background: var(--primary, #111827);
   color: #ffffff;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.2s;
+}
+
+.primaryButton:hover {
+  background: var(--primary-hover);
 }
 
 .secondaryButton {
   height: 40px;
   padding: 0 16px;
   border-radius: 10px;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
+  border: 1px solid var(--slate-300, #d1d5db);
+  background: var(--bg-white, #ffffff);
+  color: var(--slate-700);
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.15s;
+}
+
+.secondaryButton:hover {
+  background: var(--slate-100);
 }
 
 .excelButton {
   height: 40px;
   padding: 0 16px;
   border-radius: 10px;
-  border: 1px solid #10b981;
-  background: #ecfdf5;
-  color: #065f46;
+  border: 1px solid var(--emerald-500, #10b981);
+  background: var(--emerald-100, #ecfdf5);
+  color: var(--emerald-700, #065f46);
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s;
 }
 
 .excelButton:hover {
-  background: #d1fae5;
+  filter: brightness(0.95);
 }
 
 .excelButton:disabled {
@@ -80,15 +92,15 @@
   padding: 0 16px;
   border-radius: 10px;
   border: 1px solid #8b5cf6;
-  background: #f5f3ff;
-  color: #5b21b6;
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s;
 }
 
 .linkButton:hover {
-  background: #ede9fe;
+  background: rgba(139, 92, 246, 0.25);
 }
 
 .linkButton:disabled {
@@ -113,13 +125,15 @@
 .label {
   font-size: 14px;
   font-weight: 600;
+  color: var(--slate-700);
 }
 
 .select,
 .input {
   height: 40px;
   border-radius: 10px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--slate-300, #d1d5db);
   padding: 0 12px;
-  background: #ffffff;
+  background: var(--bg-white, #ffffff);
+  color: var(--slate-900);
 }
