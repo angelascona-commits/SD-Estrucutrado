@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Link2 } from 'lucide-react'
 
 export const metadata = {
   title: 'Reporte Externo | SGEM',
@@ -26,10 +27,9 @@ export default function ReporteExternoRootPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '28px',
         marginBottom: '16px'
       }}>
-        🔗
+        <Link2 size={28} />
       </div>
       <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>
         Portal de Reporte Externo

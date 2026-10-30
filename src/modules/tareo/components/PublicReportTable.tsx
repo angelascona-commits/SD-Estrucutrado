@@ -3,22 +3,20 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import Swal from 'sweetalert2'
 import {
-  LayoutDashboard,
-  BarChart3,
   FileSpreadsheet,
-  Users,
-  FolderDown,
   Save,
   Download,
-  Menu,
+  Search,
   X,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Clock,
+  Filter,
+  RotateCcw,
   Calendar,
   User,
-  FileText,
-  ChevronRight
+  ChevronDown,
+  ChevronRight,
+  MessageSquare,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react'
 import { saveExternalCommentsAction, exportPublicReportExcelAction } from '../actions/tareo.action'
 import styles from '../styles/public-report.module.css'
@@ -51,7 +49,7 @@ interface Props {
   }
 }
 
-type TabType = 'resumen' | 'graficos' | 'detalle' | 'equipos' | 'descargas'
+type ComentarioEstadoFiltro = 'todos' | 'con_ps' | 'con_dm' | 'pendientes_dm' | 'sin_comentarios'
 
 export default function PublicReportTable({
   token,
@@ -62,23 +60,9 @@ export default function PublicReportTable({
   periodo,
   initialFilters = {}
 }: Props) {
-  const [activeTab, setActiveTab] = useState<TabType>('resumen')
   const [saving, setSaving] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
   const [expandedTasks, setExpandedTasks] = useState<Record<number, boolean>>({})
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-  const [isCollapsed, setIsCollapsed] = useState(false)
-  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<any | null>(null)
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setSelectedTaskForDetail(null)
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
 
   // Ocultar cualquier token o id en la barra de direcciones y mostrar únicamente /reporte/mes-anio
   useEffect(() => {
@@ -105,6 +89,7 @@ export default function PublicReportTable({
 
   // ─── 1. ESTADOS DE FILTROS ───────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedComentarioEstado, setSelectedComentarioEstado] = useState<ComentarioEstadoFiltro>('todos')
   const [selectedDuracion, setSelectedDuracion] = useState<'todas' | 'mas_50h' | 'hasta_50h'>(
     (initialFilters.duracionFiltro as any) || 'todas'
   )
@@ -135,39 +120,98 @@ export default function PublicReportTable({
     registros: Record<number, string>
   }>(() => {
     const state = { tareas: {} as Record<number, string>, registros: {} as Record<number, string> }
+
+    // Fallback con datos base de tareas y registros
+    registros.forEach((r) => {
+      if (r.tarea_periodo_id && r.comentario_periodo && !state.tareas[r.tarea_periodo_id]) {
+        state.tareas[r.tarea_periodo_id] = r.comentario_periodo
+      }
+      if (r.id && r.comentario && !state.registros[r.id]) {
+        state.registros[r.id] = r.comentario
+      }
+    })
+
+    // Feedback externo (máxima prioridad)
     feedback.forEach((f) => {
-      if (f.referencia_tipo === 'TAREA') state.tareas[f.referencia_id] = f.comentario_protecta || ''
-      if (f.referencia_tipo === 'REGISTRO') state.registros[f.referencia_id] = f.comentario_protecta || ''
+      if (f.referencia_tipo === 'TAREA' && f.comentario_protecta !== undefined && f.comentario_protecta !== null) {
+        state.tareas[f.referencia_id] = f.comentario_protecta
+      }
+      if (f.referencia_tipo === 'REGISTRO' && f.comentario_protecta !== undefined && f.comentario_protecta !== null) {
+        state.registros[f.referencia_id] = f.comentario_protecta
+      }
     })
     return state
   })
 
-  const initialComentariosHash = useMemo(() => {
-    const map: Record<string, string> = {}
+  const [comentariosDM, setComentariosDM] = useState<{
+    tareas: Record<number, string>
+    registros: Record<number, string>
+  }>(() => {
+    const state = { tareas: {} as Record<number, string>, registros: {} as Record<number, string> }
+
+    // Fallback con datos base de tareas
+    registros.forEach((r) => {
+      if (r.tarea_periodo_id && r.comentario_dm && !state.tareas[r.tarea_periodo_id]) {
+        state.tareas[r.tarea_periodo_id] = r.comentario_dm
+      }
+    })
+
+    // Feedback externo (máxima prioridad)
     feedback.forEach((f) => {
-      map[`${f.referencia_tipo}-${f.referencia_id}`] = f.comentario_protecta || ''
+      if (f.referencia_tipo === 'TAREA' && f.comentario_dev !== undefined && f.comentario_dev !== null) {
+        state.tareas[f.referencia_id] = f.comentario_dev
+      }
+      if (f.referencia_tipo === 'REGISTRO' && f.comentario_dev !== undefined && f.comentario_dev !== null) {
+        state.registros[f.referencia_id] = f.comentario_dev
+      }
+    })
+    return state
+  })
+
+  const [savedHash, setSavedHash] = useState<Record<string, { ps: string; dm: string }>>(() => {
+    const map: Record<string, { ps: string; dm: string }> = {}
+
+    registros.forEach((r) => {
+      if (r.tarea_periodo_id && !map[`TAREA-${r.tarea_periodo_id}`]) {
+        map[`TAREA-${r.tarea_periodo_id}`] = {
+          ps: r.comentario_periodo || '',
+          dm: r.comentario_dm || ''
+        }
+      }
+      if (r.id && !map[`REGISTRO-${r.id}`]) {
+        map[`REGISTRO-${r.id}`] = {
+          ps: r.comentario || '',
+          dm: ''
+        }
+      }
+    })
+
+    feedback.forEach((f) => {
+      const key = `${f.referencia_tipo}-${f.referencia_id}`
+      map[key] = {
+        ps: f.comentario_protecta !== undefined && f.comentario_protecta !== null ? f.comentario_protecta : (map[key]?.ps || ''),
+        dm: f.comentario_dev !== undefined && f.comentario_dev !== null ? f.comentario_dev : (map[key]?.dm || '')
+      }
     })
     return map
-  }, [feedback])
+  })
 
   const pendingChangesCount = useMemo(() => {
     let count = 0
     Object.entries(comentariosPS.tareas).forEach(([id, txt]) => {
-      if ((txt || '') !== (initialComentariosHash[`TAREA-${id}`] || '')) count++
+      if ((txt || '') !== (savedHash[`TAREA-${id}`]?.ps || '')) count++
     })
     Object.entries(comentariosPS.registros).forEach(([id, txt]) => {
-      if ((txt || '') !== (initialComentariosHash[`REGISTRO-${id}`] || '')) count++
+      if ((txt || '') !== (savedHash[`REGISTRO-${id}`]?.ps || '')) count++
+    })
+    Object.entries(comentariosDM.tareas).forEach(([id, txt]) => {
+      if ((txt || '') !== (savedHash[`TAREA-${id}`]?.dm || '')) count++
+    })
+    Object.entries(comentariosDM.registros).forEach(([id, txt]) => {
+      if ((txt || '') !== (savedHash[`REGISTRO-${id}`]?.dm || '')) count++
     })
     return count
-  }, [comentariosPS, initialComentariosHash])
-
-  const comentariosDM = useMemo(() => {
-    const map: Record<string, string> = {}
-    feedback.forEach((f) => {
-      if (f.comentario_dev) map[`${f.referencia_tipo}-${f.referencia_id}`] = f.comentario_dev
-    })
-    return map
-  }, [feedback])
+  }, [comentariosPS, comentariosDM, savedHash])
 
   // ─── 3. OPCIONES DE FILTROS ──────────────────────────────────────────────
   const opciones = useMemo(() => {
@@ -192,7 +236,7 @@ export default function PublicReportTable({
   }, [registros])
 
   // ─── 4. LÓGICA DE FILTRADO Y AGRUPACIÓN POR TAREA ────────────────────────
-  const { filasExcel, tareasResumen, registrosFiltrados } = useMemo(() => {
+  const { filasExcel, tareasResumen, countsEstadoComentarios, totalTareasBase, totalHorasBase } = useMemo(() => {
     const grupos: Record<number, any> = {}
 
     registros.forEach((reg) => {
@@ -234,11 +278,38 @@ export default function PublicReportTable({
       })
     })
 
-    // Aplicar filtros
-    const searchLower = searchTerm.toLowerCase()
-    const todosRegistros: any[] = []
+    const todosGrupos = Object.values(grupos)
+    const totalTareasBase = todosGrupos.length
+    const totalHorasBase = todosGrupos.reduce((acc, g) => acc + g.totalHoras, 0)
 
-    const gruposFiltrados = Object.values(grupos).filter((g: any) => {
+    // Contadores para las pestañas de comentarios
+    const countsEstado = {
+      todos: totalTareasBase,
+      con_ps: 0,
+      con_dm: 0,
+      pendientes_dm: 0,
+      sin_comentarios: 0
+    }
+
+    todosGrupos.forEach((g: any) => {
+      const taskPS = Boolean((comentariosPS.tareas[g.tarea_periodo_id] || '').trim())
+      const taskDM = Boolean((comentariosDM.tareas[g.tarea_periodo_id] || '').trim())
+      const anyDetPS = g.detalle.some((d: any) => Boolean((comentariosPS.registros[d.id] || '').trim()))
+      const anyDetDM = g.detalle.some((d: any) => Boolean((comentariosDM.registros[d.id] || '').trim()))
+
+      const hasPS = taskPS || anyDetPS
+      const hasDM = taskDM || anyDetDM
+
+      if (hasPS) countsEstado.con_ps++
+      if (hasDM) countsEstado.con_dm++
+      if (hasPS && !hasDM) countsEstado.pendientes_dm++
+      if (!hasPS && !hasDM) countsEstado.sin_comentarios++
+    })
+
+    // Aplicar filtros
+    const searchLower = searchTerm.toLowerCase().trim()
+
+    const gruposFiltrados = todosGrupos.filter((g: any) => {
       if (selectedPry && g.proyecto_nombre !== selectedPry) return false
       if (selectedSolicitante && g.solicitante_nombre !== selectedSolicitante) return false
       if (selectedTeam && g.team_nombre !== selectedTeam) return false
@@ -247,17 +318,36 @@ export default function PublicReportTable({
       if (selectedDuracion === 'mas_50h' && g.totalHoras <= 50) return false
       if (selectedDuracion === 'hasta_50h' && g.totalHoras > 50) return false
 
-      if (searchTerm) {
-        const coincideTarea = g.tarea_nombre?.toLowerCase().includes(searchLower)
-        const coincideDetalle = g.detalle.some(
+      // Filtro por Estado de Comentarios
+      if (selectedComentarioEstado !== 'todos') {
+        const taskPS = Boolean((comentariosPS.tareas[g.tarea_periodo_id] || '').trim())
+        const taskDM = Boolean((comentariosDM.tareas[g.tarea_periodo_id] || '').trim())
+        const anyDetPS = g.detalle.some((d: any) => Boolean((comentariosPS.registros[d.id] || '').trim()))
+        const anyDetDM = g.detalle.some((d: any) => Boolean((comentariosDM.registros[d.id] || '').trim()))
+
+        const hasPS = taskPS || anyDetPS
+        const hasDM = taskDM || anyDetDM
+
+        if (selectedComentarioEstado === 'con_ps' && !hasPS) return false
+        if (selectedComentarioEstado === 'con_dm' && !hasDM) return false
+        if (selectedComentarioEstado === 'pendientes_dm' && !(hasPS && !hasDM)) return false
+        if (selectedComentarioEstado === 'sin_comentarios' && (hasPS || hasDM)) return false
+      }
+
+      if (searchLower) {
+        const matchTarea = g.tarea_nombre?.toLowerCase().includes(searchLower)
+        const matchPry = g.proyecto_nombre?.toLowerCase().includes(searchLower)
+        const matchTeam = g.team_nombre?.toLowerCase().includes(searchLower)
+        const matchSol = g.solicitante_nombre?.toLowerCase().includes(searchLower)
+        const matchAgr = g.agrupador_nombre?.toLowerCase().includes(searchLower)
+        const matchDet = g.detalle.some(
           (d: any) =>
             d.descripcion?.toLowerCase().includes(searchLower) ||
             d.trabajador_nombre?.toLowerCase().includes(searchLower)
         )
-        if (!coincideTarea && !coincideDetalle) return false
+        if (!matchTarea && !matchPry && !matchTeam && !matchSol && !matchAgr && !matchDet) return false
       }
 
-      g.detalle.forEach((det: any) => todosRegistros.push(det))
       return true
     })
 
@@ -274,205 +364,43 @@ export default function PublicReportTable({
     return {
       filasExcel: listaPlana,
       tareasResumen: gruposFiltrados,
-      registrosFiltrados: todosRegistros
+      countsEstadoComentarios: countsEstado,
+      totalTareasBase,
+      totalHorasBase
     }
-  }, [registros, searchTerm, selectedDuracion, selectedPry, selectedSolicitante, selectedTeam, selectedAgrupador, expandedTasks])
+  }, [
+    registros,
+    searchTerm,
+    selectedDuracion,
+    selectedPry,
+    selectedSolicitante,
+    selectedTeam,
+    selectedAgrupador,
+    selectedComentarioEstado,
+    expandedTasks,
+    comentariosPS,
+    comentariosDM
+  ])
 
-  // ─── 5. ESTADÍSTICAS EJECUTIVAS ──────────────────────────────────────────
-  const statsAgilVsProy = useMemo(() => {
-    let horasAgil = 0
-    let horasProyectos = 0
-
-    tareasResumen.forEach((t: any) => {
-      if (t.esAgil) {
-        horasAgil += t.totalHoras
-      } else {
-        horasProyectos += t.totalHoras
-      }
-    })
-
-    const total = horasAgil + horasProyectos
-    const pctAgil = total > 0 ? (horasAgil / total) * 100 : 0
-    const pctProyectos = total > 0 ? (horasProyectos / total) * 100 : 0
-
-    return {
-      horasAgil,
-      horasProyectos,
-      montoAgil: horasAgil * costoHora,
-      montoProyectos: horasProyectos * costoHora,
-      pctAgil,
-      pctProyectos
-    }
-  }, [tareasResumen, costoHora])
-
-  const statsAgrupadores = useMemo(() => {
-    const mapa: Record<string, { horas: number; count: number }> = {}
-    let totalH = 0
-
-    tareasResumen.forEach((t: any) => {
-      const nombre = t.agrupador_nombre || 'Sin Agrupador'
-      if (!mapa[nombre]) mapa[nombre] = { horas: 0, count: 0 }
-      mapa[nombre].horas += t.totalHoras
-      mapa[nombre].count += 1
-      totalH += t.totalHoras
-    })
-
-    return Object.entries(mapa)
-      .map(([nombre, item]) => ({
-        nombre,
-        horas: item.horas,
-        tareasCount: item.count,
-        porcentaje: totalH > 0 ? (item.horas / totalH) * 100 : 0
-      }))
-      .sort((a, b) => b.horas - a.horas)
-  }, [tareasResumen])
-
-  // Desglose por Equipos
-  const statsEquipos = useMemo(() => {
-    const mapa: Record<string, { horas: number; tareas: Set<number> }> = {}
-    let totalH = 0
-
-    registrosFiltrados.forEach((r) => {
-      const team = r.team_nombre || 'Sin Equipo'
-      if (!mapa[team]) mapa[team] = { horas: 0, tareas: new Set<number>() }
-      mapa[team].horas += Number(r.horas) || 0
-      mapa[team].tareas.add(r.tarea_periodo_id)
-      totalH += Number(r.horas) || 0
-    })
-
-    return Object.entries(mapa)
-      .map(([team, val]) => ({
-        team,
-        horas: val.horas,
-        tareasCount: val.tareas.size,
-        monto: val.horas * costoHora,
-        porcentaje: totalH > 0 ? (val.horas / totalH) * 100 : 0
-      }))
-      .sort((a, b) => b.horas - a.horas)
-  }, [registrosFiltrados, costoHora])
-
-  // Desglose por Colaborador/Recurso
-  const statsRecursos = useMemo(() => {
-    const mapa: Record<string, { team: string; horas: number; logsCount: number }> = {}
-
-    registrosFiltrados.forEach((r) => {
-      const nombre = r.trabajador_nombre || 'No asignado'
-      if (!mapa[nombre]) {
-        mapa[nombre] = {
-          team: r.team_nombre || 'General',
-          horas: 0,
-          logsCount: 0
-        }
-      }
-      mapa[nombre].horas += Number(r.horas) || 0
-      mapa[nombre].logsCount += 1
-    })
-
-    return Object.entries(mapa)
-      .map(([nombre, val]) => ({
-        nombre,
-        team: val.team,
-        horas: val.horas,
-        logsCount: val.logsCount,
-        monto: val.horas * costoHora
-      }))
-      .sort((a, b) => b.horas - a.horas)
-  }, [registrosFiltrados, costoHora])
-
-  const totalHorasGeneral = useMemo(() => {
+  const totalHorasFiltradas = useMemo(() => {
     return tareasResumen.reduce((acc: number, t: any) => acc + t.totalHoras, 0)
   }, [tareasResumen])
 
-  // Desglose de colaboradores para la tarea abierta en la columna lateral
-  const selectedTaskCollaborators = useMemo(() => {
-    if (!selectedTaskForDetail || !selectedTaskForDetail.detalle) return []
-    const map: Record<string, { horas: number; count: number; team: string }> = {}
-    selectedTaskForDetail.detalle.forEach((d: any) => {
-      const name = d.trabajador_nombre || 'No asignado'
-      if (!map[name]) map[name] = { horas: 0, count: 0, team: d.team_nombre || '' }
-      map[name].horas += Number(d.horas) || 0
-      map[name].count += 1
-    })
-    return Object.entries(map)
-      .map(([name, data]) => ({
-        nombre: name,
-        horas: data.horas,
-        count: data.count,
-        team: data.team,
-        pct: selectedTaskForDetail.totalHoras > 0 ? (data.horas / selectedTaskForDetail.totalHoras) * 100 : 0
-      }))
-      .sort((a, b) => b.horas - a.horas)
-  }, [selectedTaskForDetail])
-
-  // Registros ordenados cronológicamente (más recientes primero) para la tarea seleccionada
-  const sortedTaskLogs = useMemo(() => {
-    if (!selectedTaskForDetail || !selectedTaskForDetail.detalle) return []
-    return [...selectedTaskForDetail.detalle].sort((a: any, b: any) => {
-      const dateA = new Date(a.fecha || 0).getTime()
-      const dateB = new Date(b.fecha || 0).getTime()
-      return dateB - dateA
-    })
-  }, [selectedTaskForDetail])
-
-  // ─── 6. ESTADÍSTICAS PARA GRÁFICOS Y VISUALIZACIÓN EJECUTIVA ─────────────
-  const statsDiarias = useMemo(() => {
-    const mapaDias: Record<number, number> = {}
-    registrosFiltrados.forEach((r) => {
-      if (r.fecha) {
-        const parts = String(r.fecha).split('T')[0].split('-')
-        if (parts.length >= 3) {
-          const dia = parseInt(parts[2], 10)
-          if (!isNaN(dia) && dia >= 1 && dia <= 31) {
-            mapaDias[dia] = (mapaDias[dia] || 0) + (Number(r.horas) || 0)
-          }
-        }
-      }
-    })
-
-    const diasPresentes = Object.keys(mapaDias).map(Number).sort((a, b) => a - b)
-    if (diasPresentes.length === 0) return []
-
-    const minDia = Math.min(1, diasPresentes[0])
-    const maxDia = Math.max(diasPresentes[diasPresentes.length - 1], 28)
-    const res: Array<{ dia: number; horas: number; monto: number }> = []
-    for (let d = minDia; d <= maxDia; d++) {
-      const h = mapaDias[d] || 0
-      res.push({ dia: d, horas: h, monto: h * costoHora })
-    }
-    return res
-  }, [registrosFiltrados, costoHora])
-
-  const maxHorasDia = useMemo(() => {
-    if (statsDiarias.length === 0) return 1
-    return Math.max(...statsDiarias.map(d => d.horas), 1)
-  }, [statsDiarias])
-
-  const promedioHorasDia = useMemo(() => {
-    const diasConHoras = statsDiarias.filter(d => d.horas > 0)
-    if (diasConHoras.length === 0) return 0
-    const suma = diasConHoras.reduce((acc, d) => acc + d.horas, 0)
-    return suma / diasConHoras.length
-  }, [statsDiarias])
-
-  const topTareas = useMemo(() => {
-    return [...tareasResumen]
-      .sort((a, b) => b.totalHoras - a.totalHoras)
-      .slice(0, 8)
+  const totalRegistrosFiltrados = useMemo(() => {
+    return tareasResumen.reduce((acc: number, t: any) => acc + (t.detalle?.length || 0), 0)
   }, [tareasResumen])
 
-  const maxHorasTopTarea = useMemo(() => {
-    if (topTareas.length === 0) return 1
-    return topTareas[0].totalHoras || 1
-  }, [topTareas])
-
-  const maxHorasRecurso = useMemo(() => {
-    if (statsRecursos.length === 0) return 1
-    return statsRecursos[0].horas || 1
-  }, [statsRecursos])
-
-  const hasActiveFilters = Boolean(
-    searchTerm || selectedDuracion !== 'todas' || selectedPry || selectedSolicitante || selectedTeam || selectedAgrupador
-  )
+  const activeFiltersCount = useMemo(() => {
+    let count = 0
+    if (searchTerm) count++
+    if (selectedDuracion !== 'todas') count++
+    if (selectedPry) count++
+    if (selectedSolicitante) count++
+    if (selectedTeam) count++
+    if (selectedAgrupador) count++
+    if (selectedComentarioEstado !== 'todos') count++
+    return count
+  }, [searchTerm, selectedDuracion, selectedPry, selectedSolicitante, selectedTeam, selectedAgrupador, selectedComentarioEstado])
 
   const limpiarFiltros = () => {
     setSearchTerm('')
@@ -481,16 +409,32 @@ export default function PublicReportTable({
     setSelectedSolicitante('')
     setSelectedTeam('')
     setSelectedAgrupador('')
+    setSelectedComentarioEstado('todos')
   }
 
-  const handleChange = (tipo: 'tareas' | 'registros', id: number, valor: string) => {
-    setComentariosPS((prev) => ({
-      ...prev,
-      [tipo]: {
-        ...prev[tipo],
-        [id]: valor
-      }
-    }))
+  const handleChange = (
+    origen: 'ps' | 'dm',
+    tipo: 'tareas' | 'registros',
+    id: number,
+    valor: string
+  ) => {
+    if (origen === 'ps') {
+      setComentariosPS((prev) => ({
+        ...prev,
+        [tipo]: {
+          ...prev[tipo],
+          [id]: valor
+        }
+      }))
+    } else {
+      setComentariosDM((prev) => ({
+        ...prev,
+        [tipo]: {
+          ...prev[tipo],
+          [id]: valor
+        }
+      }))
+    }
   }
 
   const toggleTask = (tareaPeriodoId: number) => {
@@ -509,49 +453,119 @@ export default function PublicReportTable({
     setExpandedTasks(next)
   }
 
-  // Guardar Observaciones
+  // Guardar Observaciones y Comentarios
   const handleSave = async () => {
     setSaving(true)
     try {
-      const commentsArray: Array<{
-        tipo: 'TAREA' | 'REGISTRO'
-        id: number
-        comentario_protecta: string
-      }> = []
+      const commentsMap: Record<
+        string,
+        {
+          tipo: 'TAREA' | 'REGISTRO'
+          id: number
+          comentario_protecta: string
+          comentario_dev: string
+        }
+      > = {}
 
-      Object.entries(comentariosPS.tareas).forEach(([id, txt]) => {
-        if (txt !== undefined) {
-          commentsArray.push({
+      // Tareas modificadas
+      Object.entries(comentariosPS.tareas).forEach(([idStr, psTxt]) => {
+        const id = Number(idStr)
+        const dmTxt = comentariosDM.tareas[id] || ''
+        const init = savedHash[`TAREA-${id}`] || { ps: '', dm: '' }
+        if ((psTxt || '') !== init.ps || (dmTxt || '') !== init.dm) {
+          commentsMap[`TAREA-${id}`] = {
             tipo: 'TAREA',
-            id: Number(id),
-            comentario_protecta: txt
-          })
+            id,
+            comentario_protecta: psTxt || '',
+            comentario_dev: dmTxt || ''
+          }
         }
       })
 
-      Object.entries(comentariosPS.registros).forEach(([id, txt]) => {
-        if (txt !== undefined) {
-          commentsArray.push({
-            tipo: 'REGISTRO',
-            id: Number(id),
-            comentario_protecta: txt
-          })
+      Object.entries(comentariosDM.tareas).forEach(([idStr, dmTxt]) => {
+        const id = Number(idStr)
+        const psTxt = comentariosPS.tareas[id] || ''
+        const init = savedHash[`TAREA-${id}`] || { ps: '', dm: '' }
+        if ((psTxt || '') !== init.ps || (dmTxt || '') !== init.dm) {
+          commentsMap[`TAREA-${id}`] = {
+            tipo: 'TAREA',
+            id,
+            comentario_protecta: psTxt || '',
+            comentario_dev: dmTxt || ''
+          }
         }
       })
+
+      // Registros modificados
+      Object.entries(comentariosPS.registros).forEach(([idStr, psTxt]) => {
+        const id = Number(idStr)
+        const dmTxt = comentariosDM.registros[id] || ''
+        const init = savedHash[`REGISTRO-${id}`] || { ps: '', dm: '' }
+        if ((psTxt || '') !== init.ps || (dmTxt || '') !== init.dm) {
+          commentsMap[`REGISTRO-${id}`] = {
+            tipo: 'REGISTRO',
+            id,
+            comentario_protecta: psTxt || '',
+            comentario_dev: dmTxt || ''
+          }
+        }
+      })
+
+      Object.entries(comentariosDM.registros).forEach(([idStr, dmTxt]) => {
+        const id = Number(idStr)
+        const psTxt = comentariosPS.registros[id] || ''
+        const init = savedHash[`REGISTRO-${id}`] || { ps: '', dm: '' }
+        if ((psTxt || '') !== init.ps || (dmTxt || '') !== init.dm) {
+          commentsMap[`REGISTRO-${id}`] = {
+            tipo: 'REGISTRO',
+            id,
+            comentario_protecta: psTxt || '',
+            comentario_dev: dmTxt || ''
+          }
+        }
+      })
+
+      const commentsArray = Object.values(commentsMap)
+
+      if (commentsArray.length === 0) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Sin cambios',
+          text: 'No hay comentarios nuevos o modificados para guardar.',
+          confirmButtonColor: '#0f3d3e',
+          timer: 2000,
+          showConfirmButton: false
+        })
+        setSaving(false)
+        return
+      }
 
       const res = await saveExternalCommentsAction(commentsArray)
       if (res.success) {
+        setSavedHash((prev) => {
+          const next = { ...prev }
+          commentsArray.forEach((c) => {
+            next[`${c.tipo}-${c.id}`] = {
+              ps: c.comentario_protecta,
+              dm: c.comentario_dev
+            }
+          })
+          return next
+        })
+
         Swal.fire({
           icon: 'success',
-          title: '¡Observaciones guardadas!',
-          text: 'Tus observaciones han sido registradas y notificadas al equipo de desarrollo.',
-          confirmButtonColor: '#0f3d3e'
+          title: '¡Comentarios guardados!',
+          text: 'Todos los comentarios han sido registrados y sincronizados exitosamente.',
+          confirmButtonColor: '#0f3d3e',
+          timer: 2200,
+          showConfirmButton: false
         })
       } else {
         Swal.fire({
           icon: 'error',
           title: 'Error al guardar',
-          text: res.error || 'Ocurrió un inconveniente al guardar las observaciones.',
+          text: res.error || 'Ocurrió un inconveniente al guardar los comentarios.',
           confirmButtonColor: '#0f3d3e'
         })
       }
@@ -559,7 +573,7 @@ export default function PublicReportTable({
       Swal.fire({
         icon: 'error',
         title: 'Error de red',
-        text: 'No se pudo conectar con el servidor para guardar las observaciones.',
+        text: 'No se pudo conectar con el servidor para guardar los comentarios.',
         confirmButtonColor: '#0f3d3e'
       })
     } finally {
@@ -624,944 +638,253 @@ export default function PublicReportTable({
   const periodoNombre = periodo && periodo.mes && periodo.anio ? `${MESES[periodo.mes]} ${periodo.anio}` : periodoLabel
 
   return (
-    <div className={styles.layoutWrapper}>
-      {/* Barra superior para móviles con botón toggle */}
-      <div className={styles.mobileTopBar}>
-        <div>
-          <span style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a' }}>Resumen de Tareo</span>
-          <span style={{ fontSize: '12px', color: '#0f3d3e', marginLeft: '8px', fontWeight: 600 }}>{periodoNombre}</span>
-        </div>
-        <button
-          type="button"
-          className={styles.mobileMenuBtn}
-          onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-        >
-          {mobileSidebarOpen ? <X size={18} /> : <Menu size={18} />}
-          <span>{mobileSidebarOpen ? 'Cerrar' : 'Vistas'}</span>
-        </button>
-      </div>
-
-      {/* Backdrop para Drawer móvil */}
-      {mobileSidebarOpen && (
-        <div
-          className={styles.sidebarDrawerOverlay}
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
-
-      {/* ─── SIDEBAR DE NAVEGACIÓN (COLAPSABLE / OCULTABLE) ───────────────── */}
-      <aside className={`${styles.sidebar} ${isCollapsed ? styles.sidebarCollapsed : ''} ${mobileSidebarOpen ? styles.sidebarOpen : ''}`}>
-        <div className={styles.sidebarHeader}>
-          <div className={styles.sidebarHeaderTop}>
-            <div className={styles.headerTitles}>
-              <div className={styles.resumenTitle}>Resumen de Tareo</div>
-              <div className={styles.resumenPeriodo}>{periodoNombre}</div>
+    <div className={styles.fullPageWrapper}>
+      {/* ─── 1. HEADER SUPERIOR EJECUTIVO (SIN SIDEBAR LATERAL) ──────────── */}
+      <header className={styles.topNavbar}>
+        <div className={styles.navbarBrand}>
+          <div className={styles.navbarLogoBox}>
+            <FileSpreadsheet size={22} />
+          </div>
+          <div className={styles.navbarBrandTexts}>
+            <h1 className={styles.navbarTitle}>
+              Portal de Supervisión y Tareo
+            </h1>
+            <div className={styles.navbarSubtitle}>
+              <span>Protecta Security</span>
+              <span>•</span>
+              <span className={styles.periodBadge}>{periodoNombre}</span>
             </div>
-
-            <button
-              type="button"
-              className={styles.toggleCollapseBtn}
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              title={isCollapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
-            >
-              {isCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-            </button>
           </div>
         </div>
 
-        <nav className={styles.sidebarNav}>
-          {!isCollapsed && <span className={styles.sidebarNavLabel}>Vistas</span>}
-
-          <button
-            type="button"
-            className={`${styles.sidebarNavBtn} ${activeTab === 'resumen' ? styles.sidebarNavBtnActive : ''}`}
-            onClick={() => {
-              setActiveTab('resumen')
-              setMobileSidebarOpen(false)
-            }}
-            title="Resumen & KPIs"
-          >
-            <div className={styles.navIconSlot}>
-              <LayoutDashboard size={18} />
-            </div>
-            <span className={styles.navLabelText}>Resumen & KPIs</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.sidebarNavBtn} ${activeTab === 'graficos' ? styles.sidebarNavBtnActive : ''}`}
-            onClick={() => {
-              setActiveTab('graficos')
-              setMobileSidebarOpen(false)
-            }}
-            title="Gráficos & Métricas"
-          >
-            <div className={styles.navIconSlot}>
-              <BarChart3 size={18} />
-            </div>
-            <span className={styles.navLabelText}>Gráficos & Métricas</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.sidebarNavBtn} ${activeTab === 'detalle' ? styles.sidebarNavBtnActive : ''}`}
-            onClick={() => {
-              setActiveTab('detalle')
-              setMobileSidebarOpen(false)
-            }}
-            title={`Detalle de Tareas (${tareasResumen.length})`}
-          >
-            <div className={styles.navIconSlot}>
-              <FileSpreadsheet size={18} />
-            </div>
-            <span className={styles.navLabelText}>Detalle de Tareas</span>
-            <span className={styles.sidebarNavBadge}>{tareasResumen.length}</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.sidebarNavBtn} ${activeTab === 'equipos' ? styles.sidebarNavBtnActive : ''}`}
-            onClick={() => {
-              setActiveTab('equipos')
-              setMobileSidebarOpen(false)
-            }}
-            title={`Equipos & Recursos (${statsRecursos.length})`}
-          >
-            <div className={styles.navIconSlot}>
-              <Users size={18} />
-            </div>
-            <span className={styles.navLabelText}>Equipos & Recursos</span>
-            <span className={styles.sidebarNavBadge}>{statsRecursos.length}</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.sidebarNavBtn} ${activeTab === 'descargas' ? styles.sidebarNavBtnActive : ''}`}
-            onClick={() => {
-              setActiveTab('descargas')
-              setMobileSidebarOpen(false)
-            }}
-            title="Bóveda de Archivos"
-          >
-            <div className={styles.navIconSlot}>
-              <FolderDown size={18} />
-            </div>
-            <span className={styles.navLabelText}>Bóveda de Archivos</span>
-          </button>
-        </nav>
-
-        <div className={styles.sidebarFooter}>
-          <button
-            type="button"
-            className={styles.btnSave}
-            onClick={handleSave}
-            disabled={saving}
-            style={{ width: '100%', justifyContent: 'center' }}
-            title="Guardar Observaciones"
-          >
-            <div className={styles.navIconSlot}>
-              <Save size={16} />
-            </div>
-            <span className={styles.footerBtnText}>
-              {saving ? 'Guardando...' : 'Guardar Observaciones'}
-            </span>
-            {pendingChangesCount > 0 && (
-              <span className={styles.pendingBadge}>{pendingChangesCount}</span>
-            )}
-          </button>
-
+        {/* Acciones Principales */}
+        <div className={styles.navbarActions}>
           <button
             type="button"
             className={styles.btnExcel}
             onClick={handleDownloadExcel}
             disabled={exportingExcel}
-            style={{ width: '100%', justifyContent: 'center' }}
-            title="Descargar Excel"
+            title="Descargar libro Excel oficial"
           >
-            <div className={styles.navIconSlot}>
-              <Download size={16} />
-            </div>
-            <span className={styles.footerBtnText}>
-              {exportingExcel ? 'Generando...' : 'Descargar Excel'}
-            </span>
+            <Download size={15} style={{ marginRight: '6px' }} />
+            {exportingExcel ? 'Generando...' : 'Descargar Excel'}
+          </button>
+
+          <button
+            type="button"
+            className={styles.btnSave}
+            onClick={handleSave}
+            disabled={saving}
+            title="Guardar observaciones y respuestas en la base de datos"
+          >
+            <Save size={15} style={{ marginRight: '6px' }} />
+            {saving ? 'Guardando...' : 'Guardar Comentarios'}
+            {pendingChangesCount > 0 && (
+              <span className={styles.pendingBadge}>{pendingChangesCount}</span>
+            )}
           </button>
         </div>
-      </aside>
+      </header>
 
-      {/* ─── CONTENIDO PRINCIPAL DE LA VISTA ───────────────────────────────── */}
-      <div className={styles.mainContent}>
-        <div className={styles.pageHeader}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {isCollapsed && (
+      {/* ─── CONTENIDO PRINCIPAL FULL-WIDTH ───────────────────────────────── */}
+      <main className={styles.mainContainer}>
+        {/* ─── 2. TARJETA DE FILTROS AVANZADOS E INTELIGENTES ───────────────── */}
+        <section className={styles.filterCard}>
+          <div className={styles.filterHeader}>
+            <div className={styles.filterHeaderTitle}>
+              <Filter size={16} color="#0f3d3e" />
+              <span>Filtros y Búsqueda Inteligente</span>
+              {activeFiltersCount > 0 && (
+                <span className={styles.commentTabBadge} style={{ background: '#0f3d3e', color: '#ffffff' }}>
+                  {activeFiltersCount} activo{activeFiltersCount > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            {activeFiltersCount > 0 && (
               <button
                 type="button"
-                className={styles.toggleCollapseBtn}
-                onClick={() => setIsCollapsed(false)}
-                title="Mostrar menú lateral"
+                className={styles.btnClear}
+                onClick={limpiarFiltros}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
               >
-                <PanelLeftOpen size={18} />
+                <RotateCcw size={13} />
+                Restablecer Filtros
               </button>
             )}
-            <h1 className={styles.pageTitle}>
-              {activeTab === 'resumen' && 'Resumen & Indicadores Ejecutivos'}
-              {activeTab === 'graficos' && 'Gráficos & Visualización de Datos'}
-              {activeTab === 'detalle' && 'Detalle de Tareas & Registros de Actividad'}
-              {activeTab === 'equipos' && 'Distribución por Equipos & Recursos'}
-              {activeTab === 'descargas' && 'Bóveda de Archivos ("Drive")'}
-            </h1>
-          </div>
-          <p className={styles.pageDesc}>
-            {activeTab === 'resumen' && `Consolidado de horas, liquidación y distribución entre Línea Ágil y Proyectos Tradicionales. (Período: ${periodoNombre} · Tarifa S/. ${costoHora.toFixed(2)}/h)`}
-            {activeTab === 'graficos' && `Visualizaciones interactivas de ritmo cronológico diario, distribución presupuestaria y cargas operativas. (Período: ${periodoNombre})`}
-            {activeTab === 'detalle' && `Revise el log de actividades y registre sus observaciones en la columna "Observaciones Protecta". (Período: ${periodoNombre} · Tarifa S/. ${costoHora.toFixed(2)}/h)`}
-            {activeTab === 'equipos' && `Participación porcentual y consolidado de horas por cada equipo técnico y colaborador. (Período: ${periodoNombre})`}
-            {activeTab === 'descargas' && 'Descarga directa del libro contable oficial de Excel (.xlsx) con todas las hojas y formatos estandarizados.'}
-          </p>
-        </div>
-
-      {/* ─── VISTA 1: RESUMEN & KPIS EJECUTIVOS ───────────────────────────────── */}
-      {activeTab === 'resumen' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Fila de Tarjetas KPI */}
-          <div className={styles.kpiGrid}>
-            <div className={styles.kpiCard}>
-              <div className={styles.kpiLabel}>Horas Registradas</div>
-              <div className={styles.kpiValue}>{totalHorasGeneral.toFixed(2)} hrs</div>
-              <div className={styles.kpiSub}>Total consumido en período</div>
-            </div>
-
-            <div className={styles.kpiCard}>
-              <div className={styles.kpiLabel}>Inversión / Liquidación</div>
-              <div className={styles.kpiValue}>
-                S/. {(totalHorasGeneral * costoHora).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              <div className={styles.kpiSub}>Tarifa S/. {costoHora.toFixed(2)} / hora</div>
-            </div>
-
-            <div className={styles.kpiCard}>
-              <div className={styles.kpiLabel}>Tareas Activas</div>
-              <div className={styles.kpiValue}>{tareasResumen.length}</div>
-              <div className={styles.kpiSub}>Requerimientos evaluados</div>
-            </div>
-
-            <div className={styles.kpiCard}>
-              <div className={styles.kpiLabel}>Colaboradores</div>
-              <div className={styles.kpiValue}>{statsRecursos.length}</div>
-              <div className={styles.kpiSub}>Equipo operativo asignado</div>
-            </div>
           </div>
 
-          {/* Resumen Oficial Protecta (Ágil vs Proyectos) */}
-          <div className={styles.card}>
-            <h2 className={styles.cardTitle} style={{ marginBottom: '12px' }}>
-              Resumen Ejecutivo Protecta (Ágil vs Proyectos Tradicionales)
-            </h2>
-            <div className={styles.executiveMetricsRow} style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
-              <div className={styles.metricBox}>
-                <div className={styles.metricBoxTitle}>Línea Ágil</div>
-                <div className={styles.metricBoxValue}>{statsAgilVsProy.horasAgil.toFixed(2)} hrs</div>
-                <div className={styles.metricBoxSub}>
-                  S/. {statsAgilVsProy.montoAgil.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({statsAgilVsProy.pctAgil.toFixed(1)}% del total)
-                </div>
-              </div>
-
-              <div className={styles.metricBox}>
-                <div className={styles.metricBoxTitle}>Proyectos Tradicionales</div>
-                <div className={styles.metricBoxValue}>{statsAgilVsProy.horasProyectos.toFixed(2)} hrs</div>
-                <div className={styles.metricBoxSub}>
-                  S/. {statsAgilVsProy.montoProyectos.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({statsAgilVsProy.pctProyectos.toFixed(1)}% del total)
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tabla Resumen de Horas y Costos (Exacta de Imagen 3) */}
-          <div className={styles.card}>
-            <div className={styles.cardHeaderRow}>
-              <div>
-                <h2 className={styles.cardTitle}>Resumen de Horas y Costos por Tarea</h2>
-                <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#64748b' }}>
-                  Haz clic en cualquier tarea para abrir la columna lateral con todos sus registros y detalles.
-                </p>
-              </div>
-              <button
-                type="button"
-                className={styles.btnExcel}
-                onClick={handleDownloadExcel}
-                disabled={exportingExcel}
-              >
-                {exportingExcel ? 'Generando...' : 'Descargar Excel'}
-              </button>
-            </div>
-
-            <div className={styles.tableWrapper} style={{ maxHeight: '420px' }}>
-              <table className={styles.excelTable} style={{ width: '100%', tableLayout: 'auto' }}>
-                <thead>
-                  <tr>
-                    <th className={styles.resumenTh} style={{ textAlign: 'left' }}>Nombre de la Tarea</th>
-                    <th className={styles.resumenTh} style={{ width: '150px', textAlign: 'right' }}>Horas Totales</th>
-                    <th className={styles.resumenTh} style={{ width: '180px', textAlign: 'right' }}>Monto a Pagar (S/.)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tareasResumen.map((t: any) => {
-                    const isSelected = selectedTaskForDetail?.tarea_periodo_id === t.tarea_periodo_id
-                    return (
-                      <tr
-                        key={`resumen-${t.tarea_periodo_id}`}
-                        onClick={() => setSelectedTaskForDetail(isSelected ? null : t)}
-                        className={`${styles.clickableRow} ${isSelected ? styles.clickableRowSelected : ''}`}
-                        title="Haz clic para ver registros y actividades en la columna lateral"
-                      >
-                        <td style={{ fontWeight: isSelected ? '600' : 'normal' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                            <span>
-                              {t.tarea_nombre}
-                              {t.esAgil ? (
-                                <span className={styles.tagAgil}>Ágil</span>
-                              ) : (
-                                <span className={styles.tagProy}>Proy</span>
-                              )}
-                            </span>
-                            <span className={styles.rowActionHint}>
-                              Ver registros →
-                            </span>
-                          </div>
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: isSelected ? '700' : 'normal' }}>
-                          {t.totalHoras.toFixed(2)}
-                        </td>
-                        <td style={{ textAlign: 'right', fontWeight: isSelected ? '700' : 'normal' }}>
-                          {(t.totalHoras * costoHora).toLocaleString('es-PE', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                          })}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  <tr className={styles.totalRow}>
-                    <td style={{ textAlign: 'left' }}>TOTAL GENERAL</td>
-                    <td style={{ textAlign: 'right' }}>{totalHorasGeneral.toFixed(2)}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      {(totalHorasGeneral * costoHora).toLocaleString('es-PE', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Subtotales por Agrupador */}
-          <div className={styles.card}>
-            <h2 className={styles.cardTitle} style={{ marginBottom: '14px' }}>
-              Subtotales por Agrupador
-            </h2>
-            <div className={styles.tableWrapper} style={{ maxHeight: '280px' }}>
-              <table className={styles.excelTable}>
-                <thead>
-                  <tr>
-                    <th className={styles.resumenTh} style={{ textAlign: 'left' }}>Agrupador</th>
-                    <th className={styles.resumenTh} style={{ width: '120px', textAlign: 'center' }}>Tareas</th>
-                    <th className={styles.resumenTh} style={{ width: '140px', textAlign: 'right' }}>Horas</th>
-                    <th className={styles.resumenTh} style={{ width: '160px', textAlign: 'right' }}>Monto (S/.)</th>
-                    <th className={styles.resumenTh} style={{ width: '120px', textAlign: 'right' }}>Participación</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statsAgrupadores.map((a) => (
-                    <tr key={a.nombre}>
-                      <td>{a.nombre}</td>
-                      <td style={{ textAlign: 'center' }}>{a.tareasCount}</td>
-                      <td style={{ textAlign: 'right' }}>{a.horas.toFixed(2)}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        {(a.horas * costoHora).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>{a.porcentaje.toFixed(1)}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── VISTA: GRÁFICOS & VISUALIZACIÓN EJECUTIVA ────────────────────────── */}
-      {activeTab === 'graficos' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Barra de Filtros Rápida sincronizada con los gráficos */}
-          <div className={styles.toolbar} style={{ padding: '12px 16px' }}>
-            <div className={styles.filtersGroup}>
+          {/* Fila 1: Buscador Global + Píldoras de Estado de Comentarios */}
+          <div className={styles.filterRowSearch}>
+            <div className={styles.searchWrapper}>
+              <Search size={16} className={styles.searchIcon} />
               <input
-                className={styles.input}
-                placeholder="Filtrar gráficos por tarea o detalle..."
+                className={styles.searchInput}
+                placeholder="Buscar por tarea, colaborador, descripción, proyecto..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-
-              <select
-                className={styles.select}
-                value={selectedDuracion}
-                onChange={(e) => setSelectedDuracion(e.target.value as any)}
-              >
-                <option value="todas">Todas las duraciones</option>
-                <option value="mas_50h">Tareas Largas (&gt; 50 hrs)</option>
-                <option value="hasta_50h">Tareas Estándar (≤ 50 hrs)</option>
-              </select>
-
-              <select
-                className={styles.select}
-                value={selectedPry}
-                onChange={(e) => setSelectedPry(e.target.value)}
-              >
-                <option value="">Todos los proyectos</option>
-                {opciones.proyectos.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-
-              <select
-                className={styles.select}
-                value={selectedTeam}
-                onChange={(e) => setSelectedTeam(e.target.value)}
-              >
-                <option value="">Todos los equipos</option>
-                {opciones.teams.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-
-              <select
-                className={styles.select}
-                value={selectedAgrupador}
-                onChange={(e) => setSelectedAgrupador(e.target.value)}
-              >
-                <option value="">Todos los agrupadores</option>
-                {opciones.agrupadores.map((a) => (
-                  <option key={a} value={a}>{a}</option>
-                ))}
-              </select>
-
-              {hasActiveFilters && (
-                <button className={styles.btnClear} onClick={limpiarFiltros}>
-                  Limpiar
-                </button>
-              )}
-            </div>
-
-            <div className={styles.actionsGroup}>
-              <button
-                type="button"
-                className={styles.btnExcel}
-                onClick={handleDownloadExcel}
-                disabled={exportingExcel}
-              >
-                {exportingExcel ? 'Generando...' : 'Descargar Excel'}
-              </button>
-            </div>
-          </div>
-
-          {/* Gráfico 1: Curva de Actividad Diaria a lo largo del mes (Timeline SVG) */}
-          {statsDiarias.length > 0 && (
-            <div className={styles.chartCardWide}>
-              <div className={styles.chartHeader}>
-                <div>
-                  <h3 className={styles.chartTitle}>Ritmo Cronológico de Registro de Horas</h3>
-                  <p className={styles.chartSubtitle}>
-                    Horas registradas diariamente por el equipo operativo en el período ({periodoLabel})
-                  </p>
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span className={styles.chartTag}>
-                    Promedio: {promedioHorasDia.toFixed(1)} hrs/día
-                  </span>
-                  <span className={styles.chartTag} style={{ background: '#0f3d3e', color: '#ffffff' }}>
-                    Total: {totalHorasGeneral.toFixed(1)} hrs
-                  </span>
-                </div>
-              </div>
-
-              <div className={styles.timelineContainer}>
-                <svg
-                  viewBox="0 0 840 180"
-                  className={styles.timelineSvg}
-                  style={{ width: '100%', height: '180px' }}
+              {searchTerm && (
+                <button
+                  type="button"
+                  className={styles.searchClearBtn}
+                  onClick={() => setSearchTerm('')}
+                  title="Limpiar búsqueda"
                 >
-                  {/* Grid lines at 25%, 50%, 75%, 100% */}
-                  {[0.25, 0.5, 0.75, 1.0].map((frac) => {
-                    const y = 145 - frac * 115
-                    return (
-                      <g key={frac}>
-                        <line x1="45" y1={y} x2="820" y2={y} stroke="#f1f5f9" strokeWidth="1" />
-                        <text x="40" y={y + 3} textAnchor="end" fontSize="9" fill="#94a3b8">
-                          {(maxHorasDia * frac).toFixed(0)}h
-                        </text>
-                      </g>
-                    )
-                  })}
-
-                  {/* Línea horizontal del Promedio */}
-                  {promedioHorasDia > 0 && (
-                    <g>
-                      <line
-                        x1="45"
-                        y1={145 - (promedioHorasDia / maxHorasDia) * 115}
-                        x2="820"
-                        y2={145 - (promedioHorasDia / maxHorasDia) * 115}
-                        stroke="#ea580c"
-                        strokeDasharray="4 4"
-                        strokeWidth="1.5"
-                      />
-                    </g>
-                  )}
-
-                  {/* Barras de cada día */}
-                  {statsDiarias.map((d, idx) => {
-                    const totalDays = statsDiarias.length
-                    const usableWidth = 775
-                    const slotWidth = usableWidth / totalDays
-                    const barWidth = Math.max(Math.min(slotWidth * 0.72, 18), 7)
-                    const x = 45 + idx * slotWidth + (slotWidth - barWidth) / 2
-                    const barHeight = d.horas > 0 ? Math.max((d.horas / maxHorasDia) * 115, 3) : 2
-                    const y = 145 - barHeight
-                    const isAboveAvg = d.horas >= promedioHorasDia && d.horas > 0
-
-                    return (
-                      <g key={d.dia}>
-                        <rect
-                          x={x}
-                          y={y}
-                          width={barWidth}
-                          height={barHeight}
-                          rx={barHeight > 4 ? 3 : 1}
-                          fill={d.horas > 0 ? (isAboveAvg ? '#0f3d3e' : '#38bdf8') : '#e2e8f0'}
-                          className={styles.timelineBar}
-                        >
-                          <title>{`Día ${d.dia}: ${d.horas.toFixed(2)} hrs (S/. ${d.monto.toFixed(2)})`}</title>
-                        </rect>
-                        {(totalDays <= 16 || d.dia % 2 !== 0 || d.dia === totalDays) && (
-                          <text
-                            x={x + barWidth / 2}
-                            y="162"
-                            textAnchor="middle"
-                            fontSize="9"
-                            fill="#64748b"
-                            fontWeight={d.horas > 0 ? 600 : 400}
-                          >
-                            {d.dia}
-                          </text>
-                        )}
-                      </g>
-                    )
-                  })}
-                </svg>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', padding: '0 8px', flexWrap: 'wrap', gap: '8px' }}>
-                  <span>Días del mes</span>
-                  <div style={{ display: 'flex', gap: '16px' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#0f3d3e' }} /> Sobre promedio
-                    </span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#38bdf8' }} /> Regular
-                    </span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ width: '12px', height: '2px', background: '#ea580c', borderTop: '1px dashed #ea580c' }} /> Promedio ({promedioHorasDia.toFixed(1)}h)
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Grilla 2x2 de Gráficos */}
-          <div className={styles.chartsGrid}>
-            {/* Gráfico 2: Donut Ágil vs Proyectos Tradicionales */}
-            <div className={styles.chartCard}>
-              <div className={styles.chartHeader}>
-                <div>
-                  <h3 className={styles.chartTitle}>Línea Ágil vs Proyectos Tradicionales</h3>
-                  <p className={styles.chartSubtitle}>Proporción y presupuesto de inversión</p>
-                </div>
-                <span className={styles.chartTag}>Distribución Oficial</span>
-              </div>
-
-              <div className={styles.donutContainer}>
-                <div className={styles.donutSvgWrapper}>
-                  <svg width="170" height="170" viewBox="0 0 160 160">
-                    <circle cx="80" cy="80" r="54" fill="none" stroke="#f1f5f9" strokeWidth="18" />
-                    {statsAgilVsProy.horasAgil > 0 && (
-                      <circle
-                        cx="80"
-                        cy="80"
-                        r="54"
-                        fill="none"
-                        stroke="#ea580c"
-                        strokeWidth="18"
-                        strokeDasharray={`${(statsAgilVsProy.pctAgil / 100) * 339.292} 339.292`}
-                        strokeDashoffset="0"
-                        transform="rotate(-90 80 80)"
-                      />
-                    )}
-                    {statsAgilVsProy.horasProyectos > 0 && (
-                      <circle
-                        cx="80"
-                        cy="80"
-                        r="54"
-                        fill="none"
-                        stroke="#0f3d3e"
-                        strokeWidth="18"
-                        strokeDasharray={`${(statsAgilVsProy.pctProyectos / 100) * 339.292} 339.292`}
-                        strokeDashoffset={`${-((statsAgilVsProy.pctAgil / 100) * 339.292)}`}
-                        transform="rotate(-90 80 80)"
-                      />
-                    )}
-                    <text x="80" y="74" textAnchor="middle" fill="#111827" fontSize="16" fontWeight="700">
-                      {totalHorasGeneral.toFixed(1)}h
-                    </text>
-                    <text x="80" y="92" textAnchor="middle" fill="#64748b" fontSize="10" fontWeight="600" letterSpacing="0.05em">
-                      TOTAL HORAS
-                    </text>
-                  </svg>
-                </div>
-
-                <div className={styles.donutLegend}>
-                  <div className={styles.donutLegendItem}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <span className={styles.donutDot} style={{ background: '#ea580c' }} />
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '13px', color: '#111827' }}>Línea Ágil</div>
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>
-                          S/. {statsAgilVsProy.montoAgil.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 700, fontSize: '14px', color: '#ea580c' }}>
-                        {statsAgilVsProy.pctAgil.toFixed(1)}%
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>
-                        {statsAgilVsProy.horasAgil.toFixed(1)} hrs
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={styles.donutLegendItem}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <span className={styles.donutDot} style={{ background: '#0f3d3e' }} />
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '13px', color: '#111827' }}>Proyectos Tradicionales</div>
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>
-                          S/. {statsAgilVsProy.montoProyectos.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 700, fontSize: '14px', color: '#0f3d3e' }}>
-                        {statsAgilVsProy.pctProyectos.toFixed(1)}%
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>
-                        {statsAgilVsProy.horasProyectos.toFixed(1)} hrs
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Gráfico 3: Horas por Agrupador de Negocio */}
-            <div className={styles.chartCard}>
-              <div className={styles.chartHeader}>
-                <div>
-                  <h3 className={styles.chartTitle}>Horas por Agrupador de Negocio</h3>
-                  <p className={styles.chartSubtitle}>Distribución según capacidad operativa</p>
-                </div>
-                <span className={styles.chartTag}>{statsAgrupadores.length} Agrupadores</span>
-              </div>
-
-              <div className={styles.barList}>
-                {statsAgrupadores.map((agr, i) => {
-                  const colors = ['#0f3d3e', '#ea580c', '#2563eb', '#10b981', '#8b5cf6', '#06b6d4', '#f59e0b', '#ec4899', '#64748b']
-                  const color = colors[i % colors.length]
-                  return (
-                    <div key={agr.nombre} className={styles.barItem}>
-                      <div className={styles.barItemHeader}>
-                        <span className={styles.barItemName}>
-                          <span className={styles.donutDot} style={{ background: color }} />
-                          {agr.nombre}
-                          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 400 }}>
-                            ({agr.tareasCount} tareas)
-                          </span>
-                        </span>
-                        <span className={styles.barItemValue}>
-                          {agr.horas.toFixed(1)} hrs
-                          <span className={styles.barItemSub}>({agr.porcentaje.toFixed(1)}%)</span>
-                        </span>
-                      </div>
-                      <div className={styles.barTrack}>
-                        <div
-                          className={styles.barFill}
-                          style={{ width: `${agr.porcentaje}%`, background: color }}
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Gráfico 4: Top Tareas con Mayor Inversión */}
-            <div className={styles.chartCard}>
-              <div className={styles.chartHeader}>
-                <div>
-                  <h3 className={styles.chartTitle}>Top Tareas con Mayor Inversión</h3>
-                  <p className={styles.chartSubtitle}>Requerimientos que concentran más esfuerzo</p>
-                </div>
-                <span className={styles.chartTag}>Top {topTareas.length}</span>
-              </div>
-
-              <div className={styles.barList}>
-                {topTareas.map((t, i) => {
-                  const pctOfMax = (t.totalHoras / maxHorasTopTarea) * 100
-                  const monto = t.totalHoras * costoHora
-                  const isSelected = selectedTaskForDetail?.tarea_periodo_id === t.tarea_periodo_id
-                  return (
-                    <div
-                      key={t.tarea_periodo_id}
-                      className={`${styles.barItem} ${styles.clickableRow}`}
-                      onClick={() => setSelectedTaskForDetail(isSelected ? null : t)}
-                      title="Haz clic para ver registros y actividades en la columna lateral"
-                    >
-                      <div className={styles.barItemHeader}>
-                        <span className={styles.barItemName} title={t.tarea_nombre}>
-                          <span style={{ fontWeight: 700, color: '#64748b', fontSize: '11px' }}>#{i + 1}</span>
-                          {t.tarea_nombre}
-                          {t.esAgil ? (
-                            <span className={styles.tagAgil} style={{ fontSize: '9px', padding: '1px 4px' }}>Ágil</span>
-                          ) : (
-                            <span className={styles.tagProy} style={{ fontSize: '9px', padding: '1px 4px' }}>Proy</span>
-                          )}
-                        </span>
-                        <span className={styles.barItemValue}>
-                          {t.totalHoras.toFixed(1)} hrs
-                          <span className={styles.barItemSub}>
-                            S/. {monto.toLocaleString('es-PE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                          </span>
-                        </span>
-                      </div>
-                      <div className={styles.barTrack}>
-                        <div
-                          className={styles.barFill}
-                          style={{
-                            width: `${pctOfMax}%`,
-                            background: t.esAgil ? '#ea580c' : '#0f3d3e'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Gráfico 5: Distribución e Inversión por Equipo */}
-            <div className={styles.chartCard}>
-              <div className={styles.chartHeader}>
-                <div>
-                  <h3 className={styles.chartTitle}>Distribución e Inversión por Equipo</h3>
-                  <p className={styles.chartSubtitle}>Consumo de horas según asignación técnica</p>
-                </div>
-                <span className={styles.chartTag}>{statsEquipos.length} Equipos</span>
-              </div>
-
-              <div className={styles.barList}>
-                {statsEquipos.map((eq, i) => {
-                  const colors = ['#2563eb', '#10b981', '#8b5cf6', '#0f3d3e', '#ea580c', '#06b6d4', '#f59e0b', '#ec4899', '#64748b']
-                  const color = colors[i % colors.length]
-                  return (
-                    <div key={eq.team} className={styles.barItem}>
-                      <div className={styles.barItemHeader}>
-                        <span className={styles.barItemName}>
-                          <span className={styles.donutDot} style={{ background: color }} />
-                          {eq.team}
-                          <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 400 }}>
-                            ({eq.tareasCount} tareas)
-                          </span>
-                        </span>
-                        <span className={styles.barItemValue}>
-                          {eq.horas.toFixed(1)} hrs
-                          <span className={styles.barItemSub}>
-                            S/. {eq.monto.toLocaleString('es-PE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                          </span>
-                        </span>
-                      </div>
-                      <div className={styles.barTrack}>
-                        <div
-                          className={styles.barFill}
-                          style={{ width: `${eq.porcentaje}%`, background: color }}
-                        />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Gráfico 6 (Wide): Carga de Trabajo por Colaborador */}
-          <div className={styles.chartCardWide}>
-            <div className={styles.chartHeader}>
-              <div>
-                <h3 className={styles.chartTitle}>Carga de Trabajo por Colaborador</h3>
-                <p className={styles.chartSubtitle}>Desglose operativo individual por recurso asignado</p>
-              </div>
-              <span className={styles.chartTag}>{statsRecursos.length} Colaboradores</span>
-            </div>
-
-            <div className={styles.chartsGrid}>
-              {statsRecursos.map((r, i) => {
-                const pct = (r.horas / maxHorasRecurso) * 100
-                return (
-                  <div key={r.nombre} className={styles.barItem} style={{ background: '#f8fafc', padding: '10px 14px', border: '1px solid #e2e8f0' }}>
-                    <div className={styles.barItemHeader}>
-                      <span className={styles.barItemName}>
-                        <span style={{ fontWeight: 700, color: '#64748b', fontSize: '11px' }}>#{i + 1}</span>
-                        {r.nombre}
-                        <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
-                          ({r.team})
-                        </span>
-                      </span>
-                      <span className={styles.barItemValue}>
-                        {r.horas.toFixed(1)} hrs
-                        <span className={styles.barItemSub}>
-                          · {r.logsCount} logs
-                        </span>
-                      </span>
-                    </div>
-                    <div className={styles.barTrack} style={{ marginTop: '4px' }}>
-                      <div
-                        className={styles.barFill}
-                        style={{ width: `${pct}%`, background: '#0284c7' }}
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ─── VISTA: DETALLE DE TAREAS & REGISTROS (TABLA EXACTA IMAGEN 3) ──── */}
-      {activeTab === 'detalle' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Barra de Filtros */}
-          <div className={styles.toolbar}>
-            <div className={styles.filtersGroup}>
-              <input
-                className={styles.input}
-                placeholder="Buscar por tarea o detalle..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-
-              <select
-                className={styles.select}
-                value={selectedDuracion}
-                onChange={(e) => setSelectedDuracion(e.target.value as any)}
-              >
-                <option value="todas">Todas las duraciones</option>
-                <option value="mas_50h">Tareas Largas (&gt; 50 hrs)</option>
-                <option value="hasta_50h">Tareas Estándar (≤ 50 hrs)</option>
-              </select>
-
-              <select
-                className={styles.select}
-                value={selectedPry}
-                onChange={(e) => setSelectedPry(e.target.value)}
-              >
-                <option value="">Todos los proyectos</option>
-                {opciones.proyectos.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className={styles.select}
-                value={selectedSolicitante}
-                onChange={(e) => setSelectedSolicitante(e.target.value)}
-              >
-                <option value="">Todos los solicitantes</option>
-                {opciones.solicitantes.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className={styles.select}
-                value={selectedTeam}
-                onChange={(e) => setSelectedTeam(e.target.value)}
-              >
-                <option value="">Todos los equipos</option>
-                {opciones.teams.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className={styles.select}
-                value={selectedAgrupador}
-                onChange={(e) => setSelectedAgrupador(e.target.value)}
-              >
-                <option value="">Todos los agrupadores</option>
-                {opciones.agrupadores.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
-
-              {hasActiveFilters && (
-                <button className={styles.btnClear} onClick={limpiarFiltros}>
-                  Limpiar
+                  <X size={14} />
                 </button>
               )}
             </div>
 
-            <div className={styles.actionsGroup}>
+            {/* Píldoras de Estado de Comentarios */}
+            <div className={styles.commentTabsGroup}>
               <button
                 type="button"
-                className={styles.btnSave}
-                onClick={handleSave}
-                disabled={saving}
+                className={`${styles.commentTabBtn} ${selectedComentarioEstado === 'todos' ? styles.commentTabBtnActive : ''}`}
+                onClick={() => setSelectedComentarioEstado('todos')}
               >
-                {saving ? 'Guardando...' : 'Guardar Observaciones'}
-                {pendingChangesCount > 0 && (
-                  <span className={styles.pendingBadge}>{pendingChangesCount}</span>
-                )}
+                <span>Todas</span>
+                <span className={styles.commentTabBadge}>{countsEstadoComentarios.todos}</span>
+              </button>
+
+              <button
+                type="button"
+                className={`${styles.commentTabBtn} ${selectedComentarioEstado === 'con_ps' ? styles.commentTabBtnActive : ''}`}
+                onClick={() => setSelectedComentarioEstado('con_ps')}
+                title="Filtrar tareas que tengan comentarios u observaciones de Protecta"
+              >
+                <MessageSquare size={13} />
+                <span>Con Observación PS</span>
+                <span className={styles.commentTabBadge}>{countsEstadoComentarios.con_ps}</span>
+              </button>
+
+              <button
+                type="button"
+                className={`${styles.commentTabBtn} ${selectedComentarioEstado === 'con_dm' ? styles.commentTabBtnActive : ''}`}
+                onClick={() => setSelectedComentarioEstado('con_dm')}
+                title="Filtrar tareas con respuesta de Dev (DM Software)"
+              >
+                <CheckCircle2 size={13} />
+                <span>Con Respuesta Dev</span>
+                <span className={styles.commentTabBadge}>{countsEstadoComentarios.con_dm}</span>
+              </button>
+
+              <button
+                type="button"
+                className={`${styles.commentTabBtn} ${selectedComentarioEstado === 'pendientes_dm' ? styles.commentTabBtnActive : ''}`}
+                onClick={() => setSelectedComentarioEstado('pendientes_dm')}
+                title="Tareas con observación Protecta pendientes de ser respondidas por Dev"
+              >
+                <AlertCircle size={13} color={selectedComentarioEstado === 'pendientes_dm' ? '#ffffff' : '#eab308'} />
+                <span>Pendientes DM</span>
+                <span className={styles.commentTabBadge} style={{ color: selectedComentarioEstado === 'pendientes_dm' ? '#ffffff' : '#ca8a04' }}>
+                  {countsEstadoComentarios.pendientes_dm}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className={`${styles.commentTabBtn} ${selectedComentarioEstado === 'sin_comentarios' ? styles.commentTabBtnActive : ''}`}
+                onClick={() => setSelectedComentarioEstado('sin_comentarios')}
+                title="Tareas que no tienen ningún comentario registrado"
+              >
+                <span>Sin Observaciones</span>
+                <span className={styles.commentTabBadge}>{countsEstadoComentarios.sin_comentarios}</span>
               </button>
             </div>
           </div>
 
-          {/* Tabla de Detalle Oficial */}
-          <div className={styles.card}>
-            <div className={styles.cardHeaderRow}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <h2 className={styles.cardTitle}>Detalle de Actividades y Tareas</h2>
-                <span style={{ fontSize: '13px', color: '#64748b' }}>
-                  ({tareasResumen.length} tareas · {filasExcel.length} registros)
-                </span>
-              </div>
+          {/* Fila 2: Selectores desplegables organizados */}
+          <div className={styles.filterGrid}>
+            <select
+              className={`${styles.filterSelect} ${selectedDuracion !== 'todas' ? styles.filterSelectActive : ''}`}
+              value={selectedDuracion}
+              onChange={(e) => setSelectedDuracion(e.target.value as any)}
+            >
+              <option value="todas">Todas las duraciones</option>
+              <option value="mas_50h">Tareas Largas (&gt; 50 hrs)</option>
+              <option value="hasta_50h">Tareas Estándar (≤ 50 hrs)</option>
+            </select>
+
+            <select
+              className={`${styles.filterSelect} ${selectedPry ? styles.filterSelectActive : ''}`}
+              value={selectedPry}
+              onChange={(e) => setSelectedPry(e.target.value)}
+            >
+              <option value="">Todos los proyectos</option>
+              {opciones.proyectos.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className={`${styles.filterSelect} ${selectedSolicitante ? styles.filterSelectActive : ''}`}
+              value={selectedSolicitante}
+              onChange={(e) => setSelectedSolicitante(e.target.value)}
+            >
+              <option value="">Todos los solicitantes</option>
+              {opciones.solicitantes.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className={`${styles.filterSelect} ${selectedTeam ? styles.filterSelectActive : ''}`}
+              value={selectedTeam}
+              onChange={(e) => setSelectedTeam(e.target.value)}
+            >
+              <option value="">Todos los equipos</option>
+              {opciones.teams.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className={`${styles.filterSelect} ${selectedAgrupador ? styles.filterSelectActive : ''}`}
+              value={selectedAgrupador}
+              onChange={(e) => setSelectedAgrupador(e.target.value)}
+            >
+              <option value="">Todos los agrupadores</option>
+              {opciones.agrupadores.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Fila 3: Resumen dinámico en vivo */}
+          <div className={styles.filterSummaryRow}>
+            <div>
+              Mostrando <strong style={{ color: '#0f172a' }}>{tareasResumen.length}</strong> de {totalTareasBase} tareas
+              {' '}·{' '}
+              <strong style={{ color: '#0f172a' }}>{totalRegistrosFiltrados}</strong> de {registros.length} registros
+              {' '}·{' '}
+              <strong style={{ color: '#0f3d3e' }}>{totalHorasFiltradas.toFixed(2)} hrs</strong> acumuladas
+            </div>
+            <div>
+              Período evaluado: <strong>{periodoNombre}</strong>
+            </div>
+          </div>
+        </section>
+
+        {/* ─── 3. TABLA DE DETALLE CON JERARQUÍA PADRE VS HIJOS ─────────────── */}
+        <div className={styles.card} style={{ margin: 0 }}>
+          <div className={styles.cardHeaderRow}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h2 className={styles.cardTitle}>Detalle de Actividades y Tareas</h2>
+              <span style={{ fontSize: '13px', color: '#64748b' }}>
+                ({tareasResumen.length} tareas · {filasExcel.length} filas desplegadas)
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 type="button"
                 className={styles.btnToggleSub}
@@ -1569,445 +892,231 @@ export default function PublicReportTable({
               >
                 Expandir / Colapsar Todo
               </button>
+              <button
+                type="button"
+                className={styles.btnSave}
+                onClick={handleSave}
+                disabled={saving}
+                style={{ padding: '6px 14px', fontSize: '12px' }}
+              >
+                <Save size={14} style={{ marginRight: '5px' }} />
+                {saving ? 'Guardando...' : 'Guardar Comentarios'}
+                {pendingChangesCount > 0 && (
+                  <span className={styles.pendingBadge}>{pendingChangesCount}</span>
+                )}
+              </button>
             </div>
+          </div>
 
-            <div className={styles.tableWrapper}>
-              <table className={styles.excelTable}>
-                <thead>
-                  <tr>
-                    <th style={{ width: '280px' }}>Taskname</th>
-                    <th style={{ width: '100px' }}>Fecha</th>
-                    <th style={{ width: '130px' }}>Asignado</th>
-                    <th style={{ width: '130px' }}>Solicitante</th>
-                    <th style={{ width: '150px' }}>Pry - Protecta</th>
-                    <th style={{ width: '140px' }}>Agrupador</th>
-                    <th style={{ width: '90px', textAlign: 'right' }}>Horas tomadas</th>
-                    <th style={{ width: '250px' }}>Comentario PS</th>
-                    <th style={{ width: '250px' }}>Comentario DM</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filasExcel.map((fila) => {
-                    const tipo = fila.esTarea ? 'TAREA' : 'REGISTRO'
-                    const refId = fila.esTarea ? fila.tarea_periodo_id : fila.id
-                    const dmReply = comentariosDM[`${tipo}-${refId}`]
-                    const isExpanded = expandedTasks[fila.tarea_periodo_id] !== false
+          <div className={styles.tableWrapper}>
+            <table className={styles.excelTable}>
+              <thead>
+                <tr>
+                  <th style={{ width: '300px' }}>Taskname</th>
+                  <th style={{ width: '100px' }}>Fecha</th>
+                  <th style={{ width: '140px' }}>Asignado</th>
+                  <th style={{ width: '130px' }}>Solicitante</th>
+                  <th style={{ width: '150px' }}>Pry - Protecta</th>
+                  <th style={{ width: '140px' }}>Agrupador</th>
+                  <th style={{ width: '110px', textAlign: 'right' }}>Horas tomadas</th>
+                  <th style={{ width: '250px' }}>Comentario PS</th>
+                  <th style={{ width: '250px' }}>Comentario DM</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filasExcel.map((fila) => {
+                  const refId = fila.esTarea ? fila.tarea_periodo_id : fila.id
+                  const isExpanded = expandedTasks[fila.tarea_periodo_id] !== false
 
+                  if (fila.esTarea) {
                     return (
-                      <tr key={`${tipo}-${refId}`} className={fila.esTarea ? styles.rowTask : styles.rowRecord}>
-                        {/* Taskname */}
+                      <tr key={`tarea-${refId}`} className={styles.rowTask}>
+                        {/* Taskname Padre */}
                         <td
-                          style={{
-                            fontWeight: fila.esTarea ? 'bold' : 'normal',
-                            paddingLeft: fila.esTarea ? '12px' : '28px',
-                            cursor: fila.esTarea ? 'pointer' : 'default'
-                          }}
-                          onClick={() => {
-                            if (fila.esTarea) toggleTask(fila.tarea_periodo_id)
-                          }}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => toggleTask(fila.tarea_periodo_id)}
+                          title="Haz clic para expandir o contraer actividades"
                         >
-                          {fila.esTarea ? (
-                            <span>
-                              {isExpanded ? '▼ ' : '▶ '}
+                          <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <button
+                              type="button"
+                              className={styles.taskChevronBtn}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleTask(fila.tarea_periodo_id)
+                              }}
+                              title={isExpanded ? 'Colapsar actividades' : 'Expandir actividades'}
+                            >
+                              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                            </button>
+                            <span className={styles.taskNameText}>
                               {fila.tarea_nombre}
-                              {fila.esAgil ? (
-                                <span className={styles.tagAgil}>Ágil</span>
-                              ) : (
-                                <span className={styles.tagProy}>Proy</span>
-                              )}
                             </span>
-                          ) : (
-                            `↳ ${fila.descripcion || fila.tarea_nombre}`
-                          )}
+                            {fila.esAgil ? (
+                              <span className={styles.tagAgil}>Ágil</span>
+                            ) : (
+                              <span className={styles.tagProy}>Proy</span>
+                            )}
+                          </div>
                         </td>
 
-                        {/* Fecha */}
-                        <td>
-                          {fila.esTarea
-                            ? '-'
-                            : new Date(fila.fecha).toLocaleDateString('es-PE', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric'
-                              })}
+                        {/* Fecha Padre */}
+                        <td style={{ color: '#94a3b8', fontStyle: 'italic', textAlign: 'center' }}>
+                          —
                         </td>
 
-                        {/* Asignado */}
-                        <td style={{ color: fila.esTarea ? '#0f172a' : '#475569' }}>
-                          {fila.esTarea ? fila.team_nombre || '-' : fila.trabajador_nombre || fila.team_nombre || '-'}
+                        {/* Asignado Padre */}
+                        <td style={{ color: '#0f172a', fontWeight: 700 }}>
+                          {fila.team_nombre || '-'}
                         </td>
 
-                        {/* Solicitante */}
-                        <td style={{ color: fila.esTarea ? '#0f172a' : '#475569' }}>
+                        {/* Solicitante Padre */}
+                        <td style={{ color: '#0f172a', fontWeight: 600 }}>
                           {fila.solicitante_nombre || '-'}
                         </td>
 
-                        {/* Pry - Protecta */}
-                        <td style={{ color: fila.esTarea ? '#0f172a' : '#475569' }}>
+                        {/* Proyecto Padre */}
+                        <td style={{ color: '#0f172a', fontWeight: 600 }}>
                           {fila.proyecto_nombre || '-'}
                         </td>
 
-                        {/* Agrupador */}
-                        <td style={{ color: fila.esTarea ? '#0f172a' : '#475569' }}>
+                        {/* Agrupador Padre */}
+                        <td style={{ color: '#0f172a', fontWeight: 600 }}>
                           {fila.agrupador_nombre || '-'}
                         </td>
 
-                        {/* Horas tomadas */}
-                        <td style={{ fontWeight: 'bold', textAlign: 'right' }}>
-                          {fila.esTarea ? fila.totalHoras.toFixed(2) : Number(fila.horas).toFixed(2)}
+                        {/* Horas tomadas Padre */}
+                        <td style={{ textAlign: 'right' }}>
+                          <span className={styles.taskHoursBadge}>
+                            {fila.totalHoras.toFixed(2)} hrs
+                          </span>
                         </td>
 
-                        {/* Comentario PS (Editable por Protecta) */}
+                        {/* Comentario PS Padre */}
                         <td style={{ padding: '6px' }}>
                           <textarea
                             className={styles.textarea}
-                            placeholder={
-                              fila.esTarea
-                                ? 'Observación a la tarea general...'
-                                : 'Observación al registro diario...'
-                            }
-                            value={
-                              fila.esTarea
-                                ? comentariosPS.tareas[refId] || ''
-                                : comentariosPS.registros[refId] || ''
-                            }
-                            onChange={(e) =>
-                              handleChange(fila.esTarea ? 'tareas' : 'registros', refId, e.target.value)
-                            }
+                            placeholder="Observación Protecta a la tarea general..."
+                            value={comentariosPS.tareas[refId] || ''}
+                            onChange={(e) => handleChange('ps', 'tareas', refId, e.target.value)}
                           />
                         </td>
 
-                        {/* Comentario DM (Lectura de Dev) */}
+                        {/* Comentario DM Padre */}
                         <td style={{ padding: '6px' }}>
-                          {dmReply ? (
-                            <div className={styles.replyContainer}>
-                              <div className={styles.replyAuthor}>Respuesta Dev:</div>
-                              {dmReply}
-                            </div>
-                          ) : (
-                            <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '11px' }}>
-                              Sin comentario
-                            </span>
-                          )}
+                          <textarea
+                            className={`${styles.textarea} ${styles.textareaDM}`}
+                            placeholder="Respuesta Dev a la tarea general..."
+                            value={comentariosDM.tareas[refId] || ''}
+                            onChange={(e) => handleChange('dm', 'tareas', refId, e.target.value)}
+                          />
                         </td>
                       </tr>
                     )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
+                  }
 
-      {/* ─── VISTA 3: EQUIPOS & RECURSOS ─────────────────────────────────────── */}
-      {activeTab === 'equipos' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Desglose por Equipos */}
-          <div className={styles.card}>
-            <h2 className={styles.cardTitle} style={{ marginBottom: '14px' }}>
-              Resumen por Equipo Asignado
-            </h2>
-            <div className={styles.tableWrapper} style={{ maxHeight: '350px' }}>
-              <table className={styles.excelTable}>
-                <thead>
-                  <tr>
-                    <th className={styles.resumenTh} style={{ textAlign: 'left' }}>Equipo</th>
-                    <th className={styles.resumenTh} style={{ width: '130px', textAlign: 'center' }}>Tareas Asignadas</th>
-                    <th className={styles.resumenTh} style={{ width: '150px', textAlign: 'right' }}>Horas Consumidas</th>
-                    <th className={styles.resumenTh} style={{ width: '180px', textAlign: 'right' }}>Monto Liquidación (S/.)</th>
-                    <th className={styles.resumenTh} style={{ width: '130px', textAlign: 'right' }}>Participación</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statsEquipos.map((eq) => (
-                    <tr key={eq.team}>
-                      <td style={{ fontWeight: 600 }}>{eq.team}</td>
-                      <td style={{ textAlign: 'center' }}>{eq.tareasCount}</td>
-                      <td style={{ textAlign: 'right' }}>{eq.horas.toFixed(2)}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        {eq.monto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  // ─── Fila Registro Hijo ─────────────────────────────────────
+                  return (
+                    <tr key={`registro-${refId}`} className={styles.rowRecord}>
+                      {/* Descripción con sangría */}
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                          <span className={styles.recordIndent}>↳</span>
+                          <span className={styles.recordDesc}>
+                            {fila.descripcion || fila.tarea_nombre}
+                          </span>
+                        </div>
                       </td>
-                      <td style={{ textAlign: 'right' }}>{eq.porcentaje.toFixed(1)}%</td>
-                    </tr>
-                  ))}
-                  <tr className={styles.totalRow}>
-                    <td style={{ textAlign: 'left' }}>TOTAL EQUIPOS</td>
-                    <td style={{ textAlign: 'center' }}>-</td>
-                    <td style={{ textAlign: 'right' }}>{totalHorasGeneral.toFixed(2)}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      {(totalHorasGeneral * costoHora).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>100.0%</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
 
-          {/* Desglose por Recurso / Colaborador */}
-          <div className={styles.card}>
-            <h2 className={styles.cardTitle} style={{ marginBottom: '14px' }}>
-              Resumen por Colaborador / Recurso
-            </h2>
-            <div className={styles.tableWrapper} style={{ maxHeight: '420px' }}>
-              <table className={styles.excelTable}>
-                <thead>
-                  <tr>
-                    <th className={styles.resumenTh} style={{ textAlign: 'left' }}>Colaborador</th>
-                    <th className={styles.resumenTh} style={{ width: '180px', textAlign: 'left' }}>Equipo</th>
-                    <th className={styles.resumenTh} style={{ width: '130px', textAlign: 'center' }}>Registros</th>
-                    <th className={styles.resumenTh} style={{ width: '150px', textAlign: 'right' }}>Horas Registradas</th>
-                    <th className={styles.resumenTh} style={{ width: '180px', textAlign: 'right' }}>Monto Liquidación (S/.)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statsRecursos.map((rec) => (
-                    <tr key={rec.nombre}>
-                      <td style={{ fontWeight: 600 }}>{rec.nombre}</td>
-                      <td>{rec.team}</td>
-                      <td style={{ textAlign: 'center' }}>{rec.logsCount}</td>
-                      <td style={{ textAlign: 'right' }}>{rec.horas.toFixed(2)}</td>
-                      <td style={{ textAlign: 'right' }}>
-                        {rec.monto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {/* Fecha formateada */}
+                      <td>
+                        <span className={styles.dateChip}>
+                          <Calendar size={11} color="#64748b" />
+                          {fila.fecha
+                            ? new Date(fila.fecha + 'T12:00:00').toLocaleDateString('es-PE', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              })
+                            : '-'}
+                        </span>
+                      </td>
+
+                      {/* Colaborador individual asignado */}
+                      <td>
+                        <span className={styles.userChip}>
+                          <User size={12} color="#0f3d3e" />
+                          {fila.trabajador_nombre || fila.team_nombre || '-'}
+                        </span>
+                      </td>
+
+                      {/* Solicitante */}
+                      <td style={{ color: '#475569' }}>
+                        {fila.solicitante_nombre || '-'}
+                      </td>
+
+                      {/* Proyecto */}
+                      <td style={{ color: '#475569' }}>
+                        {fila.proyecto_nombre || '-'}
+                      </td>
+
+                      {/* Agrupador */}
+                      <td style={{ color: '#475569' }}>
+                        {fila.agrupador_nombre || '-'}
+                      </td>
+
+                      {/* Horas tomadas */}
+                      <td style={{ textAlign: 'right', fontWeight: 600, color: '#334155' }}>
+                        {Number(fila.horas).toFixed(2)}
+                      </td>
+
+                      {/* Comentario PS Hijo */}
+                      <td style={{ padding: '6px' }}>
+                        <textarea
+                          className={styles.textarea}
+                          placeholder="Observación Protecta a este registro..."
+                          value={comentariosPS.registros[refId] || ''}
+                          onChange={(e) => handleChange('ps', 'registros', refId, e.target.value)}
+                        />
+                      </td>
+
+                      {/* Comentario DM Hijo */}
+                      <td style={{ padding: '6px' }}>
+                        <textarea
+                          className={`${styles.textarea} ${styles.textareaDM}`}
+                          placeholder="Respuesta Dev a este registro..."
+                          value={comentariosDM.registros[refId] || ''}
+                          onChange={(e) => handleChange('dm', 'registros', refId, e.target.value)}
+                        />
                       </td>
                     </tr>
-                  ))}
-                  <tr className={styles.totalRow}>
-                    <td style={{ textAlign: 'left' }}>TOTAL GENERAL</td>
-                    <td>-</td>
-                    <td style={{ textAlign: 'center' }}>-</td>
-                    <td style={{ textAlign: 'right' }}>{totalHorasGeneral.toFixed(2)}</td>
-                    <td style={{ textAlign: 'right' }}>
-                      {(totalHorasGeneral * costoHora).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
-      )}
+      </main>
 
-      {/* ─── VISTA 4: BÓVEDA DE ARCHIVOS ("DRIVE") ───────────────────────────── */}
-      {activeTab === 'descargas' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div className={styles.driveCard}>
-            <div>
-              <h2 className={styles.driveCardTitle}>
-                Reporte Oficial de Tareo Protecta (.xlsx)
-              </h2>
-              <p className={styles.driveCardDesc}>
-                Descarga directa del libro contable oficial del período {periodoLabel}. Contiene todas las hojas auditadas idénticas a las que se entregan a supervisión:
-              </p>
-            </div>
-
-            <div className={styles.fileSheetList}>
-              <div>• <strong>Hoja 1: Resumen-2</strong> (Resumen ejecutivo consolidado Ágil vs Proyectos)</div>
-              <div>• <strong>Hoja 2: Agrupador</strong> (Distribución por agrupadores y subtotales)</div>
-              <div>• <strong>Hoja 3: Ágil</strong> (Detalle de actividades ágiles con observaciones PS y Dev)</div>
-              <div>• <strong>Hoja 4: Proyectos</strong> (Detalle de requerimientos de proyectos tradicionales)</div>
-              <div>• <strong>Hojas 5 y 6: Equipos & Recursos</strong> (Desglose por squad y colaboradores)</div>
-            </div>
-
+      {/* ─── 4. BARRA FLOTANTE DE GUARDADO (SI HAY CAMBIOS PENDIENTES) ───── */}
+      {pendingChangesCount > 0 && (
+        <div className={styles.floatingSaveBar}>
+          <div className={styles.floatingSaveContent}>
+            <span className={styles.floatingPulse} />
+            <span>
+              Tienes <strong>{pendingChangesCount}</strong> {pendingChangesCount === 1 ? 'observación sin guardar' : 'observaciones sin guardar'}
+            </span>
             <button
               type="button"
-              className={styles.btnExcel}
-              onClick={handleDownloadExcel}
-              disabled={exportingExcel}
-              style={{ width: 'fit-content' }}
+              className={styles.btnSaveFloating}
+              onClick={handleSave}
+              disabled={saving}
             >
-              {exportingExcel ? 'Generando archivo...' : 'Descargar Archivo Oficial (.xlsx)'}
+              <Save size={14} />
+              {saving ? 'Guardando...' : 'Guardar Cambios Ahora'}
             </button>
           </div>
         </div>
-      )}
-      </div>
-
-      {/* ─── COLUMNA / DRAWER LATERAL DE DETALLE Y REGISTROS ───────────────── */}
-      {selectedTaskForDetail && (
-        <>
-          <div
-            className={styles.sideDrawerOverlay}
-            onClick={() => setSelectedTaskForDetail(null)}
-          />
-          <aside className={styles.sideDrawer} aria-label="Detalle de Tarea">
-            {/* Header */}
-            <div className={styles.sideDrawerHeader}>
-              <div className={styles.sideDrawerTitleBox}>
-                <span className={styles.sideDrawerBadge}>
-                  <FileText size={13} />
-                  Detalle de Tarea & Registros
-                </span>
-                <h3 className={styles.sideDrawerTitle}>
-                  {selectedTaskForDetail.tarea_nombre}
-                </h3>
-                <div style={{ marginTop: '2px' }}>
-                  {selectedTaskForDetail.esAgil ? (
-                    <span className={styles.tagAgil}>Ágil</span>
-                  ) : (
-                    <span className={styles.tagProy}>Proyecto</span>
-                  )}
-                </div>
-              </div>
-              <button
-                type="button"
-                className={styles.sideDrawerCloseBtn}
-                onClick={() => setSelectedTaskForDetail(null)}
-                title="Cerrar columna lateral (Esc)"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Body */}
-            <div className={styles.sideDrawerBody}>
-              {/* Métricas clave */}
-              <div className={styles.sideMetricsRow}>
-                <div className={styles.sideMetricCard}>
-                  <div className={styles.sideMetricCardLabel}>Horas Totales</div>
-                  <div className={styles.sideMetricCardValue}>
-                    {selectedTaskForDetail.totalHoras.toFixed(2)}h
-                  </div>
-                </div>
-                <div className={styles.sideMetricCard}>
-                  <div className={styles.sideMetricCardLabel}>Monto Estimado</div>
-                  <div className={styles.sideMetricCardValue}>
-                    S/. {(selectedTaskForDetail.totalHoras * costoHora).toLocaleString('es-PE', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}
-                  </div>
-                </div>
-                <div className={styles.sideMetricCard}>
-                  <div className={styles.sideMetricCardLabel}>Registros</div>
-                  <div className={styles.sideMetricCardValue}>
-                    {selectedTaskForDetail.detalle?.length || 0}
-                  </div>
-                </div>
-              </div>
-
-              {/* Información General de la Tarea */}
-              <div className={styles.sideInfoCard}>
-                <div className={styles.sideInfoRow}>
-                  <span className={styles.sideInfoLabel}>Agrupador:</span>
-                  <span className={styles.sideInfoValue}>
-                    {selectedTaskForDetail.agrupador_nombre || 'No asignado'}
-                  </span>
-                </div>
-                <div className={styles.sideInfoRow}>
-                  <span className={styles.sideInfoLabel}>Proyecto:</span>
-                  <span className={styles.sideInfoValue}>
-                    {selectedTaskForDetail.proyecto_nombre || 'No asignado'}
-                  </span>
-                </div>
-                <div className={styles.sideInfoRow}>
-                  <span className={styles.sideInfoLabel}>Solicitante:</span>
-                  <span className={styles.sideInfoValue}>
-                    {selectedTaskForDetail.solicitante_nombre || 'No asignado'}
-                  </span>
-                </div>
-                <div className={styles.sideInfoRow}>
-                  <span className={styles.sideInfoLabel}>Equipo:</span>
-                  <span className={styles.sideInfoValue}>
-                    {selectedTaskForDetail.team_nombre || 'General'}
-                  </span>
-                </div>
-                {selectedTaskForDetail.observacion && (
-                  <div className={styles.sideInfoRow} style={{ alignItems: 'flex-start', flexDirection: 'column', gap: '4px' }}>
-                    <span className={styles.sideInfoLabel}>Observación:</span>
-                    <span className={styles.sideInfoValue} style={{ textAlign: 'left', fontStyle: 'italic', fontWeight: 500, color: '#475569' }}>
-                      "{selectedTaskForDetail.observacion}"
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Colaboradores involucrados */}
-              {selectedTaskCollaborators.length > 0 && (
-                <div>
-                  <div className={styles.sideSectionTitle}>
-                    <Users size={14} />
-                    Colaboradores Participantes ({selectedTaskCollaborators.length})
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
-                    {selectedTaskCollaborators.map((c) => (
-                      <div key={c.nombre} className={styles.sideCollaboratorItem}>
-                        <div className={styles.sideCollaboratorName}>
-                          <User size={13} color="#64748b" />
-                          <span>{c.nombre}</span>
-                          {c.team && (
-                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal' }}>
-                              ({c.team})
-                            </span>
-                          )}
-                        </div>
-                        <div className={styles.sideCollaboratorHours}>
-                          {c.horas.toFixed(2)}h
-                          <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'normal', marginLeft: '4px' }}>
-                            ({c.pct.toFixed(0)}%)
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Registros de actividad detallados */}
-              <div>
-                <div className={styles.sideSectionTitle}>
-                  <Clock size={14} />
-                  Registros Diarios de Actividad ({sortedTaskLogs.length})
-                </div>
-                <div className={styles.sideLogsList} style={{ marginTop: '8px' }}>
-                  {sortedTaskLogs.length === 0 ? (
-                    <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
-                      No se encontraron registros de horas para esta tarea.
-                    </div>
-                  ) : (
-                    sortedTaskLogs.map((log: any, idx: number) => (
-                      <div key={log.id || `log-${idx}`} className={styles.sideLogItem}>
-                        <div className={styles.sideLogTop}>
-                          <span className={styles.sideLogDate}>
-                            <Calendar size={13} color="#0f3d3e" />
-                            {log.fecha ? new Date(log.fecha + 'T12:00:00').toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Sin fecha'}
-                          </span>
-                          <span className={styles.sideLogHoursBadge}>
-                            {Number(log.horas || 0).toFixed(2)} hrs
-                          </span>
-                        </div>
-                        <div className={styles.sideLogCollab}>
-                          <User size={12} />
-                          <span className={styles.sideLogCollabStrong}>{log.trabajador_nombre || 'No asignado'}</span>
-                          {log.team_nombre && <span>• {log.team_nombre}</span>}
-                        </div>
-                        <div className={styles.sideLogDesc}>
-                          {log.descripcion || 'Sin descripción registrada'}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className={styles.sideDrawerFooter}>
-              <span style={{ fontSize: '12px', color: '#64748b' }}>
-                Total: <strong>{selectedTaskForDetail.totalHoras.toFixed(2)} hrs</strong> / S/. {(selectedTaskForDetail.totalHoras * costoHora).toFixed(2)}
-              </span>
-              <button
-                type="button"
-                className={styles.btnFilterReset}
-                onClick={() => setSelectedTaskForDetail(null)}
-                style={{ margin: 0, padding: '6px 16px' }}
-              >
-                Cerrar Columna
-              </button>
-            </div>
-          </aside>
-        </>
       )}
     </div>
   )

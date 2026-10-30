@@ -1,3 +1,4 @@
+import { AlertTriangle } from 'lucide-react'
 import { getPublicReportDataAction } from '@/modules/tareo/actions/tareo.action'
 import PublicReportTable from '@/modules/tareo/components/PublicReportTable'
 
@@ -57,7 +58,7 @@ export default async function ReportePathPage({
           fontSize: '28px',
           marginBottom: '16px'
         }}>
-          ⚠️
+          <AlertTriangle size={28} />
         </div>
         <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>
           Acceso no disponible o enlace expirado

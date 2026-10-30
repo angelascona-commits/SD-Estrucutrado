@@ -1158,25 +1158,70 @@ export async function exportPublicReportExcelAction(
   }
 }
 export async function saveExternalCommentsAction(
-  drafts: { tipo: 'TAREA' | 'REGISTRO'; id: number; comentario_protecta: string }[]
+  drafts: {
+    tipo: 'TAREA' | 'REGISTRO'
+    id: number
+    comentario_protecta?: string
+    comentario_dev?: string
+  }[]
 ): Promise<ActionResult<void>> {
   try {
     const adminSupabase = getAdminSupabase();
-    
-    // Preparamos el payload. Nota: No tocamos comentario_dev para no borrar lo que escriba tu equipo.
-    const payload = drafts.map(d => ({
-      referencia_tipo: d.tipo,
-      referencia_id: d.id,
-      comentario_protecta: d.comentario_protecta,
-      updated_at: new Date().toISOString()
-    }));
 
-    // El upsert actualizará comentario_protecta y dejará intacto comentario_dev
+    // 1. Guardar en tabla tareo_comentarios_externos
+    const payload = drafts.map(d => {
+      const item: any = {
+        referencia_tipo: d.tipo,
+        referencia_id: d.id,
+        updated_at: new Date().toISOString()
+      };
+      if (d.comentario_protecta !== undefined) {
+        item.comentario_protecta = d.comentario_protecta;
+      }
+      if (d.comentario_dev !== undefined) {
+        item.comentario_dev = d.comentario_dev;
+      }
+      return item;
+    });
+
     const { error } = await adminSupabase
       .from('tareo_comentarios_externos')
       .upsert(payload, { onConflict: 'referencia_tipo,referencia_id' });
 
     if (error) throw new Error(error.message);
+
+    // 2. Sincronizar en cascada hacia tareo_tarea_periodo y tareo_registro
+    for (const d of drafts) {
+      if (d.tipo === 'TAREA') {
+        const updatePeriodo: any = {};
+        if (d.comentario_protecta !== undefined) updatePeriodo.comentario_periodo = d.comentario_protecta;
+        if (Object.keys(updatePeriodo).length > 0) {
+          await adminSupabase.from('tareo_tarea_periodo').update(updatePeriodo).eq('id', d.id);
+        }
+
+        if (d.comentario_dev !== undefined || d.comentario_protecta !== undefined) {
+          const { data: tp } = await adminSupabase
+            .from('tareo_tarea_periodo')
+            .select('tarea_id')
+            .eq('id', d.id)
+            .maybeSingle();
+
+          if (tp?.tarea_id) {
+            const updateTarea: any = {};
+            if (d.comentario_protecta !== undefined) updateTarea.comentario_ps = d.comentario_protecta;
+            if (d.comentario_dev !== undefined) updateTarea.comentario_dm = d.comentario_dev;
+            await adminSupabase.from('tareo_tarea').update(updateTarea).eq('id', tp.tarea_id);
+          }
+        }
+      } else if (d.tipo === 'REGISTRO') {
+        const updateReg: any = {};
+        if (d.comentario_protecta !== undefined) updateReg.comentario = d.comentario_protecta;
+        if (Object.keys(updateReg).length > 0) {
+          await adminSupabase.from('tareo_registro').update(updateReg).eq('id', d.id);
+        }
+      }
+    }
+
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
