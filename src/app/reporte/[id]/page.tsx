@@ -18,7 +18,12 @@ export default async function ReportePathPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
   const resolvedParams = await params
-  const token = resolvedParams.id
+  let token = resolvedParams.id || ''
+  try {
+    token = decodeURIComponent(token)
+  } catch {
+    // fallback if not encoded
+  }
   const sp = await searchParams
 
   const filterSolicitante = sp.solicitante ? Number(sp.solicitante) : undefined

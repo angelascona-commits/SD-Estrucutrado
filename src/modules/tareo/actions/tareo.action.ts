@@ -841,8 +841,14 @@ const MESES_LISTA = [
 
 function parsePeriodoSlug(slug: string): { mes: number; anio?: number } | null {
   if (!slug) return null
-  const clean = slug.toLowerCase().trim()
-  const parts = clean.split(/[-_\s]+/)
+  let decoded = slug
+  try {
+    decoded = decodeURIComponent(slug)
+  } catch {
+    decoded = slug
+  }
+  const clean = decoded.toLowerCase().trim()
+  const parts = clean.split(/[-_\s+]+/)
   let mes: number | undefined
   let anio: number | undefined
 
@@ -871,11 +877,12 @@ export async function generatePublicLinkAction(
   tareaId?: number
 ): Promise<ActionResult<string>> {
   try {
+    const adminSupabase = getAdminSupabase()
     const expiration = new Date()
     expiration.setDate(expiration.getDate() + 14) // Expira en 14 días
 
     // Registramos en BD para auditoría/rastreo
-    await supabase
+    await adminSupabase
       .from('tareo_reporte_link')
       .insert({
         periodo_id: periodoId,
@@ -883,7 +890,7 @@ export async function generatePublicLinkAction(
       })
 
     // Obtenemos mes y año para construir la URL limpia
-    const { data: perData } = await supabase
+    const { data: perData } = await adminSupabase
       .from('tareo_periodo')
       .select('anio, mes')
       .eq('id', periodoId)
@@ -1163,6 +1170,8 @@ export async function saveExternalCommentsAction(
     id: number
     comentario_protecta?: string
     comentario_dev?: string
+    estado?: string
+    actor?: string
   }[]
 ): Promise<ActionResult<void>> {
   try {
@@ -1190,7 +1199,16 @@ export async function saveExternalCommentsAction(
 
     if (error) throw new Error(error.message);
 
-    // 2. Sincronizar en cascada hacia tareo_tarea_periodo y tareo_registro
+    // Mapeo de estados a IDs de tareo_estado_tarea
+    const estadoIdMap: Record<string, number> = {
+      'pendiente': 1,
+      'observado': 2,
+      'conforme': 3,
+      'aprobado': 5,
+      'actualizado': 6
+    };
+
+    // 2. Sincronizar en cascada hacia tareo_tarea_periodo, tareo_tarea y tareo_registro
     for (const d of drafts) {
       if (d.tipo === 'TAREA') {
         const updatePeriodo: any = {};
@@ -1199,18 +1217,38 @@ export async function saveExternalCommentsAction(
           await adminSupabase.from('tareo_tarea_periodo').update(updatePeriodo).eq('id', d.id);
         }
 
-        if (d.comentario_dev !== undefined || d.comentario_protecta !== undefined) {
-          const { data: tp } = await adminSupabase
-            .from('tareo_tarea_periodo')
-            .select('tarea_id')
-            .eq('id', d.id)
-            .maybeSingle();
+        const { data: tp } = await adminSupabase
+          .from('tareo_tarea_periodo')
+          .select('tarea_id')
+          .eq('id', d.id)
+          .maybeSingle();
 
-          if (tp?.tarea_id) {
-            const updateTarea: any = {};
-            if (d.comentario_protecta !== undefined) updateTarea.comentario_ps = d.comentario_protecta;
-            if (d.comentario_dev !== undefined) updateTarea.comentario_dm = d.comentario_dev;
+        if (tp?.tarea_id) {
+          const updateTarea: any = {};
+          if (d.comentario_protecta !== undefined) updateTarea.comentario_ps = d.comentario_protecta;
+          if (d.comentario_dev !== undefined) updateTarea.comentario_dm = d.comentario_dev;
+
+          if (d.estado) {
+            const normalizedEstado = d.estado.toLowerCase().trim();
+            const mappedEstadoId = estadoIdMap[normalizedEstado];
+            if (mappedEstadoId) {
+              updateTarea.estado_id = mappedEstadoId;
+            }
+          }
+
+          if (Object.keys(updateTarea).length > 0) {
             await adminSupabase.from('tareo_tarea').update(updateTarea).eq('id', tp.tarea_id);
+          }
+
+          // Registrar en tareo_historial si hubo cambio de estado
+          if (d.estado) {
+            await adminSupabase.from('tareo_historial').insert({
+              entidad: 'tareo_tarea',
+              entidad_id: tp.tarea_id,
+              accion: d.estado.toUpperCase(),
+              descripcion: `[${d.actor || 'Portal de Supervisión'}] Estado marcado como "${d.estado}".${d.comentario_protecta ? ' Observación PS: ' + d.comentario_protecta : ''}`,
+              fecha_movimiento: new Date().toISOString()
+            });
           }
         }
       } else if (d.tipo === 'REGISTRO') {
@@ -1225,6 +1263,142 @@ export async function saveExternalCommentsAction(
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Obtiene el ciclo de vida y auditoría completa de una tarea desde tareo_historial
+ */
+export async function getTareaCicloVidaAction(
+  tareaId: number,
+  tareaPeriodoId?: number
+): Promise<ActionResult<Array<{
+  id: number
+  entidad: string
+  entidad_id: number
+  accion: string
+  descripcion: string
+  fecha_movimiento: string
+}>>> {
+  try {
+    const adminSupabase = getAdminSupabase();
+    let finalTareaId = tareaId;
+
+    if (!finalTareaId && tareaPeriodoId) {
+      const { data: tp } = await adminSupabase
+        .from('tareo_tarea_periodo')
+        .select('tarea_id')
+        .eq('id', tareaPeriodoId)
+        .maybeSingle();
+      if (tp?.tarea_id) finalTareaId = tp.tarea_id;
+    }
+
+    if (!finalTareaId) {
+      return { success: false, error: 'No se pudo identificar la tarea.' };
+    }
+
+    const { data: historial, error } = await adminSupabase
+      .from('tareo_historial')
+      .select('*')
+      .eq('entidad', 'tareo_tarea')
+      .eq('entidad_id', finalTareaId)
+      .order('fecha_movimiento', { ascending: true });
+
+    if (error) throw new Error(error.message);
+
+    return { success: true, data: historial || [] };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Error al obtener la auditoría de la tarea' };
+  }
+}
+
+/**
+ * Registra una nueva transición de estado o evento de auditoría para una tarea
+ */
+export async function registrarAuditoriaCicloVidaAction(payload: {
+  tareaId: number
+  tareaPeriodoId?: number
+  nuevoEstado: string
+  actor?: string
+  motivo?: string
+}): Promise<ActionResult<void>> {
+  try {
+    const adminSupabase = getAdminSupabase();
+    let finalTareaId = payload.tareaId;
+
+    if (!finalTareaId && payload.tareaPeriodoId) {
+      const { data: tp } = await adminSupabase
+        .from('tareo_tarea_periodo')
+        .select('tarea_id')
+        .eq('id', payload.tareaPeriodoId)
+        .maybeSingle();
+      if (tp?.tarea_id) finalTareaId = tp.tarea_id;
+    }
+
+    if (!finalTareaId) {
+      return { success: false, error: 'Identificador de tarea no válido.' };
+    }
+
+    const estadoIdMap: Record<string, number> = {
+      'pendiente': 1,
+      'observado': 2,
+      'conforme': 3,
+      'aprobado': 5,
+      'actualizado': 6
+    };
+
+    const normalizedEstado = payload.nuevoEstado.toLowerCase().trim();
+    const mappedEstadoId = estadoIdMap[normalizedEstado] || 1;
+
+    // 1. Actualizar estado_id en tareo_tarea
+    const { error: tareaErr } = await adminSupabase
+      .from('tareo_tarea')
+      .update({
+        estado_id: mappedEstadoId,
+        ...(normalizedEstado === 'observado' && payload.motivo ? { comentario_ps: payload.motivo } : {}),
+        ...(normalizedEstado === 'actualizado' && payload.motivo ? { comentario_dm: payload.motivo } : {})
+      })
+      .eq('id', finalTareaId);
+
+    if (tareaErr) throw new Error(tareaErr.message);
+
+    // 2. Si hay tareaPeriodoId y motivo, sincronizar comentario en tareo_tarea_periodo
+    if (payload.tareaPeriodoId && payload.motivo) {
+      await adminSupabase
+        .from('tareo_tarea_periodo')
+        .update({ comentario_periodo: payload.motivo })
+        .eq('id', payload.tareaPeriodoId);
+
+      await adminSupabase
+        .from('tareo_comentarios_externos')
+        .upsert({
+          referencia_tipo: 'TAREA',
+          referencia_id: payload.tareaPeriodoId,
+          ...(normalizedEstado === 'observado' ? { comentario_protecta: payload.motivo } : {}),
+          ...(normalizedEstado === 'actualizado' ? { comentario_dev: payload.motivo } : {}),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'referencia_tipo,referencia_id' });
+    }
+
+    // 3. Registrar en tareo_historial
+    const actorLabel = payload.actor || 'Supervisor Protecta';
+    const desc = `[${actorLabel}] Transición de estado a "${payload.nuevoEstado}".${payload.motivo ? ' Detalle: ' + payload.motivo : ''}`;
+
+    const { error: histErr } = await adminSupabase
+      .from('tareo_historial')
+      .insert({
+        entidad: 'tareo_tarea',
+        entidad_id: finalTareaId,
+        accion: payload.nuevoEstado.toUpperCase(),
+        descripcion: desc,
+        fecha_movimiento: new Date().toISOString()
+      });
+
+    if (histErr) throw new Error(histErr.message);
+
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Error al registrar la auditoría' };
   }
 }
 // 3. Guardar los borradores del cliente
