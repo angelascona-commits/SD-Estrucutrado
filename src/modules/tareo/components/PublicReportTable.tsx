@@ -24,7 +24,7 @@ import {
   Briefcase
 } from 'lucide-react'
 import { saveExternalCommentsAction, exportPublicReportExcelAction } from '../actions/tareo.action'
-import TareaCicloVidaModal from './TareaCicloVidaModal'
+import TareaCicloVidaModal, { CicloVidaModalItem } from './TareaCicloVidaModal'
 import styles from '../styles/public-report.module.css'
 
 interface Props {
@@ -235,7 +235,7 @@ export default function PublicReportTable({
   const [saving, setSaving] = useState(false)
   const [exportingExcel, setExportingExcel] = useState(false)
   const [expandedTasks, setExpandedTasks] = useState<Record<number, boolean>>({})
-  const [cicloVidaModalTask, setCicloVidaModalTask] = useState<any | null>(null)
+  const [cicloVidaModalItem, setCicloVidaModalItem] = useState<CicloVidaModalItem | null>(null)
 
   // Ocultar cualquier token o id en la barra de direcciones y mostrar únicamente /reporte/mes-anio
   useEffect(() => {
@@ -302,7 +302,7 @@ export default function PublicReportTable({
   const [selectedActividades, setSelectedActividades] = useState<string[]>([])
   const [selectedEstados, setSelectedEstados] = useState<string[]>([])
 
-  // ─── 2. ESTADOS DE LAS TAREAS (Nace en Pendiente, y fluye a Observado, Actualizado, Aprobado) ───
+  // ─── 2. ESTADOS DE LAS TAREAS Y REGISTROS (Nacen en Pendiente, y fluyen a Observado, Actualizado, Aprobado) ───
   const [estadosTareas, setEstadosTareas] = useState<Record<number, string>>(() => {
     const map: Record<number, string> = {}
     registros.forEach((r) => {
@@ -325,6 +325,20 @@ export default function PublicReportTable({
         }
       })
     }
+    return map
+  })
+
+  const [estadosRegistros, setEstadosRegistros] = useState<Record<number, string>>(() => {
+    const map: Record<number, string> = {}
+    registros.forEach((r) => {
+      if (r.id) {
+        const raw = (r.estado_registro || r.estado || '').toLowerCase()
+        if (raw.includes('observ')) map[r.id] = 'Observado'
+        else if (raw.includes('aprob') || raw.includes('conform')) map[r.id] = 'Aprobado'
+        else if (raw.includes('actualiz')) map[r.id] = 'Actualizado'
+        else map[r.id] = 'Pendiente' // Nace en pendiente
+      }
+    })
     return map
   })
 
@@ -396,9 +410,16 @@ export default function PublicReportTable({
         }
       }
       if (r.id && !map[`REGISTRO-${r.id}`]) {
+        const raw = (r.estado_registro || r.estado || '').toLowerCase()
+        let est = 'Pendiente'
+        if (raw.includes('observ')) est = 'Observado'
+        else if (raw.includes('aprob') || raw.includes('conform')) est = 'Aprobado'
+        else if (raw.includes('actualiz')) est = 'Actualizado'
+
         map[`REGISTRO-${r.id}`] = {
           ps: r.comentario || '',
-          dm: ''
+          dm: '',
+          estado: est
         }
       }
     })
@@ -431,8 +452,11 @@ export default function PublicReportTable({
     Object.entries(estadosTareas).forEach(([id, st]) => {
       if (st !== (savedHash[`TAREA-${id}`]?.estado || 'Pendiente')) count++
     })
+    Object.entries(estadosRegistros).forEach(([id, st]) => {
+      if (st !== (savedHash[`REGISTRO-${id}`]?.estado || 'Pendiente')) count++
+    })
     return count
-  }, [comentariosPS, comentariosDM, estadosTareas, savedHash])
+  }, [comentariosPS, comentariosDM, estadosTareas, estadosRegistros, savedHash])
 
   // ─── 4. OPCIONES DE FILTROS ──────────────────────────────────────────────
   const opciones = useMemo(() => {
@@ -451,15 +475,6 @@ export default function PublicReportTable({
       if (desc) act.add(desc)
     })
 
-    if (Array.isArray(tareasPeriodo)) {
-      tareasPeriodo.forEach((tp) => {
-        if (tp.proyecto_nombre) pry.add(tp.proyecto_nombre)
-        if (tp.solicitante_nombre) sol.add(tp.solicitante_nombre)
-        if (tp.team_nombre) tea.add(tp.team_nombre)
-        if (tp.agrupador_nombre) agr.add(tp.agrupador_nombre)
-      })
-    }
-
     return {
       proyectos: Array.from(pry).sort(),
       solicitantes: Array.from(sol).sort(),
@@ -468,15 +483,17 @@ export default function PublicReportTable({
       actividades: Array.from(act).sort(),
       estados: ['Pendiente', 'Observado', 'Actualizado', 'Aprobado']
     }
-  }, [registros, tareasPeriodo])
+  }, [registros])
 
   // ─── 5. LÓGICA DE FILTRADO Y AGRUPACIÓN POR TAREA ────────────────────────
   const { filasExcel, tareasResumen, countsEstadoComentarios, totalTareasBase, totalHorasBase } = useMemo(() => {
     const grupos: Record<number, any> = {}
 
-    // 1. Agregar todos los registros
+    // 1. Agregar únicamente tareas que tienen registros operativos
     registros.forEach((reg) => {
       const tId = reg.tarea_periodo_id
+      if (!tId) return
+
       if (!grupos[tId]) {
         const agName = reg.agrupador_nombre || ''
         const esAgil =
@@ -516,34 +533,10 @@ export default function PublicReportTable({
       })
     })
 
-    // 2. Incluir tareas del período que no tengan registros operativos aún
-    if (Array.isArray(tareasPeriodo)) {
-      tareasPeriodo.forEach((tp) => {
-        const tId = tp.tarea_periodo_id
-        if (!grupos[tId]) {
-          const agName = tp.agrupador_nombre || ''
-          const esAgil =
-            /ágil|agil|ongoing|mejora|evolutivo/i.test(agName) ||
-            /ágil|agil|ongoing/i.test(tp.tarea_nombre || '')
-
-          grupos[tId] = {
-            esTarea: true,
-            tarea_periodo_id: tId,
-            tarea_id: tp.tarea_id,
-            tarea_nombre: tp.tarea_nombre,
-            team_nombre: tp.team_nombre,
-            solicitante_nombre: tp.solicitante_nombre,
-            proyecto_nombre: tp.proyecto_nombre,
-            agrupador_nombre: tp.agrupador_nombre,
-            totalHoras: Number(tp.horas_consumidas_periodo) || 0,
-            esAgil,
-            detalle: []
-          }
-        }
-      })
-    }
-
-    const todosGrupos = Object.values(grupos)
+    // Excluir cualquier tarea sin registros operativos o con 0 horas
+    const todosGrupos = Object.values(grupos).filter(
+      (g: any) => Array.isArray(g.detalle) && g.detalle.length > 0 && Number(g.totalHoras) > 0
+    )
     const totalTareasBase = todosGrupos.length
     const totalHorasBase = todosGrupos.reduce((acc, g) => acc + g.totalHoras, 0)
 
@@ -587,9 +580,11 @@ export default function PublicReportTable({
       // 4. Filtro Agrupadores (más de uno)
       if (selectedAgrupador.length > 0 && !selectedAgrupador.includes(g.agrupador_nombre)) return false
 
-      // 5. Filtro Estados (más de uno)
+      // 5. Filtro Estados (más de uno, coincide si la tarea o alguno de sus registros coincide)
       const curEstado = estadosTareas[g.tarea_periodo_id] || 'Pendiente'
-      if (selectedEstados.length > 0 && !selectedEstados.includes(curEstado)) return false
+      const matchTareaEstado = selectedEstados.length === 0 || selectedEstados.includes(curEstado)
+      const matchRegistroEstado = selectedEstados.length === 0 || g.detalle.some((d: any) => selectedEstados.includes(estadosRegistros[d.id] || 'Pendiente'))
+      if (!matchTareaEstado && !matchRegistroEstado) return false
 
       // 6. Filtro Actividades (más de una actividad)
       if (selectedActividades.length > 0) {
@@ -643,10 +638,15 @@ export default function PublicReportTable({
       listaPlana.push(g)
       const isExpanded = expandedTasks[g.tarea_periodo_id] !== false
       if (isExpanded) {
-        // Si hay filtro de actividades activo, mostrar sólo los registros hijos que coincidan
-        const hijos = selectedActividades.length > 0
-          ? g.detalle.filter((d: any) => selectedActividades.includes((d.descripcion || '').trim()))
-          : g.detalle
+        const taskEstado = estadosTareas[g.tarea_periodo_id] || 'Pendiente'
+        // Si hay filtro de actividades o estados activo, filtrar registros hijos correspondientes
+        let hijos = g.detalle
+        if (selectedActividades.length > 0) {
+          hijos = hijos.filter((d: any) => selectedActividades.includes((d.descripcion || '').trim()))
+        }
+        if (selectedEstados.length > 0 && !selectedEstados.includes(taskEstado)) {
+          hijos = hijos.filter((d: any) => selectedEstados.includes(estadosRegistros[d.id] || 'Pendiente'))
+        }
 
         hijos.forEach((det: any) => listaPlana.push(det))
       }
@@ -753,15 +753,33 @@ export default function PublicReportTable({
     }))
   }
 
-  const handleCicloVidaStateChanged = (tareaPeriodoId: number, nuevoEstado: string) => {
-    handleEstadoChange(tareaPeriodoId, nuevoEstado)
-    setSavedHash((prev) => ({
+  const handleRegistroEstadoChange = (registroId: number, nuevoEstado: string) => {
+    setEstadosRegistros((prev) => ({
       ...prev,
-      [`TAREA-${tareaPeriodoId}`]: {
-        ...(prev[`TAREA-${tareaPeriodoId}`] || { ps: '', dm: '' }),
-        estado: nuevoEstado
-      }
+      [registroId]: nuevoEstado
     }))
+  }
+
+  const handleCicloVidaStateChanged = (id: number, nuevoEstado: string, tipo?: 'TAREA' | 'REGISTRO') => {
+    if (tipo === 'REGISTRO') {
+      handleRegistroEstadoChange(id, nuevoEstado)
+      setSavedHash((prev) => ({
+        ...prev,
+        [`REGISTRO-${id}`]: {
+          ...(prev[`REGISTRO-${id}`] || { ps: '', dm: '' }),
+          estado: nuevoEstado
+        }
+      }))
+    } else {
+      handleEstadoChange(id, nuevoEstado)
+      setSavedHash((prev) => ({
+        ...prev,
+        [`TAREA-${id}`]: {
+          ...(prev[`TAREA-${id}`] || { ps: '', dm: '' }),
+          estado: nuevoEstado
+        }
+      }))
+    }
   }
 
   const toggleTask = (tareaPeriodoId: number) => {
@@ -848,17 +866,18 @@ export default function PublicReportTable({
         }
       })
 
-      // Registros modificados
+      // Registros modificados (comentarios)
       Object.entries(comentariosPS.registros).forEach(([idStr, psTxt]) => {
         const id = Number(idStr)
         const dmTxt = comentariosDM.registros[id] || ''
-        const init = savedHash[`REGISTRO-${id}`] || { ps: '', dm: '' }
+        const init = savedHash[`REGISTRO-${id}`] || { ps: '', dm: '', estado: 'Pendiente' }
         if ((psTxt || '') !== init.ps || (dmTxt || '') !== init.dm) {
           commentsMap[`REGISTRO-${id}`] = {
             tipo: 'REGISTRO',
             id,
             comentario_protecta: psTxt || '',
-            comentario_dev: dmTxt || ''
+            comentario_dev: dmTxt || '',
+            estado: estadosRegistros[id] || init.estado || 'Pendiente'
           }
         }
       })
@@ -866,13 +885,35 @@ export default function PublicReportTable({
       Object.entries(comentariosDM.registros).forEach(([idStr, dmTxt]) => {
         const id = Number(idStr)
         const psTxt = comentariosPS.registros[id] || ''
-        const init = savedHash[`REGISTRO-${id}`] || { ps: '', dm: '' }
+        const init = savedHash[`REGISTRO-${id}`] || { ps: '', dm: '', estado: 'Pendiente' }
         if ((psTxt || '') !== init.ps || (dmTxt || '') !== init.dm) {
           commentsMap[`REGISTRO-${id}`] = {
             tipo: 'REGISTRO',
             id,
             comentario_protecta: psTxt || '',
-            comentario_dev: dmTxt || ''
+            comentario_dev: dmTxt || '',
+            estado: estadosRegistros[id] || init.estado || 'Pendiente'
+          }
+        }
+      })
+
+      // Registros con cambios de estado
+      Object.entries(estadosRegistros).forEach(([idStr, st]) => {
+        const id = Number(idStr)
+        const init = savedHash[`REGISTRO-${id}`] || { ps: '', dm: '', estado: 'Pendiente' }
+        if (st !== (init.estado || 'Pendiente')) {
+          if (!commentsMap[`REGISTRO-${id}`]) {
+            commentsMap[`REGISTRO-${id}`] = {
+              tipo: 'REGISTRO',
+              id,
+              comentario_protecta: comentariosPS.registros[id] || '',
+              comentario_dev: comentariosDM.registros[id] || '',
+              estado: st,
+              actor: 'Portal de Supervisión'
+            }
+          } else {
+            commentsMap[`REGISTRO-${id}`].estado = st
+            commentsMap[`REGISTRO-${id}`].actor = 'Portal de Supervisión'
           }
         }
       })
@@ -1374,10 +1415,11 @@ export default function PublicReportTable({
                               type="button"
                               className={styles.btnHistorialCiclo}
                               onClick={() =>
-                                setCicloVidaModalTask({
+                                setCicloVidaModalItem({
+                                  tipo: 'TAREA',
+                                  id: fila.tarea_periodo_id,
                                   tarea_id: fila.tarea_id,
-                                  tarea_periodo_id: fila.tarea_periodo_id,
-                                  tarea_nombre: fila.tarea_nombre,
+                                  nombre: fila.tarea_nombre,
                                   proyecto_nombre: fila.proyecto_nombre,
                                   solicitante_nombre: fila.solicitante_nombre,
                                   team_nombre: fila.team_nombre,
@@ -1471,11 +1513,54 @@ export default function PublicReportTable({
                         {Number(fila.horas).toFixed(2)}
                       </td>
 
-                      {/* Estado derivado de la tarea */}
-                      <td style={{ textAlign: 'center', color: '#94a3b8', fontSize: '11px' }}>
-                        <span style={{ fontStyle: 'italic', opacity: 0.8 }}>
-                          ↳ {estadosTareas[fila.tarea_periodo_id] || 'Pendiente'}
-                        </span>
+                      {/* Estado del registro y Ciclo de Vida */}
+                      <td style={{ padding: '6px', textAlign: 'center' }}>
+                        <div className={styles.estadoBadgeWrapper}>
+                          <select
+                            className={`${styles.estadoSelect} ${
+                              (estadosRegistros[refId] || 'Pendiente') === 'Observado'
+                                ? styles.estadoSelectObservado
+                                : (estadosRegistros[refId] || 'Pendiente') === 'Aprobado'
+                                ? styles.estadoSelectAprobado
+                                : (estadosRegistros[refId] || 'Pendiente') === 'Actualizado'
+                                ? styles.estadoSelectActualizado
+                                : styles.estadoSelectPendiente
+                            }`}
+                            value={estadosRegistros[refId] || 'Pendiente'}
+                            onChange={(e) => handleRegistroEstadoChange(refId, e.target.value)}
+                            title="Cambiar estado del registro diario (Pendiente, Observado, Actualizado, Aprobado)"
+                          >
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Observado">Observado</option>
+                            <option value="Actualizado">Actualizado</option>
+                            <option value="Aprobado">Aprobado</option>
+                          </select>
+
+                          <button
+                            type="button"
+                            className={styles.btnHistorialCiclo}
+                            onClick={() =>
+                              setCicloVidaModalItem({
+                                tipo: 'REGISTRO',
+                                id: fila.id,
+                                registro_id: fila.id,
+                                tarea_id: fila.tarea_id,
+                                nombre: fila.descripcion || fila.comentario || `Registro #${fila.id}`,
+                                fecha: fila.fecha,
+                                trabajador_nombre: fila.trabajador_nombre,
+                                proyecto_nombre: fila.proyecto_nombre,
+                                solicitante_nombre: fila.solicitante_nombre,
+                                team_nombre: fila.team_nombre,
+                                totalHoras: Number(fila.horas),
+                                estado_nombre: estadosRegistros[refId] || 'Pendiente'
+                              })
+                            }
+                            title="Ver línea de tiempo y registrar auditoría del registro"
+                          >
+                            <History size={12} />
+                            <span>Ciclo</span>
+                          </button>
+                        </div>
                       </td>
 
                       {/* Comentario PS Hijo */}
@@ -1508,9 +1593,9 @@ export default function PublicReportTable({
 
       {/* ─── 4. MODAL DE CICLO DE VIDA Y AUDITORÍA ────────────────────────── */}
       <TareaCicloVidaModal
-        isOpen={Boolean(cicloVidaModalTask)}
-        onClose={() => setCicloVidaModalTask(null)}
-        tarea={cicloVidaModalTask}
+        isOpen={Boolean(cicloVidaModalItem)}
+        onClose={() => setCicloVidaModalItem(null)}
+        item={cicloVidaModalItem}
         onStateChanged={handleCicloVidaStateChanged}
       />
 

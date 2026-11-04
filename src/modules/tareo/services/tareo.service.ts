@@ -711,6 +711,10 @@ export async function generateTareoExcel(
     filteredRegistros = filteredRegistros.filter(r => allowedIds.has(r.tarea_periodo_id))
   }
 
+  // Excluir tareas que no tengan registros operativos en el período
+  const tareasConRegistrosIds = new Set(filteredRegistros.map(r => r.tarea_periodo_id).filter(Boolean))
+  filteredTareas = filteredTareas.filter(t => tareasConRegistrosIds.has(t.tarea_periodo_id))
+
   const effectiveLayout = options?.layout || (isFiltered ? 'protecta_oficial' : 'protecta_oficial')
 
   // 3. Generación según layout
@@ -1306,7 +1310,7 @@ export async function generateTareoExcelConEquipoRecurso(
 
   if (isFiltered) {
     createDetailSheet(workbook, 'Detalle Registros', registros, periodoLabel);
-    createFilteredSummarySheet(workbook, tareasPeriodo, costoHora);
+    createFilteredSummarySheet(workbook, tareasPeriodo.filter(t => new Set(registros.map(r => r.tarea_periodo_id)).has(t.tarea_periodo_id)), costoHora);
   } else {
     const areaMap = await getAgrupadorAreaMap();
     const isAgil = (agrupadorId: number) => {
@@ -1316,8 +1320,9 @@ export async function generateTareoExcelConEquipoRecurso(
 
     const agilRegs = registros.filter(r => isAgil(r.agrupador_id));
     const proyRegs = registros.filter(r => !agilRegs.includes(r));
-    const agilTareas = tareasPeriodo.filter(t => isAgil(t.agrupador_id));
-    const proyTareas = tareasPeriodo.filter(t => !isAgil(t.agrupador_id));
+    const validTareas = tareasPeriodo.filter(t => new Set(registros.map(r => r.tarea_periodo_id)).has(t.tarea_periodo_id));
+    const agilTareas = validTareas.filter(t => isAgil(t.agrupador_id));
+    const proyTareas = validTareas.filter(t => !isAgil(t.agrupador_id));
 
     createDetailSheet(workbook, 'Agil', agilRegs, periodoLabel);
     createDetailSheet(workbook, 'Proyectos', proyRegs, periodoLabel);
@@ -1325,7 +1330,7 @@ export async function generateTareoExcelConEquipoRecurso(
   }
 
   // Hojas adicionales siempre presentes
-  createAgrupadorSummarySheet(workbook, tareasPeriodo, costoHora, periodoLabel);
+  createAgrupadorSummarySheet(workbook, tareasPeriodo.filter(t => new Set(registros.map(r => r.tarea_periodo_id)).has(t.tarea_periodo_id)), costoHora, periodoLabel);
   createTeamSheet(workbook, registros, costoHora, periodoLabel);
   createResourceSheet(workbook, registros, costoHora, periodoLabel);
 

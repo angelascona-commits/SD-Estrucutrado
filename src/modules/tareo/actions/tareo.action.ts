@@ -620,10 +620,14 @@ export async function exportTareoAction(
       return acc
     }, {} as Record<number, number>)
 
-    tareasPeriodo = tareasPeriodo.map(t => ({
-      ...t,
-      horas_consumidas_periodo: horasPorTarea[t.tarea_periodo_id] ?? t.horas_consumidas_periodo
-    }))
+    // Excluir tareas que no tengan registros operativos en el período o que sumen 0 horas
+    const tareasConRegistrosIds = new Set(registros.map(r => r.tarea_periodo_id).filter(Boolean))
+    tareasPeriodo = tareasPeriodo
+      .filter(t => tareasConRegistrosIds.has(t.tarea_periodo_id) && (horasPorTarea[t.tarea_periodo_id] || 0) > 0)
+      .map(t => ({
+        ...t,
+        horas_consumidas_periodo: horasPorTarea[t.tarea_periodo_id] ?? t.horas_consumidas_periodo
+      }))
 
     if (tareasPeriodo.length === 0 && registros.length === 0) {
       return { success: false, error: 'No se encontraron registros ni tareas para los filtros seleccionados.' }
@@ -728,12 +732,16 @@ export async function exportTareoConEquipoRecursoAction(
       return acc
     }, {} as Record<number, number>)
 
-    tareasPeriodo = tareasPeriodo.map(t => ({
-      ...t,
-      horas_consumidas_periodo: horasPorTarea[t.tarea_periodo_id] || 0
-    }))
+    // Excluir tareas que no tengan registros operativos en el período o que sumen 0 horas
+    const tareasConRegistrosIds = new Set(registros.map(r => r.tarea_periodo_id).filter(Boolean))
+    tareasPeriodo = tareasPeriodo
+      .filter(t => tareasConRegistrosIds.has(t.tarea_periodo_id) && (horasPorTarea[t.tarea_periodo_id] || 0) > 0)
+      .map(t => ({
+        ...t,
+        horas_consumidas_periodo: horasPorTarea[t.tarea_periodo_id] || 0
+      }))
 
-    if (registros.length === 0) {
+    if (registros.length === 0 || tareasPeriodo.length === 0) {
       return { success: false, error: 'No existen registros operativos para este período.' }
     }
 
@@ -1003,6 +1011,53 @@ export async function getPublicReportDataAction(tokenOrSlug: string, targetPerio
 
     if (registrosErr) throw new Error(registrosErr.message);
 
+    // Obtener los estados específicos de tareo_registro si existen
+    const registroEstadosMap: Record<number, string> = {};
+    try {
+      const { data: regEstados, error: regEstErr } = await adminSupabase
+        .from('tareo_registro')
+        .select('id, estado_id, estado:tareo_estado_tarea(nombre)');
+      if (!regEstErr && regEstados) {
+        regEstados.forEach((item: any) => {
+          if (item.estado?.nombre) {
+            registroEstadosMap[item.id] = item.estado.nombre;
+          }
+        });
+      }
+    } catch {
+      // Si la columna estado_id aún no existe en tareo_registro, no falla
+    }
+
+    // Complementar con el último estado auditado en tareo_historial para cada registro
+    try {
+      const regIds = (registros || []).map((r: any) => r.id).filter(Boolean);
+      if (regIds.length > 0) {
+        const { data: histRegs } = await adminSupabase
+          .from('tareo_historial')
+          .select('entidad_id, accion, fecha_movimiento')
+          .eq('entidad', 'tareo_registro')
+          .in('entidad_id', regIds)
+          .order('fecha_movimiento', { ascending: true });
+
+        if (histRegs) {
+          histRegs.forEach((h: any) => {
+            const acc = (h.accion || '').toLowerCase();
+            if (acc.includes('observ')) registroEstadosMap[h.entidad_id] = 'Observado';
+            else if (acc.includes('actualiz')) registroEstadosMap[h.entidad_id] = 'Actualizado';
+            else if (acc.includes('aprob') || acc.includes('conform')) registroEstadosMap[h.entidad_id] = 'Aprobado';
+            else if (acc.includes('pend')) registroEstadosMap[h.entidad_id] = 'Pendiente';
+          });
+        }
+      }
+    } catch {
+      // Ignorar fallback si falla
+    }
+
+    const mappedRegistros = (registros || []).map((r: any) => ({
+      ...r,
+      estado_registro: registroEstadosMap[r.id] || 'Pendiente'
+    }));
+
     // Tareas del período (resumen y horas presupuestadas)
     const { data: tareasPeriodo } = await adminSupabase
       .from('v_tareo_tarea_periodo_detalle')
@@ -1023,7 +1078,7 @@ export async function getPublicReportDataAction(tokenOrSlug: string, targetPerio
     return { 
       success: true, 
       data: { 
-        registros: registros || [], 
+        registros: mappedRegistros, 
         tareasPeriodo: tareasPeriodo || [],
         feedback: feedback || [], 
         linkId: link?.id || String(activePeriodoId),
@@ -1136,6 +1191,20 @@ export async function exportPublicReportExcelAction(
       registros = registros.filter(r => allowedTaskIds.has(r.tarea_periodo_id));
       isFiltered = true;
     }
+
+    // Excluir tareas que no tengan registros operativos en el período o que sumen 0 horas
+    const horasPorTarea = registros.reduce((acc, r) => {
+      acc[r.tarea_periodo_id] = (acc[r.tarea_periodo_id] || 0) + Number(r.horas)
+      return acc
+    }, {} as Record<number, number>)
+
+    const tareasConRegistrosIds = new Set(registros.map(r => r.tarea_periodo_id).filter(Boolean));
+    tareasPeriodo = tareasPeriodo
+      .filter(t => tareasConRegistrosIds.has(t.tarea_periodo_id) && (horasPorTarea[t.tarea_periodo_id] || 0) > 0)
+      .map(t => ({
+        ...t,
+        horas_consumidas_periodo: horasPorTarea[t.tarea_periodo_id] ?? t.horas_consumidas_periodo
+      }));
 
     if (tareasPeriodo.length === 0 && registros.length === 0) {
       return { success: false, error: 'No se encontraron registros ni tareas para los filtros seleccionados.' };
@@ -1254,8 +1323,33 @@ export async function saveExternalCommentsAction(
       } else if (d.tipo === 'REGISTRO') {
         const updateReg: any = {};
         if (d.comentario_protecta !== undefined) updateReg.comentario = d.comentario_protecta;
+        if (d.estado) {
+          const normalizedEstado = d.estado.toLowerCase().trim();
+          const mappedEstadoId = estadoIdMap[normalizedEstado];
+          if (mappedEstadoId) {
+            updateReg.estado_id = mappedEstadoId;
+          }
+        }
+
         if (Object.keys(updateReg).length > 0) {
-          await adminSupabase.from('tareo_registro').update(updateReg).eq('id', d.id);
+          try {
+            await adminSupabase.from('tareo_registro').update(updateReg).eq('id', d.id);
+          } catch {
+            if (updateReg.comentario !== undefined) {
+              await adminSupabase.from('tareo_registro').update({ comentario: updateReg.comentario }).eq('id', d.id);
+            }
+          }
+        }
+
+        // Registrar en tareo_historial si hubo cambio de estado en el registro
+        if (d.estado) {
+          await adminSupabase.from('tareo_historial').insert({
+            entidad: 'tareo_registro',
+            entidad_id: d.id,
+            accion: d.estado.toUpperCase(),
+            descripcion: `[${d.actor || 'Portal de Supervisión'}] Estado del registro marcado como "${d.estado}".${d.comentario_protecta ? ' Observación PS: ' + d.comentario_protecta : ''}`,
+            fecha_movimiento: new Date().toISOString()
+          });
         }
       }
     }
@@ -1267,12 +1361,13 @@ export async function saveExternalCommentsAction(
 }
 
 /**
- * Obtiene el ciclo de vida y auditoría completa de una tarea desde tareo_historial
+ * Obtiene el ciclo de vida y auditoría completa de una entidad (tarea o registro) desde tareo_historial
  */
-export async function getTareaCicloVidaAction(
-  tareaId: number,
-  tareaPeriodoId?: number
-): Promise<ActionResult<Array<{
+export async function getEntidadCicloVidaAction(payload: {
+  tipo: 'TAREA' | 'REGISTRO'
+  id: number
+  tareaId?: number
+}): Promise<ActionResult<Array<{
   id: number
   entidad: string
   entidad_id: number
@@ -1282,62 +1377,77 @@ export async function getTareaCicloVidaAction(
 }>>> {
   try {
     const adminSupabase = getAdminSupabase();
-    let finalTareaId = tareaId;
+    let entidadNombre = 'tareo_tarea';
+    let entidadId = payload.id;
 
-    if (!finalTareaId && tareaPeriodoId) {
-      const { data: tp } = await adminSupabase
-        .from('tareo_tarea_periodo')
-        .select('tarea_id')
-        .eq('id', tareaPeriodoId)
-        .maybeSingle();
-      if (tp?.tarea_id) finalTareaId = tp.tarea_id;
+    if (payload.tipo === 'REGISTRO') {
+      entidadNombre = 'tareo_registro';
+      entidadId = payload.id;
+    } else {
+      entidadNombre = 'tareo_tarea';
+      let finalTareaId = payload.tareaId;
+
+      if (!finalTareaId && payload.id) {
+        const { data: tp } = await adminSupabase
+          .from('tareo_tarea_periodo')
+          .select('tarea_id')
+          .eq('id', payload.id)
+          .maybeSingle();
+        if (tp?.tarea_id) finalTareaId = tp.tarea_id;
+      }
+
+      if (finalTareaId) entidadId = finalTareaId;
     }
 
-    if (!finalTareaId) {
-      return { success: false, error: 'No se pudo identificar la tarea.' };
+    if (!entidadId) {
+      return { success: false, error: 'No se pudo identificar la entidad.' };
     }
 
     const { data: historial, error } = await adminSupabase
       .from('tareo_historial')
       .select('*')
-      .eq('entidad', 'tareo_tarea')
-      .eq('entidad_id', finalTareaId)
+      .eq('entidad', entidadNombre)
+      .eq('entidad_id', entidadId)
       .order('fecha_movimiento', { ascending: true });
 
     if (error) throw new Error(error.message);
 
     return { success: true, data: historial || [] };
   } catch (error: any) {
-    return { success: false, error: error.message || 'Error al obtener la auditoría de la tarea' };
+    return { success: false, error: error.message || 'Error al obtener la auditoría' };
   }
 }
 
 /**
- * Registra una nueva transición de estado o evento de auditoría para una tarea
+ * Wrapper de compatibilidad para tareas
+ */
+export async function getTareaCicloVidaAction(
+  tareaId: number,
+  tareaPeriodoId?: number
+) {
+  return getEntidadCicloVidaAction({
+    tipo: 'TAREA',
+    id: tareaPeriodoId || tareaId,
+    tareaId: tareaId
+  });
+}
+
+/**
+ * Registra una nueva transición de estado o evento de auditoría para una tarea o registro
  */
 export async function registrarAuditoriaCicloVidaAction(payload: {
-  tareaId: number
+  tipo?: 'TAREA' | 'REGISTRO'
+  tareaId?: number
   tareaPeriodoId?: number
+  registroId?: number
+  id?: number
   nuevoEstado: string
   actor?: string
   motivo?: string
 }): Promise<ActionResult<void>> {
   try {
     const adminSupabase = getAdminSupabase();
-    let finalTareaId = payload.tareaId;
-
-    if (!finalTareaId && payload.tareaPeriodoId) {
-      const { data: tp } = await adminSupabase
-        .from('tareo_tarea_periodo')
-        .select('tarea_id')
-        .eq('id', payload.tareaPeriodoId)
-        .maybeSingle();
-      if (tp?.tarea_id) finalTareaId = tp.tarea_id;
-    }
-
-    if (!finalTareaId) {
-      return { success: false, error: 'Identificador de tarea no válido.' };
-    }
+    const tipo = payload.tipo || (payload.registroId ? 'REGISTRO' : 'TAREA');
 
     const estadoIdMap: Record<string, number> = {
       'pendiente': 1,
@@ -1349,6 +1459,73 @@ export async function registrarAuditoriaCicloVidaAction(payload: {
 
     const normalizedEstado = payload.nuevoEstado.toLowerCase().trim();
     const mappedEstadoId = estadoIdMap[normalizedEstado] || 1;
+    const actorLabel = payload.actor || 'Supervisor Protecta';
+
+    // ─── 1. FLUJO PARA REGISTRO DIARIO ──────────────────────────────────────────
+    if (tipo === 'REGISTRO') {
+      const regId = payload.registroId || payload.id;
+      if (!regId) return { success: false, error: 'Identificador de registro no válido.' };
+
+      // Actualizar estado_id en tareo_registro
+      const updateReg: any = { estado_id: mappedEstadoId };
+      if (normalizedEstado === 'observado' && payload.motivo) {
+        updateReg.comentario = payload.motivo;
+      }
+
+      try {
+        await adminSupabase.from('tareo_registro').update(updateReg).eq('id', regId);
+      } catch {
+        if (updateReg.comentario) {
+          await adminSupabase.from('tareo_registro').update({ comentario: updateReg.comentario }).eq('id', regId);
+        }
+      }
+
+      // Sincronizar en tareo_comentarios_externos si hay motivo
+      if (payload.motivo) {
+        await adminSupabase
+          .from('tareo_comentarios_externos')
+          .upsert({
+            referencia_tipo: 'REGISTRO',
+            referencia_id: regId,
+            ...(normalizedEstado === 'observado' ? { comentario_protecta: payload.motivo } : {}),
+            ...(normalizedEstado === 'actualizado' ? { comentario_dev: payload.motivo } : {}),
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'referencia_tipo,referencia_id' });
+      }
+
+      // Registrar en tareo_historial
+      const desc = `[${actorLabel}] Transición de registro a "${payload.nuevoEstado}".${payload.motivo ? ' Detalle: ' + payload.motivo : ''}`;
+      const { error: histErr } = await adminSupabase
+        .from('tareo_historial')
+        .insert({
+          entidad: 'tareo_registro',
+          entidad_id: regId,
+          accion: payload.nuevoEstado.toUpperCase(),
+          descripcion: desc,
+          fecha_movimiento: new Date().toISOString()
+        });
+
+      if (histErr) throw new Error(histErr.message);
+
+      return { success: true };
+    }
+
+    // ─── 2. FLUJO PARA TAREA GENERAL ────────────────────────────────────────────
+    let finalTareaId = payload.tareaId;
+
+    if (!finalTareaId && (payload.tareaPeriodoId || payload.id)) {
+      const tpId = payload.tareaPeriodoId || payload.id;
+      const { data: tp } = await adminSupabase
+        .from('tareo_tarea_periodo')
+        .select('tarea_id')
+        .eq('id', tpId)
+        .maybeSingle();
+      if (tp?.tarea_id) finalTareaId = tp.tarea_id;
+    }
+
+    if (!finalTareaId) {
+      return { success: false, error: 'Identificador de tarea no válido.' };
+    }
 
     // 1. Actualizar estado_id en tareo_tarea
     const { error: tareaErr } = await adminSupabase
@@ -1363,17 +1540,18 @@ export async function registrarAuditoriaCicloVidaAction(payload: {
     if (tareaErr) throw new Error(tareaErr.message);
 
     // 2. Si hay tareaPeriodoId y motivo, sincronizar comentario en tareo_tarea_periodo
-    if (payload.tareaPeriodoId && payload.motivo) {
+    const tPeriodoId = payload.tareaPeriodoId || (payload.tipo === 'TAREA' ? payload.id : undefined);
+    if (tPeriodoId && payload.motivo) {
       await adminSupabase
         .from('tareo_tarea_periodo')
         .update({ comentario_periodo: payload.motivo })
-        .eq('id', payload.tareaPeriodoId);
+        .eq('id', tPeriodoId);
 
       await adminSupabase
         .from('tareo_comentarios_externos')
         .upsert({
           referencia_tipo: 'TAREA',
-          referencia_id: payload.tareaPeriodoId,
+          referencia_id: tPeriodoId,
           ...(normalizedEstado === 'observado' ? { comentario_protecta: payload.motivo } : {}),
           ...(normalizedEstado === 'actualizado' ? { comentario_dev: payload.motivo } : {}),
           updated_at: new Date().toISOString()
@@ -1381,7 +1559,6 @@ export async function registrarAuditoriaCicloVidaAction(payload: {
     }
 
     // 3. Registrar en tareo_historial
-    const actorLabel = payload.actor || 'Supervisor Protecta';
     const desc = `[${actorLabel}] Transición de estado a "${payload.nuevoEstado}".${payload.motivo ? ' Detalle: ' + payload.motivo : ''}`;
 
     const { error: histErr } = await adminSupabase

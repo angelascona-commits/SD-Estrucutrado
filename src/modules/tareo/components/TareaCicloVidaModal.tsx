@@ -5,7 +5,6 @@ import {
   X,
   Clock,
   AlertCircle,
-  RefreshCw,
   CheckCircle2,
   Calendar,
   User,
@@ -13,16 +12,31 @@ import {
   Loader2,
   ShieldCheck,
   History,
-  ArrowRight,
   Info
 } from 'lucide-react'
-import { getTareaCicloVidaAction, registrarAuditoriaCicloVidaAction } from '../actions/tareo.action'
+import { getEntidadCicloVidaAction, registrarAuditoriaCicloVidaAction } from '../actions/tareo.action'
 import styles from '../styles/public-report.module.css'
+
+export interface CicloVidaModalItem {
+  tipo: 'TAREA' | 'REGISTRO'
+  id: number // tarea_periodo_id o registro_id
+  tarea_id?: number
+  registro_id?: number
+  nombre: string
+  fecha?: string
+  trabajador_nombre?: string
+  proyecto_nombre?: string
+  solicitante_nombre?: string
+  team_nombre?: string
+  totalHoras?: number
+  estado_nombre?: string
+}
 
 interface TareaCicloVidaModalProps {
   isOpen: boolean
   onClose: () => void
-  tarea: {
+  item?: CicloVidaModalItem | null
+  tarea?: {
     tarea_id: number
     tarea_periodo_id: number
     tarea_nombre: string
@@ -32,7 +46,7 @@ interface TareaCicloVidaModalProps {
     totalHoras?: number
     estado_nombre?: string
   } | null
-  onStateChanged?: (tareaPeriodoId: number, nuevoEstado: string) => void
+  onStateChanged?: (id: number, nuevoEstado: string, tipo?: 'TAREA' | 'REGISTRO') => void
 }
 
 interface EventoAuditoria {
@@ -51,7 +65,7 @@ const ESTADOS_INFO = {
     color: '#b45309',
     bg: '#fef3c7',
     border: '#fcd34d',
-    desc: 'Nacimiento de la tarea asignada en el tareo operativo.'
+    desc: 'Nacimiento de la tarea o registro en el tareo operativo.'
   },
   Observado: {
     label: 'Observado',
@@ -82,6 +96,7 @@ const ESTADOS_INFO = {
 export default function TareaCicloVidaModal({
   isOpen,
   onClose,
+  item,
   tarea,
   onStateChanged
 }: TareaCicloVidaModalProps) {
@@ -94,17 +109,36 @@ export default function TareaCicloVidaModal({
   const [actor, setActor] = useState('Supervisor Protecta')
   const [successMsg, setSuccessMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
+  const bodyRef = React.useRef<HTMLDivElement>(null)
+
+  const activeItem: CicloVidaModalItem | null = item || (tarea ? {
+    tipo: 'TAREA',
+    id: tarea.tarea_periodo_id,
+    tarea_id: tarea.tarea_id,
+    nombre: tarea.tarea_nombre,
+    proyecto_nombre: tarea.proyecto_nombre,
+    solicitante_nombre: tarea.solicitante_nombre,
+    team_nombre: tarea.team_nombre,
+    totalHoras: tarea.totalHoras,
+    estado_nombre: tarea.estado_nombre
+  } : null)
 
   useEffect(() => {
-    if (!isOpen || !tarea) return
+    if (isOpen && bodyRef.current) {
+      bodyRef.current.scrollTop = 0
+    }
+  }, [isOpen])
 
-    setEstadoActual(tarea.estado_nombre || 'Pendiente')
+  useEffect(() => {
+    if (!isOpen || !activeItem) return
+
+    setEstadoActual(activeItem.estado_nombre || 'Pendiente')
     setMotivo('')
     setSuccessMsg('')
     setErrorMsg('')
 
-    // Establecer estado sugerido según el ciclo
-    const cur = (tarea.estado_nombre || 'Pendiente').toLowerCase()
+    // Establecer estado sugerido según el ciclo inicial
+    const cur = (activeItem.estado_nombre || 'Pendiente').toLowerCase()
     if (cur.includes('observ')) setNuevoEstado('Actualizado')
     else if (cur.includes('actualiz')) setNuevoEstado('Aprobado')
     else if (cur.includes('aprob') || cur.includes('conform')) setNuevoEstado('Observado')
@@ -112,9 +146,46 @@ export default function TareaCicloVidaModal({
 
     const fetchHistorial = async () => {
       setLoading(true)
-      const res = await getTareaCicloVidaAction(tarea.tarea_id, tarea.tarea_periodo_id)
+      const res = await getEntidadCicloVidaAction({
+        tipo: activeItem.tipo,
+        id: activeItem.id,
+        tareaId: activeItem.tarea_id
+      })
       if (res.success && res.data) {
         setHistorial(res.data)
+
+        // Resolver el estado más reciente directamente desde los eventos auditados en la BD
+        let resolvedEstado = activeItem.estado_nombre || 'Pendiente'
+        for (let i = res.data.length - 1; i >= 0; i--) {
+          const acc = (res.data[i].accion || '').toLowerCase()
+          if (acc.includes('observ')) {
+            resolvedEstado = 'Observado'
+            break
+          } else if (acc.includes('actualiz')) {
+            resolvedEstado = 'Actualizado'
+            break
+          } else if (acc.includes('aprob') || acc.includes('conform')) {
+            resolvedEstado = 'Aprobado'
+            break
+          } else if (acc.includes('pend')) {
+            resolvedEstado = 'Pendiente'
+            break
+          }
+        }
+
+        setEstadoActual(resolvedEstado)
+
+        // Ajustar el próximo estado sugerido
+        const resLower = resolvedEstado.toLowerCase()
+        if (resLower.includes('observ')) setNuevoEstado('Actualizado')
+        else if (resLower.includes('actualiz')) setNuevoEstado('Aprobado')
+        else if (resLower.includes('aprob') || resLower.includes('conform')) setNuevoEstado('Observado')
+        else setNuevoEstado('Observado')
+
+        // Sincronizar el estado resuelto hacia la tabla principal
+        if (onStateChanged && resolvedEstado !== activeItem.estado_nombre) {
+          onStateChanged(activeItem.id, resolvedEstado, activeItem.tipo)
+        }
       } else {
         setHistorial([])
       }
@@ -122,9 +193,9 @@ export default function TareaCicloVidaModal({
     }
 
     fetchHistorial()
-  }, [isOpen, tarea])
+  }, [isOpen, activeItem?.id, activeItem?.tipo])
 
-  if (!isOpen || !tarea) return null
+  if (!isOpen || !activeItem) return null
 
   const currentStep = ESTADOS_INFO[estadoActual as keyof typeof ESTADOS_INFO]?.step || 1
 
@@ -141,8 +212,11 @@ export default function TareaCicloVidaModal({
 
     try {
       const res = await registrarAuditoriaCicloVidaAction({
-        tareaId: tarea.tarea_id,
-        tareaPeriodoId: tarea.tarea_periodo_id,
+        tipo: activeItem.tipo,
+        id: activeItem.id,
+        tareaId: activeItem.tarea_id,
+        registroId: activeItem.registro_id || (activeItem.tipo === 'REGISTRO' ? activeItem.id : undefined),
+        tareaPeriodoId: activeItem.tipo === 'TAREA' ? activeItem.id : undefined,
         nuevoEstado,
         actor,
         motivo: motivo.trim()
@@ -154,13 +228,17 @@ export default function TareaCicloVidaModal({
         setMotivo('')
 
         // Refrescar historial
-        const histRes = await getTareaCicloVidaAction(tarea.tarea_id, tarea.tarea_periodo_id)
+        const histRes = await getEntidadCicloVidaAction({
+          tipo: activeItem.tipo,
+          id: activeItem.id,
+          tareaId: activeItem.tarea_id
+        })
         if (histRes.success && histRes.data) {
           setHistorial(histRes.data)
         }
 
         if (onStateChanged) {
-          onStateChanged(tarea.tarea_periodo_id, nuevoEstado)
+          onStateChanged(activeItem.id, nuevoEstado, activeItem.tipo)
         }
       } else {
         setErrorMsg(res.error || 'No se pudo registrar la auditoría.')
@@ -200,17 +278,35 @@ export default function TareaCicloVidaModal({
           <div className={styles.cicloVidaHeaderTitleBox}>
             <div className={styles.cicloVidaBadge}>
               <ShieldCheck size={14} />
-              <span>Auditoría de Ciclo de Vida</span>
+              <span>
+                Auditoría de Ciclo de Vida ({activeItem.tipo === 'REGISTRO' ? 'Registro Diario' : 'Tarea General'})
+              </span>
             </div>
-            <h3 className={styles.cicloVidaTitle}>{tarea.tarea_nombre}</h3>
+            <h3 className={styles.cicloVidaTitle}>{activeItem.nombre}</h3>
             <div className={styles.cicloVidaMeta}>
-              <span>{tarea.proyecto_nombre || 'Sin Proyecto'}</span>
+              {activeItem.fecha && (
+                <>
+                  <span>Fecha: <strong>{activeItem.fecha}</strong></span>
+                  <span>•</span>
+                </>
+              )}
+              {activeItem.trabajador_nombre && (
+                <>
+                  <span>Trabajador: <strong>{activeItem.trabajador_nombre}</strong></span>
+                  <span>•</span>
+                </>
+              )}
+              <span>{activeItem.proyecto_nombre || 'Sin Proyecto'}</span>
               <span>•</span>
-              <span>{tarea.solicitante_nombre || 'Sin Solicitante'}</span>
+              <span>{activeItem.solicitante_nombre || 'Sin Solicitante'}</span>
+              {activeItem.team_nombre && (
+                <>
+                  <span>•</span>
+                  <span>{activeItem.team_nombre}</span>
+                </>
+              )}
               <span>•</span>
-              <span>{tarea.team_nombre || 'Sin Equipo'}</span>
-              <span>•</span>
-              <strong>{(tarea.totalHoras || 0).toFixed(2)} hrs</strong>
+              <strong>{(activeItem.totalHoras || 0).toFixed(2)} hrs</strong>
             </div>
           </div>
           <button
@@ -224,7 +320,7 @@ export default function TareaCicloVidaModal({
         </div>
 
         {/* Body */}
-        <div className={styles.cicloVidaBody}>
+        <div className={styles.cicloVidaBody} ref={bodyRef}>
           {/* 1. Stepper Visual del Ciclo de Vida */}
           <div className={styles.stepperContainer}>
             <div className={styles.stepperHeader}>
@@ -298,13 +394,13 @@ export default function TareaCicloVidaModal({
           <form className={styles.transicionCard} onSubmit={handleRegistrar}>
             <div className={styles.transicionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Send size={15} color="#0f3d3e" />
-                <span style={{ fontWeight: 700, fontSize: '13px', color: '#0f172a' }}>
-                  Registrar Cambio de Estado y Auditoría
+                <History size={16} color="#0f3d3e" />
+                <span className={styles.transicionTitle}>
+                  Registrar Observación / Transición ({activeItem.tipo === 'REGISTRO' ? 'Registro Diario' : 'Tarea'})
                 </span>
               </div>
-              <span style={{ fontSize: '12px', color: '#64748b' }}>
-                Registra trazabilidad con hora y responsable
+              <span className={styles.transicionSubtitle}>
+                Los cambios se auditan permanentemente en el historial.
               </span>
             </div>
 
@@ -331,7 +427,7 @@ export default function TareaCicloVidaModal({
                   className={styles.transicionSelect}
                 >
                   <option value="Observado">Observado (Requiere revisión)</option>
-                  <option value="Actualizado">Actualizado (Dev ajustó la tarea)</option>
+                  <option value="Actualizado">Actualizado (Dev ajustó la tarea o registro)</option>
                   <option value="Aprobado">Aprobado (Visto bueno final)</option>
                   <option value="Pendiente">Pendiente (Reabrir ciclo)</option>
                 </select>
@@ -359,23 +455,26 @@ export default function TareaCicloVidaModal({
               <textarea
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
-                placeholder="Describe la razón del cambio de estado, detalle observado o justificación del visto bueno..."
+                placeholder={
+                  activeItem.tipo === 'REGISTRO'
+                    ? 'Indica el motivo de la observación o ajuste técnico sobre este registro diario específico...'
+                    : 'Indica el motivo de la observación, aclaración técnica o aprobación de la tarea...'
+                }
+                rows={3}
                 className={styles.transicionTextarea}
-                rows={2}
-                required
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}>
+            <div className={styles.transicionActions}>
               <button
                 type="submit"
-                disabled={saving}
-                className={styles.btnRegistrarAuditoria}
+                disabled={saving || !motivo.trim()}
+                className={styles.btnRegistrarTransicion}
               >
                 {saving ? (
                   <>
-                    <Loader2 size={14} className={styles.spin} />
-                    <span>Guardando...</span>
+                    <Loader2 size={15} className={styles.spin} />
+                    <span>Registrando...</span>
                   </>
                 ) : (
                   <>
@@ -387,119 +486,85 @@ export default function TareaCicloVidaModal({
             </div>
           </form>
 
-          {/* 3. Timeline de Auditoría */}
+          {/* 3. Línea de Tiempo de Auditoría */}
           <div className={styles.timelineSection}>
             <div className={styles.timelineHeader}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <History size={16} color="#0f3d3e" />
-                <span style={{ fontWeight: 700, fontSize: '13.5px', color: '#0f172a' }}>
-                  Línea de Tiempo y Auditoría
-                </span>
-              </div>
-              <span style={{ fontSize: '12px', color: '#64748b' }}>
-                {historial.length} evento{historial.length !== 1 ? 's' : ''} registrado{historial.length !== 1 ? 's' : ''}
+              <span className={styles.timelineTitle}>Línea de Tiempo y Eventos Registrados</span>
+              <span className={styles.timelineCount}>
+                {historial.length} evento(s) auditado(s)
               </span>
             </div>
 
             {loading ? (
-              <div style={{ padding: '30px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
-                <Loader2 size={24} className={styles.spin} style={{ margin: '0 auto 8px' }} />
+              <div className={styles.timelineLoading}>
+                <Loader2 size={24} className={styles.spin} color="#0f3d3e" />
                 <span>Cargando auditoría...</span>
               </div>
             ) : (
               <div className={styles.timelineList}>
-                {/* Evento Génesis (Nacimiento de la tarea) */}
-                <div className={styles.timelineItem}>
-                  <div className={styles.timelineNode}>
-                    <div
-                      className={styles.timelineDot}
-                      style={{ background: '#b45309', borderColor: '#fef3c7' }}
-                    />
-                    <div className={styles.timelineConnector} />
-                  </div>
-                  <div className={styles.timelineCard}>
-                    <div className={styles.timelineTop}>
-                      <span className={styles.timelineActionBadge} style={{ background: '#fef3c7', color: '#92400e' }}>
-                        Nacimiento de la Tarea
-                      </span>
-                      <span className={styles.timelineDate}>
-                        <Calendar size={11} />
-                        Estado Inicial: Pendiente
-                      </span>
+                {(!historial || historial.length === 0 || !historial.some(h => (h.accion || '').toUpperCase().includes('CREA'))) && (
+                  <div className={styles.historialGenesis}>
+                    <div className={styles.historialIconGenesis}>
+                      <Clock size={16} />
                     </div>
-                    <div className={styles.timelineDesc}>
-                      La tarea fue registrada en el sistema con un estado inicial <strong>Pendiente</strong>, lista para ejecución y posterior supervisión de Protecta Security.
-                    </div>
-                  </div>
-                </div>
-
-                {/* Eventos registrados en BD */}
-                {historial.map((item) => {
-                  const accionUpper = (item.accion || '').toUpperCase()
-                  let badgeBg = '#f1f5f9'
-                  let badgeColor = '#475569'
-                  if (accionUpper.includes('OBSERV')) {
-                    badgeBg = '#fee2e2'
-                    badgeColor = '#b91c1c'
-                  } else if (accionUpper.includes('APROB') || accionUpper.includes('CONFORM')) {
-                    badgeBg = '#dcfce7'
-                    badgeColor = '#15803d'
-                  } else if (accionUpper.includes('ACTUALIZ')) {
-                    badgeBg = '#dbeafe'
-                    badgeColor = '#1d4ed8'
-                  } else if (accionUpper.includes('PEND')) {
-                    badgeBg = '#fef3c7'
-                    badgeColor = '#92400e'
-                  }
-
-                  return (
-                    <div key={item.id} className={styles.timelineItem}>
-                      <div className={styles.timelineNode}>
-                        <div
-                          className={styles.timelineDot}
-                          style={{ background: badgeColor, borderColor: badgeBg }}
-                        />
-                        <div className={styles.timelineConnector} />
+                    <div className={styles.historialContent}>
+                      <div className={styles.historialHeaderItem}>
+                        <span className={styles.historialBadgeInit}>INICIO</span>
+                        <span className={styles.historialDate}>{activeItem.fecha || 'Inicio de ciclo'}</span>
                       </div>
-                      <div className={styles.timelineCard}>
-                        <div className={styles.timelineTop}>
-                          <span
-                            className={styles.timelineActionBadge}
-                            style={{ background: badgeBg, color: badgeColor }}
-                          >
-                            {item.accion}
-                          </span>
-                          <span className={styles.timelineDate}>
-                            <Clock size={11} />
-                            {formatFecha(item.fecha_movimiento)}
-                          </span>
+                      <p className={styles.historialDesc}>
+                        {activeItem.tipo === 'REGISTRO'
+                          ? `Registro diario creado con estado inicial "Pendiente".`
+                          : `Tarea creada e incorporada al período operativo en estado inicial "Pendiente".`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {historial.map((h, i) => {
+                      const accionUpper = (h.accion || '').toUpperCase()
+                      let badgeColor = '#b45309'
+                      let badgeBg = '#fef3c7'
+
+                      if (accionUpper.includes('OBSERV')) {
+                        badgeColor = '#b91c1c'
+                        badgeBg = '#fee2e2'
+                      } else if (accionUpper.includes('ACTUALIZ')) {
+                        badgeColor = '#1d4ed8'
+                        badgeBg = '#dbeafe'
+                      } else if (accionUpper.includes('APROB') || accionUpper.includes('CONFORM')) {
+                        badgeColor = '#15803d'
+                        badgeBg = '#dcfce7'
+                      }
+
+                      return (
+                        <div key={h.id || i} className={styles.historialItem}>
+                          <div
+                            className={styles.historialDot}
+                            style={{ borderColor: badgeColor }}
+                          />
+                          <div className={styles.historialContent}>
+                            <div className={styles.historialHeaderItem}>
+                              <span
+                                className={styles.historialAccionBadge}
+                                style={{ color: badgeColor, background: badgeBg }}
+                              >
+                                {h.accion}
+                              </span>
+                              <span className={styles.historialDate}>
+                                {formatFecha(h.fecha_movimiento)}
+                              </span>
+                            </div>
+                            <p className={styles.historialDesc}>{h.descripcion}</p>
+                          </div>
                         </div>
-                        <div className={styles.timelineDesc}>{item.descripcion}</div>
-                      </div>
-                    </div>
-                  )
-                })}
+                      )
+                    })}
               </div>
             )}
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className={styles.cicloVidaFooter}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
-            <Info size={14} />
-            <span>Toda modificación queda auditada permanentemente para revisión entre Protecta y DM Software.</span>
-          </div>
-          <button
-            type="button"
-            className={styles.btnCerrarModal}
-            onClick={onClose}
-          >
-            Cerrar
-          </button>
         </div>
       </div>
     </div>
   )
 }
-

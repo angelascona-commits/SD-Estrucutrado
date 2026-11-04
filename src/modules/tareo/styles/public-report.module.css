@@ -2079,17 +2079,31 @@
 }
 
 /* ─── MODAL DE CICLO DE VIDA Y AUDITORÍA ───────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
 .cicloVidaModal {
   background: #ffffff;
   border-radius: 16px;
   width: 95%;
   max-width: 760px;
-  max-height: 90vh;
+  max-height: 88vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35);
   animation: modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  z-index: 10000;
 }
 
 @keyframes modalScaleIn {
@@ -2336,28 +2350,33 @@
   box-shadow: 0 0 0 2px rgba(15, 61, 62, 0.12);
 }
 
-.btnRegistrarAuditoria {
+.btnRegistrarAuditoria,
+.btnRegistrarTransicion {
   background: #0f3d3e;
   color: #ffffff;
   border: none;
   border-radius: 8px;
-  padding: 8px 16px;
+  padding: 9px 18px;
   font-size: 12.5px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
+  font-family: inherit;
 }
 
-.btnRegistrarAuditoria:hover {
+.btnRegistrarAuditoria:hover,
+.btnRegistrarTransicion:hover {
   background: #175253;
 }
 
-.btnRegistrarAuditoria:disabled {
+.btnRegistrarAuditoria:disabled,
+.btnRegistrarTransicion:disabled {
   background: #94a3b8;
   cursor: not-allowed;
+  opacity: 0.7;
 }
 
 /* Timeline */
@@ -2373,81 +2392,126 @@
   align-items: center;
 }
 
+.timelineTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.timelineCount {
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 600;
+}
+
 .timelineList {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  padding-left: 6px;
+  gap: 12px;
+  padding-left: 4px;
 }
 
-.timelineItem {
+.timelineItem,
+.historialItem {
   display: flex;
-  gap: 14px;
+  align-items: flex-start;
+  gap: 12px;
   position: relative;
 }
 
-.timelineNode {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 16px;
-  flex-shrink: 0;
-}
-
-.timelineDot {
+.historialDot {
   width: 12px;
   height: 12px;
   border-radius: 50%;
   border: 2px solid;
-  margin-top: 14px;
+  background: #ffffff;
+  margin-top: 6px;
+  flex-shrink: 0;
   z-index: 2;
 }
 
-.timelineConnector {
-  width: 2px;
-  flex: 1;
-  background: #e2e8f0;
-  margin: 4px 0;
-}
-
+.historialContent,
 .timelineCard {
   flex: 1;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 10px 14px;
-  margin-bottom: 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
+.historialHeaderItem,
 .timelineTop {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
+.historialAccionBadge,
 .timelineActionBadge {
   font-size: 10.5px;
   font-weight: 700;
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 4px;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
+.historialBadgeInit {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #0f3d3e;
+  background: #ccfbf1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.historialDate,
 .timelineDate {
   font-size: 11px;
   color: #64748b;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
+.historialDesc,
 .timelineDesc {
   font-size: 12.5px;
   color: #1e293b;
   line-height: 1.45;
+  margin: 0;
+}
+
+.historialGenesis {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.historialIconGenesis {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.timelineLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 0;
+  color: #64748b;
+  font-size: 12.5px;
 }
 
 .cicloVidaFooter {
