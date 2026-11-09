@@ -393,9 +393,25 @@ export default function TareaModal({
         }
       }
 
+      // Si se activa el registro rápido, asegurar que la tarea pertenezca al período de la fecha seleccionada
+      let targetPeriodoId = formData.periodo_id
+      if (!isEditing && quickRegOpen && quickReg.fecha && periodos && periodos.length > 0) {
+        const [yStr, mStr] = quickReg.fecha.split('-')
+        const y = Number(yStr)
+        const m = Number(mStr)
+        const matchingPeriodo =
+          periodos.find(
+            (p) => p.fecha_inicio && p.fecha_fin && quickReg.fecha >= p.fecha_inicio && quickReg.fecha <= p.fecha_fin
+          ) ?? periodos.find((p) => p.anio === y && p.mes === m)
+        if (matchingPeriodo) {
+          targetPeriodoId = matchingPeriodo.id
+        }
+      }
+
       const saveResult = await onSave(
         {
           ...formData,
+          periodo_id: targetPeriodoId,
           estado_id: isEditing ? formData.estado_id : (estadoPendiente?.id ?? formData.estado_id),
           activo: isEditing ? formData.activo : true,
           horas_historicas_arrastre: usaArrastre
@@ -734,7 +750,24 @@ export default function TareaModal({
               <button
                 type="button"
                 className={styles.quickRegToggle}
-                onClick={() => setQuickRegOpen((p) => !p)}
+                onClick={() => {
+                  setQuickRegOpen((p) => {
+                    const next = !p
+                    if (next && quickReg.fecha && periodos && periodos.length > 0) {
+                      const [yStr, mStr] = quickReg.fecha.split('-')
+                      const y = Number(yStr)
+                      const m = Number(mStr)
+                      const matchingPeriodo =
+                        periodos.find(
+                          (per) => per.fecha_inicio && per.fecha_fin && quickReg.fecha >= per.fecha_inicio && quickReg.fecha <= per.fecha_fin
+                        ) ?? periodos.find((per) => per.anio === y && per.mes === m)
+                      if (matchingPeriodo) {
+                        handleChange('periodo_id', matchingPeriodo.id)
+                      }
+                    }
+                    return next
+                  })
+                }}
               >
                 <span className={styles.quickRegToggleLeft}>
                   <span className={styles.quickRegToggleText}>
@@ -755,7 +788,22 @@ export default function TareaModal({
                       <input
                         type="date"
                         value={quickReg.fecha}
-                        onChange={(e) => setQuickReg((p) => ({ ...p, fecha: e.target.value }))}
+                        onChange={(e) => {
+                          const nuevaFecha = e.target.value
+                          setQuickReg((p) => ({ ...p, fecha: nuevaFecha }))
+                          if (nuevaFecha && periodos && periodos.length > 0) {
+                            const [yStr, mStr] = nuevaFecha.split('-')
+                            const y = Number(yStr)
+                            const m = Number(mStr)
+                            const matchingPeriodo =
+                              periodos.find(
+                                (per) => per.fecha_inicio && per.fecha_fin && nuevaFecha >= per.fecha_inicio && nuevaFecha <= per.fecha_fin
+                              ) ?? periodos.find((per) => per.anio === y && per.mes === m)
+                            if (matchingPeriodo) {
+                              handleChange('periodo_id', matchingPeriodo.id)
+                            }
+                          }
+                        }}
                         className={styles.input}
                       />
                     </div>

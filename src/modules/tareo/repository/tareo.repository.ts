@@ -377,6 +377,8 @@ export async function resolveValidTareaPeriodoForFecha(
       id,
       tarea_id,
       periodo_id,
+      horas_asignadas_periodo,
+      comentario_periodo,
       tareo_tarea (nombre),
       tareo_periodo (id, anio, mes, fecha_inicio, fecha_fin, cerrado)
     `)
@@ -430,21 +432,38 @@ export async function resolveValidTareaPeriodoForFecha(
   }
 
   // 4. Buscar automáticamente la tarea_periodo de la misma tarea en el periodo de destino
-  const { data: targetTp, error: targetTpErr } = await supabase
+  const { data: targetTp } = await supabase
     .from('tareo_tarea_periodo')
     .select('id, activo')
     .eq('tarea_id', currentTp.tarea_id)
     .eq('periodo_id', targetPeriodo.id)
-    .single()
+    .maybeSingle()
 
-  if (targetTp && !targetTpErr) {
+  if (targetTp?.id) {
     return { tareaPeriodoId: targetTp.id, tareaId: currentTp.tarea_id }
   }
 
-  // 5. Si no existe en el periodo de destino, rechazar con mensaje descriptivo
-  throw new Error(
-    `La fecha del registro (${fecha}) corresponde al período ${targetPeriodo.anio}-${String(targetPeriodo.mes).padStart(2, '0')}, pero la tarea "${tareaNombre}" no está asignada a dicho período. Por favor, asigna o arrastra la tarea al período ${targetPeriodo.anio}-${String(targetPeriodo.mes).padStart(2, '0')} antes de registrar horas.`
-  )
+  // 5. Si no existe en el periodo de destino, crearla automáticamente para garantizar que el registro pertenezca al período de su fecha
+  const { data: newTp, error: newTpErr } = await supabase
+    .from('tareo_tarea_periodo')
+    .insert({
+      tarea_id: currentTp.tarea_id,
+      periodo_id: targetPeriodo.id,
+      horas_asignadas_periodo: currentTp.horas_asignadas_periodo ?? 0,
+      horas_historicas_arrastre: 0,
+      comentario_periodo: currentTp.comentario_periodo ?? null,
+      activo: true
+    })
+    .select('id')
+    .single()
+
+  if (newTpErr || !newTp) {
+    throw new Error(
+      `Error al asignar la tarea "${tareaNombre}" al período ${targetPeriodo.anio}-${String(targetPeriodo.mes).padStart(2, '0')}: ${newTpErr?.message}`
+    )
+  }
+
+  return { tareaPeriodoId: newTp.id, tareaId: currentTp.tarea_id }
 }
 
 export async function createRegistro(payload: RegistroFormData): Promise<number> {

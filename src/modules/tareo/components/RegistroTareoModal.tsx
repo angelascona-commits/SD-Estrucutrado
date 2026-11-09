@@ -457,6 +457,17 @@ export default function RegistroTareoModal({
                       {`${tarea.periodo_mes}`.padStart(2, '0')}
                     </option>
                   ))}
+                {tareasPeriodo
+                  .filter(
+                    (tp) =>
+                      !periodTasks.some((pt) => pt.tarea_id === tp.tarea_id) &&
+                      (tp.activo || (isEditing && formData.tarea_periodo_id === tp.tarea_periodo_id))
+                  )
+                  .map((tp) => (
+                    <option key={`ext-${tp.tarea_periodo_id}`} value={tp.tarea_periodo_id}>
+                      {tp.tarea_nombre} · {tp.proyecto_nombre} (Asignar a este período)
+                    </option>
+                  ))}
               </select>
             </div>
 
