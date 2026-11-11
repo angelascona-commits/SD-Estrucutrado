@@ -394,7 +394,7 @@ export default function TareaCicloVidaModal({
           <form className={styles.transicionCard} onSubmit={handleRegistrar}>
             <div className={styles.transicionHeader}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <History size={16} color="#0f3d3e" />
+                <History size={16} color="#036a6e" />
                 <span className={styles.transicionTitle}>
                   Registrar Observación / Transición ({activeItem.tipo === 'REGISTRO' ? 'Registro Diario' : 'Tarea'})
                 </span>
@@ -497,7 +497,7 @@ export default function TareaCicloVidaModal({
 
             {loading ? (
               <div className={styles.timelineLoading}>
-                <Loader2 size={24} className={styles.spin} color="#0f3d3e" />
+                <Loader2 size={24} className={styles.spin} color="#036a6e" />
                 <span>Cargando auditoría...</span>
               </div>
             ) : (
@@ -510,7 +510,6 @@ export default function TareaCicloVidaModal({
                     <div className={styles.historialContent}>
                       <div className={styles.historialHeaderItem}>
                         <span className={styles.historialBadgeInit}>INICIO</span>
-                        <span className={styles.historialDate}>{activeItem.fecha || 'Inicio de ciclo'}</span>
                       </div>
                       <p className={styles.historialDesc}>
                         {activeItem.tipo === 'REGISTRO'
@@ -523,6 +522,11 @@ export default function TareaCicloVidaModal({
 
                 {historial.map((h, i) => {
                       const accionUpper = (h.accion || '').toUpperCase()
+                      const isCreacion =
+                        accionUpper.includes('CREA') ||
+                        accionUpper.includes('INICIO') ||
+                        accionUpper.includes('GENESIS')
+
                       let badgeColor = '#b45309'
                       let badgeBg = '#fef3c7'
 
@@ -535,6 +539,9 @@ export default function TareaCicloVidaModal({
                       } else if (accionUpper.includes('APROB') || accionUpper.includes('CONFORM')) {
                         badgeColor = '#15803d'
                         badgeBg = '#dcfce7'
+                      } else if (isCreacion) {
+                        badgeColor = '#036a6e'
+                        badgeBg = '#e0f7f8'
                       }
 
                       return (
@@ -551,9 +558,11 @@ export default function TareaCicloVidaModal({
                               >
                                 {h.accion}
                               </span>
-                              <span className={styles.historialDate}>
-                                {formatFecha(h.fecha_movimiento)}
-                              </span>
+                              {!isCreacion && (
+                                <span className={styles.historialDate}>
+                                  {formatFecha(h.fecha_movimiento)}
+                                </span>
+                              )}
                             </div>
                             <p className={styles.historialDesc}>{h.descripcion}</p>
                           </div>

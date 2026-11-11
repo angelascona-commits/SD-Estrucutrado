@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { AlertTriangle } from 'lucide-react'
 import { getPublicReportDataAction } from '@/modules/tareo/actions/tareo.action'
 import PublicReportTable from '@/modules/tareo/components/PublicReportTable'
@@ -49,8 +50,18 @@ export default async function ReportePathPage({
         padding: '40px 20px',
         textAlign: 'center',
         fontFamily: 'system-ui, sans-serif',
-        background: '#f8fafc'
+        background: '#f4f8f8'
       }}>
+        <div style={{ marginBottom: '24px' }}>
+          <Image
+            src="/brand/logo.svg"
+            alt="DM Software - Digital Partner"
+            width={200}
+            height={36}
+            priority
+            style={{ height: '36px', width: 'auto' }}
+          />
+        </div>
         <div style={{
           width: '64px',
           height: '64px',
@@ -65,10 +76,10 @@ export default async function ReportePathPage({
         }}>
           <AlertTriangle size={28} />
         </div>
-        <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>
+        <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#023a3c', marginBottom: '8px' }}>
           Acceso no disponible o enlace expirado
         </h2>
-        <p style={{ color: '#64748b', maxWidth: '460px', fontSize: '14px', lineHeight: 1.5 }}>
+        <p style={{ color: '#4b6b6c', maxWidth: '460px', fontSize: '14px', lineHeight: 1.5 }}>
           {response.error || 'El enlace que estás utilizando ya no es válido o su tiempo de acceso ha caducado. Por favor, solicita un nuevo enlace actualizado al equipo de soporte.'}
         </p>
       </div>
@@ -86,7 +97,7 @@ export default async function ReportePathPage({
   } = response.data
 
   return (
-    <main data-theme="light" style={{ minHeight: '100vh', background: '#f8fafc', padding: 0, margin: 0, colorScheme: 'light' }}>
+    <main data-theme="light" style={{ minHeight: '100vh', background: '#f4f8f8', padding: 0, margin: 0, colorScheme: 'light' }}>
       <PublicReportTable 
         token={token}
         registros={registros || []} 

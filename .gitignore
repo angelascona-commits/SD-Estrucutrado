@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local brand raw archive
+BRAND-20261110T145820Z-1-001/

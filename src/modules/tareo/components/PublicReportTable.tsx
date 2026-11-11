@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useMemo, useEffect, useRef } from 'react'
+import Image from 'next/image'
 import Swal from 'sweetalert2'
 import {
   FileSpreadsheet,
@@ -208,7 +209,7 @@ function MultiSelectFilter({
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleOption(opt)}
-                      style={{ accentColor: '#0f3d3e', cursor: 'pointer' }}
+                      style={{ accentColor: '#036a6e', cursor: 'pointer' }}
                     />
                     <span>{opt}</span>
                   </label>
@@ -925,7 +926,7 @@ export default function PublicReportTable({
           icon: 'info',
           title: 'Sin cambios',
           text: 'No hay comentarios ni estados modificados para guardar.',
-          confirmButtonColor: '#0f3d3e',
+          confirmButtonColor: '#036a6e',
           timer: 2000,
           showConfirmButton: false
         })
@@ -951,7 +952,7 @@ export default function PublicReportTable({
           icon: 'success',
           title: '¡Cambios guardados!',
           text: 'Todos los comentarios, estados y transiciones han sido registrados exitosamente.',
-          confirmButtonColor: '#0f3d3e',
+          confirmButtonColor: '#036a6e',
           timer: 2200,
           showConfirmButton: false
         })
@@ -960,7 +961,7 @@ export default function PublicReportTable({
           icon: 'error',
           title: 'Error al guardar',
           text: res.error || 'Ocurrió un inconveniente al guardar los comentarios y estados.',
-          confirmButtonColor: '#0f3d3e'
+          confirmButtonColor: '#036a6e'
         })
       }
     } catch {
@@ -968,7 +969,7 @@ export default function PublicReportTable({
         icon: 'error',
         title: 'Error de red',
         text: 'No se pudo conectar con el servidor para guardar.',
-        confirmButtonColor: '#0f3d3e'
+        confirmButtonColor: '#036a6e'
       })
     } finally {
       setSaving(false)
@@ -1012,7 +1013,7 @@ export default function PublicReportTable({
           icon: 'error',
           title: 'No se pudo generar el Excel',
           text: res.error || 'Ocurrió un error al compilar el archivo oficial.',
-          confirmButtonColor: '#0f3d3e'
+          confirmButtonColor: '#036a6e'
         })
       }
     } catch {
@@ -1020,7 +1021,7 @@ export default function PublicReportTable({
         icon: 'error',
         title: 'Error de descarga',
         text: 'Ocurrió un error inesperado al procesar la descarga.',
-        confirmButtonColor: '#0f3d3e'
+        confirmButtonColor: '#036a6e'
       })
     } finally {
       setExportingExcel(false)
@@ -1036,9 +1037,17 @@ export default function PublicReportTable({
       {/* ─── 1. HEADER SUPERIOR EJECUTIVO ──────────────────────────────── */}
       <header className={styles.topNavbar}>
         <div className={styles.navbarBrand}>
-          <div className={styles.navbarLogoBox}>
-            <FileSpreadsheet size={22} />
+          <div className={styles.navbarCompanyLogo}>
+            <Image
+              src="/brand/logo.svg"
+              alt="DM Software - Digital Partner"
+              width={200}
+              height={36}
+              priority
+              className={styles.brandLogoImg}
+            />
           </div>
+          <div className={styles.navbarBrandDivider} />
           <div className={styles.navbarBrandTexts}>
             <h1 className={styles.navbarTitle}>Portal de Supervisión y Tareo</h1>
             <div className={styles.navbarSubtitle}>
@@ -1084,10 +1093,10 @@ export default function PublicReportTable({
         <section className={styles.filterCard}>
           <div className={styles.filterHeader}>
             <div className={styles.filterHeaderTitle}>
-              <Filter size={16} color="#0f3d3e" />
+              <Filter size={16} color="#036a6e" />
               <span>Filtros y Búsqueda Inteligente (Selección Múltiple)</span>
               {activeFiltersCount > 0 && (
-                <span className={styles.commentTabBadge} style={{ background: '#0f3d3e', color: '#ffffff' }}>
+                <span className={styles.commentTabBadge} style={{ background: '#036a6e', color: '#ffffff' }}>
                   {activeFiltersCount} activo{activeFiltersCount > 1 ? 's' : ''}
                 </span>
               )}
@@ -1204,7 +1213,7 @@ export default function PublicReportTable({
               options={opciones.proyectos}
               selected={selectedPry}
               onChange={setSelectedPry}
-              icon={<Briefcase size={13} color="#0f3d3e" />}
+              icon={<Briefcase size={13} color="#036a6e" />}
             />
 
             <MultiSelectFilter
@@ -1213,7 +1222,7 @@ export default function PublicReportTable({
               options={opciones.solicitantes}
               selected={selectedSolicitante}
               onChange={setSelectedSolicitante}
-              icon={<User size={13} color="#0f3d3e" />}
+              icon={<User size={13} color="#036a6e" />}
             />
 
             <MultiSelectFilter
@@ -1222,7 +1231,7 @@ export default function PublicReportTable({
               options={opciones.teams}
               selected={selectedTeam}
               onChange={setSelectedTeam}
-              icon={<Users size={13} color="#0f3d3e" />}
+              icon={<Users size={13} color="#036a6e" />}
             />
 
             <MultiSelectFilter
@@ -1231,7 +1240,7 @@ export default function PublicReportTable({
               options={opciones.agrupadores}
               selected={selectedAgrupador}
               onChange={setSelectedAgrupador}
-              icon={<Layers size={13} color="#0f3d3e" />}
+              icon={<Layers size={13} color="#036a6e" />}
             />
 
             <MultiSelectFilter
@@ -1240,7 +1249,7 @@ export default function PublicReportTable({
               options={opciones.actividades}
               selected={selectedActividades}
               onChange={setSelectedActividades}
-              icon={<Activity size={13} color="#0f3d3e" />}
+              icon={<Activity size={13} color="#036a6e" />}
             />
 
             <MultiSelectFilter
@@ -1249,18 +1258,18 @@ export default function PublicReportTable({
               options={opciones.estados}
               selected={selectedEstados}
               onChange={setSelectedEstados}
-              icon={<CheckCircle2 size={13} color="#0f3d3e" />}
+              icon={<CheckCircle2 size={13} color="#036a6e" />}
             />
           </div>
 
           {/* Fila 3: Resumen dinámico en vivo */}
           <div className={styles.filterSummaryRow}>
             <div>
-              Mostrando <strong style={{ color: '#0f172a' }}>{tareasResumen.length}</strong> de {totalTareasBase} tareas
+              Mostrando <strong style={{ color: '#023a3c' }}>{tareasResumen.length}</strong> de {totalTareasBase} tareas
               {' '}·{' '}
-              <strong style={{ color: '#0f172a' }}>{totalRegistrosFiltrados}</strong> registros operativos
+              <strong style={{ color: '#023a3c' }}>{totalRegistrosFiltrados}</strong> registros operativos
               {' '}·{' '}
-              <strong style={{ color: '#0f3d3e' }}>{totalHorasFiltradas.toFixed(2)} hrs</strong> acumuladas
+              <strong style={{ color: '#036a6e' }}>{totalHorasFiltradas.toFixed(2)} hrs</strong> acumuladas
             </div>
             <div>
               Período evaluado: <strong>{periodoNombre}</strong>
@@ -1362,22 +1371,22 @@ export default function PublicReportTable({
                         </td>
 
                         {/* Asignado Padre */}
-                        <td style={{ color: '#0f172a', fontWeight: 700 }}>
+                        <td style={{ color: '#023a3c', fontWeight: 700 }}>
                           {fila.team_nombre || '-'}
                         </td>
 
                         {/* Solicitante Padre */}
-                        <td style={{ color: '#0f172a', fontWeight: 600 }}>
+                        <td style={{ color: '#023a3c', fontWeight: 600 }}>
                           {fila.solicitante_nombre || '-'}
                         </td>
 
                         {/* Proyecto Padre */}
-                        <td style={{ color: '#0f172a', fontWeight: 600 }}>
+                        <td style={{ color: '#023a3c', fontWeight: 600 }}>
                           {fila.proyecto_nombre || '-'}
                         </td>
 
                         {/* Agrupador Padre */}
-                        <td style={{ color: '#0f172a', fontWeight: 600 }}>
+                        <td style={{ color: '#023a3c', fontWeight: 600 }}>
                           {fila.agrupador_nombre || '-'}
                         </td>
 
@@ -1488,7 +1497,7 @@ export default function PublicReportTable({
                       {/* Colaborador individual asignado */}
                       <td>
                         <span className={styles.userChip}>
-                          <User size={12} color="#0f3d3e" />
+                          <User size={12} color="#036a6e" />
                           {fila.trabajador_nombre || fila.team_nombre || '-'}
                         </span>
                       </td>
@@ -1590,6 +1599,26 @@ export default function PublicReportTable({
           </div>
         </div>
       </main>
+
+      {/* ─── PIE DE PÁGINA CORPORATIVO (DM SOFTWARE) ─────────────────────── */}
+      <footer className={styles.publicFooter}>
+        <div className={styles.publicFooterContent}>
+          <div className={styles.footerBrand}>
+            <Image
+              src="/brand/logo.svg"
+              alt="DM Software - Digital Partner"
+              width={160}
+              height={28}
+              className={styles.footerLogoImg}
+            />
+          </div>
+          <div className={styles.footerInfo}>
+            <p className={styles.footerCopyright}>
+              Portal de Supervisión y Tareo Operativo · Desarrollado por <strong>DM Software</strong> para <strong>Protecta Security</strong>
+            </p>
+          </div>
+        </div>
+      </footer>
 
       {/* ─── 4. MODAL DE CICLO DE VIDA Y AUDITORÍA ────────────────────────── */}
       <TareaCicloVidaModal
